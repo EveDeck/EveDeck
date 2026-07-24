@@ -23,6 +23,7 @@ public static class SafetyGuard
         "SwitchToCharacter",
         "FocusDirection",
         "ToggleTopmost",
+        "ToggleStreamSafe",
         "SwitchCharacterSet",
         "MinimizeAllClients",
         "ForceRefreshPreviews",

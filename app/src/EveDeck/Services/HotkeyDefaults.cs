@@ -79,6 +79,9 @@ public static class HotkeyDefaults
 
         bindings.Add(new HotkeyBinding { ActionId = "ToggleTopmost", DisplayName = "Toggle always-on-top for focused EVE window", Modifiers = 0, VirtualKey = 0, GestureText = "" });
 
+        // Stream-safe mode: mask names/systems/ISK on the overlays for streaming. Ships unbound.
+        bindings.Add(new HotkeyBinding { ActionId = "ToggleStreamSafe", DisplayName = "Toggle stream-safe overlay (hide names, systems, ISK)", Modifiers = 0, VirtualKey = 0, GestureText = "" });
+
         // Minimize every EVE client at once (except seats marked "never minimize") — panic button /
         // boss key. Window-management only; ships unbound.
         bindings.Add(new HotkeyBinding { ActionId = "MinimizeAllClients", DisplayName = "Minimize all EVE clients (skips protected seats)", Modifiers = 0, VirtualKey = 0, GestureText = "" });

@@ -277,6 +277,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         InitChatAlerts();
         InitConfigProfiles();
         InitPi();
+        InitSkillAlerts();
+        InitDowntime();
 
         // After InitConfigProfiles (which wires the commands) and after the startup LAYOUT profile
         // above: a config profile can select a different layout, so it must get the last word.
@@ -2433,6 +2435,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         StopPi();
         StopCornerOverlays();
         StopTalkerOverlay();
+        _downtimeTimer.Stop();
+        HideDowntimeWindow();
         if (_frameOverlay is not null)
         {
             _frameOverlay.Close();
