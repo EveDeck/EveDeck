@@ -118,59 +118,98 @@ public class PiExtractorTests
         Assert.Equal("no schematic set", idle.RecipeText);
     }
 
-    // ── PiPlanetExtraction (preview info flyout's "Planets" dropdown, added 2026-07-24) ────────────────
+    // ── PiColony (preview info flyout's "Planets" dropdown, added 2026-07-24) ──────────────────────────
 
     [Fact]
-    public void PlanetExtraction_FormatCountdown_FutureExpiry_ShowsSpan()
+    public void Colony_Title_PrefersRealPlanetName_WithRomanNumeral()
     {
-        var now = DateTimeOffset.UtcNow;
-        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 1, NextExpiry: now.AddDays(1).AddHours(3));
-
-        var text = e.FormatCountdown(now);
-
-        Assert.Equal("1d 3h", text);
+        var colony = new PiColony { PlanetName = "Jita IV", SystemName = "Jita", PlanetType = "Barren" };
+        Assert.Equal("Jita IV — Barren", colony.Title);
     }
 
     [Fact]
-    public void PlanetExtraction_FormatCountdown_PastExpiry_ShowsExpired()
+    public void Colony_Title_FallsBackWhenPlanetNameUnresolved()
     {
-        var now = DateTimeOffset.UtcNow;
-        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 1, NextExpiry: now.AddHours(-2));
-
-        Assert.Equal("expired", e.FormatCountdown(now));
+        var colony = new PiColony { PlanetName = "", SystemName = "Jita", PlanetType = "Barren" };
+        Assert.Equal("Jita — Barren", colony.Title);
     }
 
     [Fact]
-    public void PlanetExtraction_FormatCountdown_NoActiveCycle_ShowsIdle()
+    public void Colony_DescribeStatus_ExtractorOnly_ShowsCountdown()
     {
         var now = DateTimeOffset.UtcNow;
-        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 1, NextExpiry: null);
+        var colony = new PiColony();
+        colony.Extractors.Add(new PiExtractor { ProductName = "Base Metals", ExpiryTime = now.AddDays(1).AddHours(3) });
 
-        Assert.Equal("idle", e.FormatCountdown(now));
+        Assert.Equal("1d 3h", colony.DescribeStatus(now));
     }
 
     [Fact]
-    public void PlanetExtraction_FormatCountdown_MultipleExtractors_AppendsCount()
+    public void Colony_DescribeStatus_MultipleExtractors_AppendsCount()
     {
         var now = DateTimeOffset.UtcNow;
-        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 3, NextExpiry: now.AddHours(5));
+        var colony = new PiColony();
+        colony.Extractors.Add(new PiExtractor { ProductName = "Base Metals", ExpiryTime = now.AddHours(5) });
+        colony.Extractors.Add(new PiExtractor { ProductName = "Noble Gas", ExpiryTime = now.AddDays(2) });
 
-        Assert.Equal("5h 0m (soonest of 3)", e.FormatCountdown(now));
+        Assert.Equal("5h 0m (soonest of 2)", colony.DescribeStatus(now));
     }
 
     [Fact]
-    public void PlanetExtraction_FormatCountdown_SingleExtractor_OmitsCountSuffix()
+    public void Colony_DescribeStatus_ExpiredExtractor_ShowsExpired()
     {
         var now = DateTimeOffset.UtcNow;
-        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 1, NextExpiry: now.AddHours(5));
+        var colony = new PiColony();
+        colony.Extractors.Add(new PiExtractor { ProductName = "Base Metals", ExpiryTime = now.AddHours(-2) });
 
-        Assert.DoesNotContain("soonest of", e.FormatCountdown(now));
+        Assert.Equal("expired", colony.DescribeStatus(now));
     }
 
     [Fact]
-    public void PlanetExtraction_Title_CombinesSystemAndType()
+    public void Colony_DescribeStatus_ExtractorPresentButIdle_ShowsIdle()
     {
-        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 1, NextExpiry: null);
-        Assert.Equal("Jita — Barren", e.Title);
+        var now = DateTimeOffset.UtcNow;
+        var colony = new PiColony();
+        colony.Extractors.Add(new PiExtractor { ProductName = "Base Metals", ExpiryTime = null });
+
+        Assert.Equal("idle", colony.DescribeStatus(now));
+    }
+
+    [Fact]
+    public void Colony_DescribeStatus_FactoryOnly_ShowsProductAndFill()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var colony = new PiColony();
+        colony.Factories.Add(new PiFactory { OutputName = "Coolant", UsedVolume = 6200, Capacity = 10000 });
+
+        Assert.Equal("producing Coolant · 62% full", colony.DescribeStatus(now));
+    }
+
+    [Fact]
+    public void Colony_DescribeStatus_ExtractorAndFactory_CombinesBoth()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var colony = new PiColony();
+        colony.Extractors.Add(new PiExtractor { ProductName = "Base Metals", ExpiryTime = now.AddHours(5) });
+        colony.Factories.Add(new PiFactory { OutputName = "Coolant", UsedVolume = 6200, Capacity = 10000 });
+
+        Assert.Equal("5h 0m  ·  producing Coolant · 62% full", colony.DescribeStatus(now));
+    }
+
+    [Fact]
+    public void Colony_DescribeStatus_StorageOnly_ShowsFillPercent()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var colony = new PiColony();
+        colony.Storages.Add(new PiStorage { UsedVolume = 4500, Capacity = 10000 });
+
+        Assert.Equal("45% full", colony.DescribeStatus(now));
+    }
+
+    [Fact]
+    public void Colony_DescribeStatus_NoActivity_ShowsPlaceholder()
+    {
+        var colony = new PiColony();
+        Assert.Equal("no activity", colony.DescribeStatus(DateTimeOffset.UtcNow));
     }
 }
