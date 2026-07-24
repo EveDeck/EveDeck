@@ -3,8 +3,9 @@
 <!--
   MSIX manifest for the Microsoft Store build of EveDeck.
 
-  IDENTITY FIELDS ARE PLACEHOLDERS AND MUST BE REPLACED WITH THE VALUES PARTNER CENTER ISSUES for
-  this app (Partner Center > your app > Product management > Product identity). They are:
+  The identity fields below ARE the real values Partner Center issued for this app (filled in and
+  validated by the accepted 2026-07 submission -- do not change them). They map to Partner Center >
+  your app > Product management > Product identity as:
 
     Identity/@Name                    -> "Package/Identity/Name"        e.g. 12345Publisher.EveDeck
     Identity/@Publisher               -> "Package/Identity/Publisher"   e.g. CN=A1B2C3D4-....
