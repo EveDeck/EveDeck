@@ -59,6 +59,24 @@ public class GameEventAlertTests
     }
 
     [Fact]
+    public void Defaults_WarpScramble_IsGlowAndAudibleInAbyss()
+    {
+        var rule = GameEventRule.Defaults().First(r => r.Name == "Warp scramble");
+        Assert.Equal("warp scramble attempt", rule.Pattern);
+        Assert.True(rule.FlashOnTile);
+        // Unlike Combat, a scramble is rare and high-stakes -- it must stay audible even when
+        // Abyss Mode is silencing Combat's continuous hit noise.
+        Assert.False(rule.SuppressSoundInAbyss);
+    }
+
+    [Fact]
+    public void Defaults_Combat_SuppressesSoundInAbyssByDefault()
+    {
+        var rule = GameEventRule.Defaults().First(r => r.Name == "Combat");
+        Assert.True(rule.SuppressSoundInAbyss);
+    }
+
+    [Fact]
     public void FreshAppSettings_SeedDefaultGameEventRules()
     {
         var settings = new AppSettings();

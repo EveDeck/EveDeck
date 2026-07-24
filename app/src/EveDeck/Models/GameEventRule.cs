@@ -61,9 +61,27 @@ public sealed class GameEventRule : ObservableObject
         set => SetProperty(ref _flashOnTile, value);
     }
 
+    // Whether Abyss Mode's sound suppression (AppSettings.AbyssModeEnabled) applies to THIS rule.
+    // True (the historical, still-default behavior) for continuous/expected noise like Combat, where
+    // Abyssal Deadspace can put several characters under simultaneous damage and a sound per hit
+    // would be constant. False for rare, high-stakes events (Warp scramble) that are worth hearing
+    // even mid-run -- being tackled and unable to escape matters more during an Abyss run, not less.
+    private bool _suppressSoundInAbyss = true;
+    public bool SuppressSoundInAbyss
+    {
+        get => _suppressSoundInAbyss;
+        set => SetProperty(ref _suppressSoundInAbyss, value);
+    }
+
+    // "Warp scramble" added 2026-07-24 from a real Abyss combat-log sample -- the generic Combat rule
+    // already gates on incoming-only lines (see MainWindowViewModel.ChatAlerts.IsIncomingDamage), but
+    // a scramble attempt is a distinct "you may not be able to escape" event worth its own rule with
+    // sound that survives Abyss Mode, rather than being buried in Combat's glow-only, sound-silenced
+    // stream of hits.
     public static IEnumerable<GameEventRule> Defaults() => new[]
     {
         new GameEventRule { Name = "Combat",            Pattern = "(combat)", FlashOnTile = true },
+        new GameEventRule { Name = "Warp scramble",     Pattern = "warp scramble attempt", FlashOnTile = true, SuppressSoundInAbyss = false },
         new GameEventRule { Name = "Asteroid depleted", Pattern = "depleted", PlaySound = false },
         new GameEventRule { Name = "Mining crystal",    Pattern = "crystal",  PlaySound = false },
         new GameEventRule { Name = "Fleet invite",      Pattern = "join their fleet", SuppressWhenFocused = false },
