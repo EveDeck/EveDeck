@@ -1235,6 +1235,7 @@ public sealed partial class MainWindowViewModel
     {
         _tileSurface?.SetZ();
         _labelSurface?.SetZ();
+        _downtimeWindow?.SetZ(); // ride back above the surfaces we just re-topped
     }
 
     // The overlay (tiles + labels) always stays topmost, over EVE, EveDeck, and every other app
@@ -1254,6 +1255,7 @@ public sealed partial class MainWindowViewModel
         BumpAllowedAppsAboveOverlaySurfaces();
         if (_layoutEditorHwnd != 0) _windowService.SetWindowTopmost(_layoutEditorHwnd, true);
         BumpToastAboveEverything();
+        _downtimeWindow?.SetZ(); // keep the downtime countdown above the surfaces we just re-topped
         // Same class of bug as the tile/label surfaces (see CenterSeatInGroup) -- a real EVE window
         // gaining focus during a swap can climb above the talker overlay too. It already self-heals
         // via a 1s timer (TalkerOverlayWindow.BringToTop), but re-asserting here too means it doesn't

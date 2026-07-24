@@ -329,6 +329,9 @@ public sealed class AppSettings
     public bool DowntimeCountdownEnabled { get; set; } = false;
     public string DowntimeUtcTime { get; set; } = "11:00";
     public int DowntimeLeadMinutes { get; set; } = 60;
+    // Where the countdown readout sits (same six anchors as ToastPosition). TopCenter collides with
+    // EVE's own top-centre UI, so default to the top-right corner instead.
+    public string DowntimePosition { get; set; } = "TopRight";
 
     // The character whose station assets the factory-load calculator totals against — typically
     // whoever hauls hauled-in P1/P2/etc from the extractor alts and holds the working stockpile.
