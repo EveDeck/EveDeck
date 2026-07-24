@@ -265,6 +265,13 @@ public sealed class ConfigService
 
         ReorderCharacterHotkeysFirst(settings.Hotkeys);
 
+        // Add newly-introduced default game-event rules for existing users whose GameEventRules
+        // predates them (matched by Name, not Pattern -- a user may have edited a default rule's
+        // pattern text). Same additive-merge idiom as the Hotkeys migration above.
+        var existingRuleNames = settings.GameEventRules.Select(r => r.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var rule in GameEventRule.Defaults())
+            if (!existingRuleNames.Contains(rule.Name)) settings.GameEventRules.Add(rule);
+
         // Migrate to CharacterSets: wrap the existing Assignments+Hotkeys into the Default set.
         if (settings.CharacterSets.Count == 0)
         {

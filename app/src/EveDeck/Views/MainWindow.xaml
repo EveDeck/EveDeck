@@ -1237,7 +1237,6 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                       <ListBoxItem Content="Hotkey Behavior"/>
                       <ListBoxItem Content="Performance"/>
                       <ListBoxItem Content="EVE Launcher"/>
-                      <ListBoxItem Content="Game Event Alerts"/>
                       <ListBoxItem Content="Overlay Allow List"/>
                       <ListBoxItem Content="Notifications"/>
                       <ListBoxItem Content="Comms"/>
@@ -1757,49 +1756,8 @@ Used by each character set's "Launch" button. EveDeck checks the common install 
                        Padding="6,4" FontSize="12"
                        ToolTip="Custom path to eveLauncher.exe, e.g. D:\Games\EVE Online\eveLauncher.exe"/>
                   </StackPanel>
-                  <!-- section 12: Game Event Alerts -->
+                  <!-- section 12: Overlay Allow List -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=12}">
-                    <TextBlock Text="Game Event Alerts" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
-Watches EVE's gamelog files (Documents\EVE\logs\Gamelogs) for events on your OTHER clients -- combat, mining crystal breaks, fleet invites. By default a match shows a toast notification (plus an optional sound) over the game. "Glow" events instead pulse that seat's tile/master rect on the overlay -- for "this character is under attack right now" alerts where a toast per line would be constant spam (Combat is Glow by default). Passive log reading only -- never sends anything into an EVE client. Pattern is a case-insensitive text match against new log lines; "Focused" skips the alert when that character's window is already active.
-              </TextBlock>
-              <ItemsControl ItemsSource="{Binding GameEventRules}" Margin="0,0,0,6">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <DockPanel Margin="0,3">
-                      <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"
-                                VerticalAlignment="Center" Margin="0,0,8,0"/>
-                      <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="11" Margin="6,0,0,0"
-                              Command="{Binding DataContext.RemoveGameEventRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                              CommandParameter="{Binding}"/>
-                      <CheckBox DockPanel.Dock="Right" Content="Focused" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"
-                                IsChecked="{Binding SuppressWhenFocused, UpdateSourceTrigger=PropertyChanged}"
-                                ToolTip="Skip the alert when this character's window is already in the foreground"/>
-                      <CheckBox DockPanel.Dock="Right" Content="Sound" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"
-                                IsChecked="{Binding PlaySound, UpdateSourceTrigger=PropertyChanged}"/>
-                      <CheckBox DockPanel.Dock="Right" Content="Glow" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"
-                                IsChecked="{Binding FlashOnTile, UpdateSourceTrigger=PropertyChanged}"
-                                ToolTip="Pulse the seat's tile/master rect on the overlay instead of a toast notification"/>
-                      <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
-                               Width="130" Padding="6,4" FontSize="12" Margin="0,0,8,0"
-                               ToolTip="Display name for this event"/>
-                      <TextBox Text="{Binding Pattern, UpdateSourceTrigger=PropertyChanged}"
-                               Padding="6,4" FontSize="12"
-                               ToolTip="Text to match in new gamelog lines (case-insensitive)"/>
-                    </DockPanel>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-              <Button Content="+ Add Event" Command="{Binding AddGameEventRuleCommand}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
-              <CheckBox Content="Abyss Mode -- suppress Glow-event sound (keep the visual glow)" FontSize="12" Margin="0,10,0,0"
-                        IsChecked="{Binding AbyssModeEnabled, UpdateSourceTrigger=PropertyChanged}"
-                        ToolTip="Abyssal Deadspace can put up to three of your characters under simultaneous, expected combat damage -- toggle this on before a run so Combat's sound doesn't fire constantly. Turn it back off for normal play."/>
-              <CheckBox Content="Notifications on top of previews and allow-listed apps" FontSize="12" Margin="0,6,0,0"
-                        IsChecked="{Binding ToastsAboveOverlays, UpdateSourceTrigger=PropertyChanged}"
-                        ToolTip="Keeps toast notifications above the corner-overlay previews and any Overlay Allow List app (Discord, Mumble, ...) for the few seconds they're on screen. Turn off to let those apps sit over your alerts instead."/>
-                  </StackPanel>
-                  <!-- section 13: Overlay Allow List -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=13}">
                     <TextBlock Text="Overlay Allow List" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
 Apps listed here stay visually above EveDeck's corner-overlay tiles/labels even while an EVE client has focus -- useful if you keep a voice chat, intel, or fitting tool window positioned over the game. Matched by process name (case-insensitive, partial match, no ".exe") -- e.g. "discord" matches Discord.exe.
@@ -1823,8 +1781,8 @@ Apps listed here stay visually above EveDeck's corner-overlay tiles/labels even 
               <Button Content="+ Add App" Command="{Binding AddOverlayAllowedAppCommand}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
                   </StackPanel>
 
-                  <!-- section 14: Notifications -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=14}">
+                  <!-- section 13: Notifications -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=13}">
                     <TextBlock Text="Notifications" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14" MaxWidth="640">
 Controls where EveDeck's own toast popups appear on screen, and whether they're also mirrored into
@@ -1886,10 +1844,105 @@ Settings &gt; System &gt; Notifications.
                         </StackPanel>
                       </StackPanel>
                     </Border>
+
+                    <!-- Skill-queue alerts (moved from the Planetary Industry tab) -->
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0" MaxWidth="640">
+                      <StackPanel>
+                        <DockPanel>
+                          <CheckBox DockPanel.Dock="Right" Content="Enabled" IsChecked="{Binding SkillAlertsEnabled}" VerticalAlignment="Center"/>
+                          <TextBlock Text="Skill queue alerts" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,10" MaxWidth="600">
+                          Windows notifications when a linked character finishes a skill, empties their queue, or is
+                          about to run dry. Needs the skill-queue scope — re-link characters (Clients tab) that were
+                          linked before this feature to grant it. Read-only; EveDeck never changes your queue.
+                        </TextBlock>
+                        <WrapPanel>
+                          <CheckBox Content="Skill completed" IsChecked="{Binding SkillAlertCompleted}" IsEnabled="{Binding SkillAlertsEnabled}" Margin="0,0,14,0"/>
+                          <CheckBox Content="Queue empty" IsChecked="{Binding SkillAlertQueueEmpty}" IsEnabled="{Binding SkillAlertsEnabled}" Margin="0,0,14,0"/>
+                          <CheckBox Content="Queue running low" IsChecked="{Binding SkillAlertQueueLow}" IsEnabled="{Binding SkillAlertsEnabled}"/>
+                        </WrapPanel>
+                        <WrapPanel Margin="0,8,0,0" VerticalAlignment="Center">
+                          <TextBlock Text="Poll every" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                          <TextBox Text="{Binding SkillQueueRefreshMinutes}" Width="42" Margin="6,0" VerticalAlignment="Center"/>
+                          <TextBlock Text="min · warn when queue under" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                          <TextBox Text="{Binding SkillAlertLowThresholdHours}" Width="42" Margin="6,0" VerticalAlignment="Center"/>
+                          <TextBlock Text="h" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                        </WrapPanel>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- Planetary Industry alerts (thresholds moved from the Planetary Industry tab; poll interval and enable/disable stay there) -->
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0" MaxWidth="640">
+                      <StackPanel>
+                        <TextBlock Text="Planetary Industry alerts" FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,10" MaxWidth="600">
+                          Seat flash + sound when a colony's extractor is about to expire or a storage/factory
+                          buffer nears full. Enable/disable and poll interval stay on the Planetary Industry tab.
+                        </TextBlock>
+                        <WrapPanel VerticalAlignment="Center">
+                          <TextBlock Text="Alert extractor within" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                          <TextBox Text="{Binding PiExtractorAlertHours}" Width="42" Margin="6,0" VerticalAlignment="Center"/>
+                          <TextBlock Text="h · storage over" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                          <TextBox Text="{Binding PiStorageAlertPercent}" Width="42" Margin="6,0" VerticalAlignment="Center"/>
+                          <TextBlock Text="%" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                        </WrapPanel>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- Game Event Alerts (moved from its own Options section) -->
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0" MaxWidth="640">
+                      <StackPanel>
+                        <TextBlock Text="Game Event Alerts" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,10"/>
+                        <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10" MaxWidth="600">
+Watches EVE's gamelog files (Documents\EVE\logs\Gamelogs) for events on your OTHER clients -- combat, warp scrambles, mining crystal breaks, fleet invites. By default a match shows a toast notification (plus an optional sound) over the game. "Glow" events instead pulse that seat's tile/master rect on the overlay -- for "this character is under attack right now" alerts where a toast per line would be constant spam (Combat and Warp scramble are Glow by default). Passive log reading only -- never sends anything into an EVE client. Pattern is a case-insensitive text match against new log lines; "Focused" skips the alert when that character's window is already active.
+                        </TextBlock>
+                        <ItemsControl ItemsSource="{Binding GameEventRules}" Margin="0,0,0,6">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <DockPanel Margin="0,3">
+                                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"
+                                          VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="11" Margin="6,0,0,0"
+                                        Command="{Binding DataContext.RemoveGameEventRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}"/>
+                                <CheckBox DockPanel.Dock="Right" Content="Focused" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"
+                                          IsChecked="{Binding SuppressWhenFocused, UpdateSourceTrigger=PropertyChanged}"
+                                          ToolTip="Skip the alert when this character's window is already in the foreground"/>
+                                <CheckBox DockPanel.Dock="Right" Content="Sound" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"
+                                          IsChecked="{Binding PlaySound, UpdateSourceTrigger=PropertyChanged}"/>
+                                <CheckBox DockPanel.Dock="Right" Content="Glow" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"
+                                          IsChecked="{Binding FlashOnTile, UpdateSourceTrigger=PropertyChanged}"
+                                          ToolTip="Pulse the seat's tile/master rect on the overlay instead of a toast notification"/>
+                                <CheckBox DockPanel.Dock="Right" Content="Silence in Abyss" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"
+                                          IsChecked="{Binding SuppressSoundInAbyss, UpdateSourceTrigger=PropertyChanged}"
+                                          ToolTip="When Abyss Mode is on, skip this rule's sound (glow stays). Uncheck for rare, high-stakes events -- e.g. Warp scramble -- worth hearing even mid-run."/>
+                                <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                         Width="130" Padding="6,4" FontSize="12" Margin="0,0,8,0"
+                                         ToolTip="Display name for this event"/>
+                                <TextBox Text="{Binding Pattern, UpdateSourceTrigger=PropertyChanged}"
+                                         Padding="6,4" FontSize="12"
+                                         ToolTip="Text to match in new gamelog lines (case-insensitive)"/>
+                              </DockPanel>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Content="+ Add Event" Command="{Binding AddGameEventRuleCommand}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
+                        <CheckBox Content="Abyss Mode -- suppress Glow-event sound for rules that opt in (keep the visual glow)" FontSize="12" Margin="0,10,0,0"
+                                  IsChecked="{Binding AbyssModeEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                  ToolTip="Abyssal Deadspace can put up to three of your characters under simultaneous, expected combat damage -- toggle this on before a run so Combat's sound doesn't fire constantly. Rules with 'Silence in Abyss' unchecked (e.g. Warp scramble) stay audible. Turn back off for normal play."/>
+                        <CheckBox Content="Notifications on top of previews and allow-listed apps" FontSize="12" Margin="0,6,0,0"
+                                  IsChecked="{Binding ToastsAboveOverlays, UpdateSourceTrigger=PropertyChanged}"
+                                  ToolTip="Keeps toast notifications above the corner-overlay previews and any Overlay Allow List app (Discord, Mumble, ...) for the few seconds they're on screen. Turn off to let those apps sit over your alerts instead."/>
+                      </StackPanel>
+                    </Border>
                   </StackPanel>
 
-                  <!-- section 15: Comms -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=15}">
+                  <!-- section 14: Comms -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=14}">
                     <TextBlock Text="Comms" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
 EveDeck's own who-is-talking panel for Mumble, fed by a small companion plugin that runs inside your Mumble client. Drag it anywhere on screen and use the lock icon to stop accidental drags.
@@ -1924,8 +1977,8 @@ EveDeck's own who-is-talking panel, styled to match the app -- no Mumble window 
                     </Border>
                   </StackPanel>
 
-                  <!-- section 16: Config Profiles -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=16}">
+                  <!-- section 15: Config Profiles -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=15}">
                     <TextBlock Text="Config Profiles" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
 One named switch for your whole setup - "Mining" vs "PvP". A config profile remembers which layout and which character set to use, plus every overlay appearance setting (labels, colors, zoom, hide rules). Switch between them from the EveDeck tray icon.
@@ -2074,9 +2127,10 @@ Add captures whatever you have set up right now. Save re-captures the current se
               <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" MaxWidth="720">
                 A read-only monitor of your linked characters' colonies, straight from ESI — extractor
                 countdowns and storage fill, with a seat flash + sound when an extractor is about to
-                expire or a storage nears full. Needs each character linked (Clients tab) with the
-                Planetary Industry and skills scopes granted — use the ↻ re-auth button there if a
-                character was linked before those scopes existed. EveDeck never changes anything in-game here.
+                expire or a storage nears full (thresholds in Options &gt; Notifications). Needs each
+                character linked (Clients tab) with the Planetary Industry and skills scopes granted —
+                use the ↻ re-auth button there if a character was linked before those scopes existed.
+                EveDeck never changes anything in-game here.
               </TextBlock>
 
               <!-- Controls row -->
@@ -2088,11 +2142,7 @@ Add captures whatever you have set up right now. Save re-captures the current se
                 <WrapPanel VerticalAlignment="Center">
                   <TextBlock Text="Poll every" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                   <TextBox Text="{Binding PiRefreshMinutes}" Width="42" Margin="6,0" VerticalAlignment="Center"/>
-                  <TextBlock Text="min · alert extractor within" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
-                  <TextBox Text="{Binding PiExtractorAlertHours}" Width="42" Margin="6,0" VerticalAlignment="Center"/>
-                  <TextBlock Text="h · storage over" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
-                  <TextBox Text="{Binding PiStorageAlertPercent}" Width="42" Margin="6,0" VerticalAlignment="Center"/>
-                  <TextBlock Text="%" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                  <TextBlock Text="min" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                 </WrapPanel>
               </DockPanel>
               <TextBlock Text="{Binding PiStatus}" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
@@ -2100,34 +2150,6 @@ Add captures whatever you have set up right now. Save re-captures the current se
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
               <StackPanel>
-
-                <!-- Skill-queue alerts -->
-                <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,8">
-                  <StackPanel>
-                    <DockPanel>
-                      <CheckBox DockPanel.Dock="Right" Content="Enabled" IsChecked="{Binding SkillAlertsEnabled}" VerticalAlignment="Center"/>
-                      <TextBlock Text="Skill queue alerts" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
-                    </DockPanel>
-                    <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,10" MaxWidth="720">
-                      Windows notifications when a linked character finishes a skill, empties their queue, or is
-                      about to run dry. Needs the skill-queue scope — re-link characters (Clients tab) that were
-                      linked before this feature to grant it. Read-only; EveDeck never changes your queue.
-                    </TextBlock>
-                    <WrapPanel>
-                      <CheckBox Content="Skill completed" IsChecked="{Binding SkillAlertCompleted}" IsEnabled="{Binding SkillAlertsEnabled}" Margin="0,0,14,0"/>
-                      <CheckBox Content="Queue empty" IsChecked="{Binding SkillAlertQueueEmpty}" IsEnabled="{Binding SkillAlertsEnabled}" Margin="0,0,14,0"/>
-                      <CheckBox Content="Queue running low" IsChecked="{Binding SkillAlertQueueLow}" IsEnabled="{Binding SkillAlertsEnabled}"/>
-                    </WrapPanel>
-                    <WrapPanel Margin="0,8,0,0" VerticalAlignment="Center">
-                      <TextBlock Text="Poll every" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
-                      <TextBox Text="{Binding SkillQueueRefreshMinutes}" Width="42" Margin="6,0" VerticalAlignment="Center"/>
-                      <TextBlock Text="min · warn when queue under" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
-                      <TextBox Text="{Binding SkillAlertLowThresholdHours}" Width="42" Margin="6,0" VerticalAlignment="Center"/>
-                      <TextBlock Text="h" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
-                    </WrapPanel>
-                  </StackPanel>
-                </Border>
 
                 <!-- Factory-load calculator -->
                 <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"

@@ -81,9 +81,11 @@ public sealed partial class MainWindowViewModel
             // "Something is happening to this character right now" (combat by default) — pulse the
             // seat's own tile/master rect on the overlay for real-time visibility, and queue a bundled
             // toast (throttled, see QueueCombatAlertToast) as the persistent record of what happened.
-            // Abyss Mode keeps the visual glow but silences the sound, since Abyssal Deadspace can put
-            // up to three characters under continuous, expected damage simultaneously.
-            if (rule.PlaySound && !_settings.AbyssModeEnabled) SystemSounds.Exclamation.Play();
+            // Abyss Mode keeps the visual glow but silences the sound for rules that opt into that
+            // (SuppressSoundInAbyss, true by default) -- Abyssal Deadspace can put up to three
+            // characters under continuous, expected damage simultaneously. A rule can opt out (e.g.
+            // Warp scramble) to stay audible even mid-run, since that's a rare, high-stakes event.
+            if (rule.PlaySound && !(rule.SuppressSoundInAbyss && _settings.AbyssModeEnabled)) SystemSounds.Exclamation.Play();
             if (seat is not null)
             {
                 QueueCombatAlertToast(seat, rule.Name);
