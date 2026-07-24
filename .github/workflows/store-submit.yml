@@ -1,0 +1,95 @@
+# Manual "Submit to Microsoft Store" workflow.
+#
+# The main release pipeline (release.yml) already BUILDS the Store MSIX on every tag and uploads it as
+# the `msix-store-package` artifact, but does NOT submit it -- Store certification is asynchronous
+# (hours to days) and auto-submitting every tag would burn a cert cycle on any bad build. So Store
+# submission is a deliberate, manual step: run this workflow against a release tag once you're happy
+# with it. It rebuilds the MSIX from that tag's source (the MSIX isn't attached to releases, and CI
+# artifacts expire) and submits it to Partner Center via the Microsoft Store Developer CLI (msstore).
+#
+# Microsoft re-signs the package on ingestion, so it stays UNSIGNED here (that's the whole point of the
+# Store path -- no code-signing cert naming the author). See app/packaging/AppxManifest.xml.
+#
+# ── One-time setup (not done by this workflow) ────────────────────────────────────────────────────
+# Register an Azure AD app and associate it in Partner Center (Account settings > User management >
+# Azure AD applications) with a Manager role, then add these repository secrets:
+#   PARTNER_CENTER_TENANT_ID      - Azure AD directory (tenant) ID
+#   PARTNER_CENTER_SELLER_ID      - Partner Center seller ID
+#   PARTNER_CENTER_CLIENT_ID      - the Azure AD app's client (application) ID
+#   PARTNER_CENTER_CLIENT_SECRET  - a client secret for that app
+#   STORE_PRODUCT_ID              - the app's Store product ID (run `msstore apps list` once configured,
+#                                   or read it from Partner Center; NOT the 12-char Store ID 9N77Q5HC4R56)
+
+name: Submit to Microsoft Store
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to submit (e.g. v1.28.0)"
+        required: true
+      commit:
+        description: "Commit (publish) the submission. Uncheck to upload it as a draft only, to review in Partner Center first."
+        type: boolean
+        default: true
+
+jobs:
+  submit-store:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Derive version from the tag
+        id: ver
+        shell: pwsh
+        run: |
+          $v = "${{ inputs.tag }}".TrimStart('v')
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Tag '${{ inputs.tag }}' is not a vX.Y.Z release tag." }
+          echo "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'   # matches release.yml; the runner supplies the .NET 10 SDK for the build
+
+      # Same publish + pack invocation as release.yml's MSIX step, so the submitted package is
+      # byte-for-byte the kind of MSIX that release already validates.
+      - name: Publish self-contained
+        shell: pwsh
+        run: |
+          dotnet publish app/src/EveDeck/EveDeck.csproj `
+            -c Release --self-contained -r win-x64 `
+            -o publish-ci
+
+      - name: Build Microsoft Store package (MSIX)
+        shell: pwsh
+        run: |
+          & app/scripts/pack-msix.ps1 `
+            -Version ${{ steps.ver.outputs.version }} `
+            -PublishDir "$PWD\publish-ci" `
+            -OutFile "$PWD\publish-msix\EveDeck-Store-v${{ steps.ver.outputs.version }}.msix"
+
+      - name: Setup Microsoft Store Developer CLI
+        uses: microsoft/microsoft-store-apppublisher@v1.1
+
+      - name: Configure Microsoft Store Developer CLI
+        run: >
+          msstore reconfigure
+          --tenantId ${{ secrets.PARTNER_CENTER_TENANT_ID }}
+          --sellerId ${{ secrets.PARTNER_CENTER_SELLER_ID }}
+          --clientId ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
+          --clientSecret ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
+
+      # `msstore publish` creates/updates the app's submission with this MSIX and commits it (unless
+      # --noCommit). --appId names the app so no prior `msstore init` is needed; --inputFile points at
+      # the exact package (so the CLI doesn't try to detect/build a project from the path argument).
+      - name: Submit the MSIX
+        shell: pwsh
+        run: |
+          $msix = (Get-ChildItem "$PWD\publish-msix\*.msix" | Select-Object -First 1).FullName
+          Write-Host "Submitting $msix"
+          $noCommit = if ("${{ inputs.commit }}" -eq "true") { @() } else { @("--noCommit") }
+          msstore publish "$PWD\publish-msix" --inputFile $msix --appId ${{ secrets.STORE_PRODUCT_ID }} @noCommit --verbose
