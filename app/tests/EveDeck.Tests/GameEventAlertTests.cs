@@ -77,6 +77,15 @@ public class GameEventAlertTests
     }
 
     [Fact]
+    public void Defaults_WarpDisruption_IsGlowAndAudibleInAbyss()
+    {
+        var rule = GameEventRule.Defaults().First(r => r.Name == "Warp disruption");
+        Assert.Equal("warp disruptor attempt", rule.Pattern);
+        Assert.True(rule.FlashOnTile);
+        Assert.False(rule.SuppressSoundInAbyss);
+    }
+
+    [Fact]
     public void FreshAppSettings_SeedDefaultGameEventRules()
     {
         var settings = new AppSettings();
