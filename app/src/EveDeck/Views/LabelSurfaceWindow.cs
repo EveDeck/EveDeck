@@ -40,6 +40,7 @@ internal sealed class LabelSurfaceWindow : Window
     private readonly Canvas _canvas = new();
     private readonly Dictionary<int, PillElement> _pills = new();
     private readonly Dictionary<int, AlertGlowElement> _glows = new();
+    private readonly Dictionary<int, Border> _infoButtons = new();
     private readonly int _physX, _physY, _physWidth, _physHeight;
     private readonly double _dpiScale;
     private readonly bool _iconStyle;
@@ -158,6 +159,81 @@ internal sealed class LabelSurfaceWindow : Window
     {
         if (_pills.TryGetValue(key, out var pill))
             pill.Place(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height);
+        MoveInfoButton(key, physRect);
+    }
+
+    // The small "i" info badge in a tile's top-right corner (added 2026-07-24). Drawn here, on the
+    // surface that composites above the DWM thumbnails, but hit-tested on TileSurfaceWindow (this
+    // window is input-transparent) -- both derive the rect from OverlayInfoButton.RectFor so they
+    // agree exactly. visible=false hides it without discarding the element.
+    public void SetInfoButton(int key, WindowRect physRect, bool visible)
+    {
+        if (!visible)
+        {
+            if (_infoButtons.TryGetValue(key, out var hidden)) hidden.Visibility = Visibility.Collapsed;
+            return;
+        }
+        if (!_infoButtons.TryGetValue(key, out var btn))
+        {
+            btn = BuildInfoButton();
+            _infoButtons[key] = btn;
+            _canvas.Children.Add(btn);
+        }
+        btn.Visibility = Visibility.Visible;
+        PlaceInfoButton(btn, physRect);
+    }
+
+    public void MoveInfoButton(int key, WindowRect physRect)
+    {
+        if (_infoButtons.TryGetValue(key, out var btn) && btn.Visibility == Visibility.Visible)
+            PlaceInfoButton(btn, physRect);
+    }
+
+    // Show/hide an existing badge without discarding it -- used to hide it while its tile is
+    // hover-zoomed (a badge floating over the enlarged preview looks and reads wrong) and restore it
+    // when the zoom clears. No-op if the badge was never created (feature off).
+    public void SetInfoButtonVisible(int key, bool visible)
+    {
+        if (_infoButtons.TryGetValue(key, out var btn))
+            btn.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void PlaceInfoButton(Border btn, WindowRect physRect)
+    {
+        var tile = new System.Drawing.Rectangle(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height);
+        var r = OverlayInfoButton.RectFor(tile);
+        _canvas.Children.Remove(btn);          // keep it drawn last so it stays above the pill/glow
+        _canvas.Children.Add(btn);
+        Canvas.SetLeft(btn, r.X / _dpiScale);
+        Canvas.SetTop(btn, r.Y / _dpiScale);
+        btn.Width = r.Width / _dpiScale;
+        btn.Height = r.Height / _dpiScale;
+    }
+
+    private static Border BuildInfoButton()
+    {
+        var glyph = new TextBlock
+        {
+            Text = "i",
+            Foreground = new SolidColorBrush(Color.FromRgb(0xE5, 0xE7, 0xEB)),
+            FontFamily = new FontFamily("Segoe UI"),
+            FontWeight = FontWeights.Bold,
+            FontSize = 12,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false,
+        };
+        return new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(0xB0, 0x0D, 0x11, 0x17)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(999),
+            Child = glyph,
+            // The whole surface is input-transparent (WS_EX_TRANSPARENT); the click is hit-tested on
+            // the tile surface underneath. This is purely a visual affordance.
+            IsHitTestVisible = false,
+        };
     }
 
     public void SetPillContent(int key, string text, CharacterPortrait? portrait,

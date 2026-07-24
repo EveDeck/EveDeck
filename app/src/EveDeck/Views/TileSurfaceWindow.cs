@@ -39,6 +39,23 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     // into the EVE client. See COMPLIANCE.md.
     public Action<int>? TileShiftClicked;
 
+    // Info flyout button (added 2026-07-24). When enabled, a small "i" badge is drawn in each tile's
+    // top-right corner ON THE LABEL SURFACE (which composites above the DWM thumbnails); a plain
+    // left-click that lands in that corner rect fires InfoButtonClicked instead of the focus switch.
+    // The badge is drawn elsewhere but hit-tested here because the label surface is input-transparent --
+    // see OverlayInfoButton for why both surfaces share the same rect geometry.
+    public bool InfoButtonsEnabled;
+    public Action<int>? InfoButtonClicked;
+
+    // Badge hit rects (surface-relative), keyed by position, for EVERY position that shows an info
+    // badge -- including the master rect, which in dominant-master layouts has no entry in _tiles and
+    // so can't be found by the tile hit-test. Registered by the view-model. The hit-test prefers a
+    // position's live _tiles rect when it has one (so alt badges track drags) and falls back to this.
+    private readonly Dictionary<int, Drawing.Rectangle> _infoButtonRects = new();
+
+    public void SetInfoButtonHitRect(int position, int physX, int physY, int physWidth, int physHeight)
+        => _infoButtonRects[position] = new Drawing.Rectangle(physX - _physX, physY - _physY, physWidth, physHeight);
+
     private static readonly Drawing.Color TileFill = Drawing.Color.FromArgb(8, 10, 13);
 
     private readonly Dictionary<int, Drawing.Rectangle> _tiles = new();      // client-relative rects
@@ -625,9 +642,31 @@ internal sealed class TileSurfaceWindow : WinForms.Form
         }
 
         if (e.Button != WinForms.MouseButtons.Left) return;
-        if (!TryFindTileAt(e.Location, out var clickedPosition, out _)) return;
         var shift = WinForms.Control.ModifierKeys.HasFlag(WinForms.Keys.Shift);
+        // A plain left-click in an info-badge corner opens the info flyout instead of switching focus.
+        // Checked against ALL badge positions (see _infoButtonRects) before the focus/cycle gestures, so
+        // it works for the master rect too (which has no _tiles entry in dominant-master layouts). The
+        // view-model suppresses hover-zoom in the badge corner, so the tile is never zoomed here.
+        if (!shift && InfoButtonsEnabled && TryHitInfoButton(e.Location, out var infoPosition))
+        {
+            try { InfoButtonClicked?.Invoke(infoPosition); } catch { } // subscriber exceptions must not kill the input loop
+            return;
+        }
+        if (!TryFindTileAt(e.Location, out var clickedPosition, out _)) return;
         try { (shift ? TileShiftClicked : TileClicked)?.Invoke(clickedPosition); } catch { } // subscriber exceptions must not kill the input loop
+    }
+
+    // Which info badge (if any) the point falls in. Uses a position's live tile rect when it has one
+    // (alt badges follow drags) and the registered hit rect otherwise (the master rect).
+    private bool TryHitInfoButton(Drawing.Point location, out int position)
+    {
+        foreach (var (pos, rect) in _infoButtonRects)
+        {
+            var effective = _tiles.TryGetValue(pos, out var live) ? live : rect;
+            if (OverlayInfoButton.RectFor(effective).Contains(location)) { position = pos; return true; }
+        }
+        position = -1;
+        return false;
     }
 
     private bool TryFindTileAt(Drawing.Point location, out int position, out Drawing.Rectangle rect)

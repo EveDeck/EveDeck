@@ -291,6 +291,45 @@ public sealed class AppSettings
     // Alert when a colony's fullest storage/launchpad passes this fill percentage.
     public int PiStorageAlertPercent { get; set; } = 90;
 
+    // Skill-queue alerts (added 2026-07-24). Notify when a character's skill finishes, their queue
+    // empties, or the whole queue is about to run dry. Off until opted in, and needs the
+    // esi-skills.read_skillqueue.v1 scope (re-link characters linked before 2026-07-24 to grant it).
+    public bool SkillAlertsEnabled { get; set; } = false;
+    public bool SkillAlertCompleted { get; set; } = true;
+    public bool SkillAlertQueueEmpty { get; set; } = true;
+    public bool SkillAlertQueueLow { get; set; } = true;
+    // Fire the "queue low" alert when the queue will run dry within this many hours.
+    public int SkillAlertLowThresholdHours { get; set; } = 24;
+    // Poll cadence. ESI caches the skill queue ~1 min server-side; default well above that.
+    public int SkillQueueRefreshMinutes { get; set; } = 15;
+
+    // Preview info flyout (added 2026-07-24): a small "i" badge on each corner preview opens a compact
+    // card of live ESI facts for that seat's character. Off until opted in; needs the
+    // location/ship-type/fatigue/skill-queue scopes (re-link characters to grant them). Each line is
+    // independently toggleable so the card stays as small as the user wants.
+    public bool CornerOverlayInfoButtonEnabled { get; set; } = false;
+    public bool InfoFlyoutShowWallet { get; set; } = true;
+    public bool InfoFlyoutShowShip { get; set; } = true;
+    public bool InfoFlyoutShowLocation { get; set; } = true;
+    public bool InfoFlyoutShowFatigue { get; set; } = true;
+    public bool InfoFlyoutShowSkill { get; set; } = true;
+    // Kill activity in the character's current system, from zKillboard (last 1h / 24h).
+    public bool InfoFlyoutShowDanger { get; set; } = true;
+    // Total + unallocated skill points.
+    public bool InfoFlyoutShowSp { get; set; } = true;
+
+    // Stream-safe mode (added 2026-07-24): masks identifying info on the overlays / pills / info flyout
+    // for streamers -- aliases character names to "Alt N", drops system names, and hides wallet ISK.
+    // Flip it mid-stream with the ToggleStreamSafe hotkey. Never touches the main app UI.
+    public bool StreamSafeMode { get; set; } = false;
+
+    // Downtime countdown (added 2026-07-24): a small always-on-top readout counting down the final
+    // DowntimeLeadMinutes before EVE's daily downtime, plus one toast when that window opens. Time is
+    // UTC "HH:mm" (EVE's historical DT is 11:00 UTC). Off by default.
+    public bool DowntimeCountdownEnabled { get; set; } = false;
+    public string DowntimeUtcTime { get; set; } = "11:00";
+    public int DowntimeLeadMinutes { get; set; } = 60;
+
     // The character whose station assets the factory-load calculator totals against — typically
     // whoever hauls hauled-in P1/P2/etc from the extractor alts and holds the working stockpile.
     // Null = fall back to summing every linked character's assets (can double-count material still

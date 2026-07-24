@@ -19,10 +19,26 @@ public sealed class EsiAuthService
     public const string ScopePlanets = "esi-planets.manage_planets.v1";
     public const string ScopeAssets = "esi-assets.read_assets.v1";
     public const string ScopeSkills = "esi-skills.read_skills.v1";
+    // Added 2026-07-24 for the skill-queue alerts and the per-seat preview info flyout. All read-only.
+    // Adding these to the login scope means existing linked characters must re-consent once to grant
+    // them; a character authed before this change simply won't return skillqueue/location/ship/fatigue
+    // until re-linked, and the consuming features degrade gracefully (they just show nothing for it).
+    public const string ScopeSkillQueue = "esi-skills.read_skillqueue.v1";
+    public const string ScopeLocation = "esi-location.read_location.v1";
+    public const string ScopeShipType = "esi-location.read_ship_type.v1";
+    public const string ScopeFatigue = "esi-characters.read_fatigue.v1";
+    // Added 2026-07-24 to resolve the name of a player-owned Upwell structure a character is docked in
+    // (the flyout's "Docked" line). Access-gated: only returns a name for structures the character can
+    // dock at, which is fine since we only ask about the one they're currently docked in.
+    public const string ScopeStructures = "esi-universe.read_structures.v1";
+    // Added 2026-07-24 for the flyout's wallet-balance line.
+    public const string ScopeWallet = "esi-wallet.read_character_wallet.v1";
 
     // Requested on every login. The PI scopes are read-only in practice (we only GET), but ESI has no
     // read-only planets scope — manage_planets is the only one that exposes colonies.
-    private const string Scope = "publicData " + ScopePlanets + " " + ScopeAssets + " " + ScopeSkills;
+    private const string Scope = "publicData " + ScopePlanets + " " + ScopeAssets + " " + ScopeSkills
+        + " " + ScopeSkillQueue + " " + ScopeLocation + " " + ScopeShipType + " " + ScopeFatigue
+        + " " + ScopeStructures + " " + ScopeWallet;
 
     private static readonly HttpClient _http = new();
 

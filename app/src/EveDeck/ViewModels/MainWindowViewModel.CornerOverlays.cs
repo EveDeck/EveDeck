@@ -364,6 +364,7 @@ public sealed partial class MainWindowViewModel
         var groupCenterSlots = EffectiveGroups()
             .ToDictionary(g => g.GroupId, g => CenterSlotForGroup(g));
 
+        _overlayDpiScale = dpiScale;
         _tileSurface = new TileSurfaceWindow(surfX, surfY, surfW, surfH);
         _tileSurface.SnapGridPx = Math.Max(0, _settings.CornerOverlaySnapGridPx);
         _tileSurface.TileClicked = OnCornerTileClicked;
@@ -371,10 +372,15 @@ public sealed partial class MainWindowViewModel
         _tileSurface.TileRectChanged = OnCornerTileRectChanged;
         _tileSurface.TileDragStarted = OnCornerTileDragStarted;
         _tileSurface.TileDragging = OnCornerTileDragging;
+        _tileSurface.InfoButtonsEnabled = _settings.CornerOverlayInfoButtonEnabled;
+        _tileSurface.InfoButtonClicked = OnInfoButtonClicked;
         _tileSurface.SetOpacity(_settings.CornerOverlayPreviewOpacity);
         _tileSurface.Show();
 
-        if (_settings.CornerOverlayShowLabel)
+        // The label surface hosts both the name pills AND the info badge (the badge has to composite
+        // above the DWM thumbnails), so create it when EITHER is enabled. CreatePill is separately
+        // gated on CornerOverlayShowLabel, so an info-badge-only overlay draws no pills.
+        if (_settings.CornerOverlayShowLabel || _settings.CornerOverlayInfoButtonEnabled)
         {
             _labelSurface = new LabelSurfaceWindow(surfX, surfY, surfW, surfH, dpiScale, _settings);
             _labelSurface.SetOwner(_tileSurface.Handle);
@@ -398,6 +404,8 @@ public sealed partial class MainWindowViewModel
             var window = FindSeatWindow(seat);
             CreatePill(position, seat, rect,
                 window is not null ? PillTextForPosition(position) : OfflinePillText(seat), SeatPortrait(seat));
+            _labelSurface?.SetInfoButton(position, rect, _settings.CornerOverlayInfoButtonEnabled);
+            _tileSurface.SetInfoButtonHitRect(position, rect.X, rect.Y, rect.Width, rect.Height);
 
             // Two seats resolving to the SAME window means every tile registers a DWM thumbnail
             // against one client and the previews all mirror it -- a real bug seen live (see the
@@ -418,6 +426,9 @@ public sealed partial class MainWindowViewModel
             var centeredSeat = _centeredSeatByGroup.GetValueOrDefault(group.GroupId, 0);
             var centerPillText = FindSeatWindow(centeredSeat) is not null ? CenterPillTextForGroup(group.GroupId) : OfflinePillText(centeredSeat);
             CreatePill(groupCenter, centeredSeat, masterRect, centerPillText, SeatPortrait(centeredSeat), isMaster: true);
+            // No info badge on the master/center: the centered character is the one you're actively
+            // playing, and switching focus to any alt demotes the current master into a corner tile,
+            // which carries its own working badge -- so the master rect never needs one.
 
             var groupCenterSlot = SelectedProfile.Slots.FirstOrDefault(s => s.SlotNumber == groupCenter);
             if (groupCenterSlot is not null && !HasDominantMasterSlot(groupCenterSlot))
@@ -553,7 +564,9 @@ public sealed partial class MainWindowViewModel
     // every label now uses the same user-chosen 3x3 position, defaulting to center-center.
     private void CreatePill(int key, int seat, WindowRect rect, string text, CharacterPortrait? portrait, bool isMaster = false)
     {
-        if (_labelSurface is null) return;
+        // The label surface can exist purely for the info badge (see StartCornerOverlays), so gate the
+        // pill on its own toggle rather than on the surface merely being present.
+        if (_labelSurface is null || !_settings.CornerOverlayShowLabel) return;
         var (family, size, color) = ResolveLabelFont(seat, isMaster);
         var (bold, italic, dropShadow, outline, opacity) = ResolveLabelStyle(seat, isMaster);
         _labelSurface.SetPill(key, rect, ResolveLabelAnchor(seat, isMaster), family, size, color, bold, italic, dropShadow, outline, opacity);
@@ -565,7 +578,7 @@ public sealed partial class MainWindowViewModel
     private string PillTextForPosition(int position)
     {
         var occupant = OccupantAtPosition(position);
-        var name = SeatLabel(occupant);
+        var name = OverlayDisplayName(occupant);
         var code = CornerCode(position);
         var text = _settings.CornerOverlayShowSlotNumber && !string.IsNullOrEmpty(code) ? $"{code} · {name}" : name;
         text = AppendSystem(text, occupant);
@@ -580,6 +593,7 @@ public sealed partial class MainWindowViewModel
     // option is on; the bare text otherwise.
     private string AppendSystem(string text, int seat)
     {
+        if (StreamSafe) return text; // system names are location-identifying -- hidden in stream-safe mode
         var system = SeatSystemName(seat);
         return system.Length > 0 && text.Length > 0 ? $"{text} · {system}" : text;
     }
@@ -610,7 +624,7 @@ public sealed partial class MainWindowViewModel
             && (DateTime.UtcNow - since).TotalSeconds >= timeout)
             return "";
 
-        var name = SeatLabel(seat);
+        var name = OverlayDisplayName(seat);
         return name.Length > 0 ? $"{name} · offline" : "";
     }
 
@@ -664,7 +678,7 @@ public sealed partial class MainWindowViewModel
     private string CenterPillTextForGroup(string groupId)
     {
         var centeredSeat = _centeredSeatByGroup.GetValueOrDefault(groupId, 0);
-        var name = SeatLabel(centeredSeat);
+        var name = OverlayDisplayName(centeredSeat);
         var text = _settings.CornerOverlayShowSlotNumber ? $"★ · {name}" : name;
         return AppendSystem(text, centeredSeat);
     }
@@ -677,6 +691,7 @@ public sealed partial class MainWindowViewModel
         _pendingHoverPosition = -1;
         RevertPeekSwap();
         _cursorOverPosition = -1;
+        CloseInfoFlyout(); // the badge's card refers to surfaces about to be destroyed
 
         // The surfaces are about to be destroyed, so any "hidden by focus loss" state refers to
         // windows that no longer exist -- clear it or a freshly rebuilt overlay starts out believing
@@ -867,6 +882,7 @@ public sealed partial class MainWindowViewModel
 
     private void OnCornerTileClicked(int position)
     {
+        CloseInfoFlyout(); // a focus switch dismisses any open info card
         if (!_settings.FocusPreviewOnClick) return;
         // Clear peek tracking without reverting — CenterSeat re-positions everything via HWNDs.
         ClearPeekState();
@@ -1005,6 +1021,10 @@ public sealed partial class MainWindowViewModel
             var zoomSeat = OccupantAtPosition(position);
             if (_tileSurface is not null) _tileSurface.ZoomAnchor = ResolveZoomAnchor(zoomSeat);
             _tileSurface?.ZoomTile(position, ResolveZoomFactor(zoomSeat));
+            // Hide the badge while the tile is magnified -- a badge left floating over the enlarged
+            // preview looks and reads wrong. It reappears when the zoom clears (OnCornerTileHoverLeft),
+            // and the badge corner suppresses the zoom anyway so it's reachable to click.
+            _labelSurface?.SetInfoButtonVisible(position, false);
             // The magnified tile can now grow over master's screen area (no longer geometrically
             // clamped away from it) -- reassert topmost right away so the enlarged DWM thumbnail wins
             // the compositing there instead of relying on whatever z-order state happened to be
@@ -1033,15 +1053,14 @@ public sealed partial class MainWindowViewModel
         var masterRect = ResolveMasterRect(centerSlot);
         var parkRect = ResolveParkRect(masterRect);
 
-        // Gate: don't fire while cursor is already over the master's own on-screen area. That area
-        // is its preview tile when it has one (equal-cell layouts like Grid, where the real window
-        // now runs at full resolution off in `masterRect` -- see ResolveMasterRect), otherwise the
-        // master's own visible rect (dominant-master layouts like Center Master).
-        var centerVisibleRect = _cornerRects.TryGetValue(groupCenter, out var selfTileRect) ? selfTileRect : masterRect;
-        if (Utilities.Win32Native.GetCursorPos(out var gateCur) &&
-            gateCur.X >= centerVisibleRect.X && gateCur.X < centerVisibleRect.X + centerVisibleRect.Width &&
-            gateCur.Y >= centerVisibleRect.Y && gateCur.Y < centerVisibleRect.Y + centerVisibleRect.Height)
-            return;
+        // NOTE: there used to be a gate here that returned when the cursor was inside "the master's
+        // on-screen area". In the corner-overlay model the master runs at FULL resolution filling the
+        // whole layout area and the alt preview tiles float ON TOP of it, so that rect covered every
+        // alt tile -- the gate treated every alt hover as "over the master" and blocked ALL peeks
+        // (found live 2026-07-24 via diagnostic logging: master area was the whole 2558x1408 screen).
+        // It's also redundant: `position` is already the specific alt tile the hover hit-test matched,
+        // and the master's own seat is excluded by the "already centered" check above -- so there is
+        // nothing left to gate. Removed.
 
         var centeredSeat = _centeredSeatByGroup.GetValueOrDefault(groupId, 0);
         var centeredWindow = FindSeatWindow(centeredSeat);
@@ -1085,6 +1104,8 @@ public sealed partial class MainWindowViewModel
         _hoverPeekTimer.Stop();
         _pendingHoverPosition = -1;
         _tileSurface?.ClearZoom();
+        // Restore the badge hidden while this tile was zoomed (see ExecuteHoverPeek).
+        _labelSurface?.SetInfoButtonVisible(position, _settings.CornerOverlayInfoButtonEnabled);
         RevertPeekSwap();
     }
 
@@ -1550,14 +1571,28 @@ public sealed partial class MainWindowViewModel
 
         // Suppressed while a tile is being dragged/resized -- moving the mouse across other tiles
         // mid-drag shouldn't also trigger hover-peek/zoom on them (see OnCornerTileDragStarted for
-        // the matching cleanup of whatever was already active when the drag began).
-        if (_settings.HoverPreviewEnabled && eveOrEwcFg && !_tileSurface.IsDragging && Utilities.Win32Native.GetCursorPos(out var cur))
+        // the matching cleanup of whatever was already active when the drag began). Also suppressed
+        // while an info card is open: a zoom re-registers the thumbnail and its topmost re-assert pump
+        // would fight the card to the top (covering it), and zooming the tile under the card makes the
+        // badge move out from under the cursor -- both reported as the card "fighting" the zoom.
+        if (_settings.HoverPreviewEnabled && eveOrEwcFg && !_tileSurface.IsDragging && _infoFlyout is null
+            && Utilities.Win32Native.GetCursorPos(out var cur))
         {
             int hitPos = -1;
             foreach (var (pos, r) in _cornerRects)
             {
                 if (cur.X >= r.X && cur.X < r.X + r.Width && cur.Y >= r.Y && cur.Y < r.Y + r.Height)
                 { hitPos = pos; break; }
+            }
+
+            // With the info badge shown, treat the badge's corner zone as "not hovering" so the tile
+            // doesn't zoom out from under the badge -- the badge stays put and stays an easy click
+            // target. The zone is the badge rect grown a little so the zoom releases as you approach.
+            if (hitPos >= 0 && _settings.CornerOverlayInfoButtonEnabled && _cornerRects.TryGetValue(hitPos, out var hitRect))
+            {
+                var zone = OverlayInfoButton.RectFor(new System.Drawing.Rectangle(hitRect.X, hitRect.Y, hitRect.Width, hitRect.Height));
+                zone.Inflate(OverlayInfoButton.SizePx, OverlayInfoButton.SizePx);
+                if (zone.Contains(cur.X, cur.Y)) hitPos = -1;
             }
             if (hitPos < 0 && _peekPosition >= 0 && _cursorOverPosition >= 0 && _peekMasterRect is { } peekMr)
             {

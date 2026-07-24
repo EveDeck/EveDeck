@@ -158,6 +158,10 @@ public sealed partial class MainWindowViewModel
             slot.Label = slot.EsiCharacters[0].CharacterName;
 
         TokenStore.Remove(character.CharacterId);
+        // Drop any carried skill-queue state + cached ESI facts so a re-linked character (or a reused
+        // seat) can't inherit the removed character's stale queue snapshot or flyout data.
+        _skillQueueService?.Forget(character.CharacterId);
+        _characterInfo?.Invalidate(character.CharacterId);
         if (_settings.PiConsolidationCharacterId == character.CharacterId)
             _settings.PiConsolidationCharacterId = null;
 

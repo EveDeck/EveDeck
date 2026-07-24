@@ -52,9 +52,12 @@ public sealed partial class MainWindowViewModel
     private void EnsurePiServices()
     {
         if (_piService is not null) return;
-        _piTypes = new EsiTypeCache(_configService.AppDataFolder);
-        var client = new EsiClient(_esiAuth, TokenStore);
-        _piService = new PlanetaryIndustryService(client, _piTypes);
+        // Share the single app-wide EsiClient + type cache (see MainWindowViewModel.SkillAlerts.cs) so
+        // PI and the skill-queue/flyout features don't each spin up their own EsiClient -- two clients
+        // would have independent per-character refresh mutexes and could refresh the same token at once,
+        // clobbering EVE's rotated refresh token.
+        _piTypes = EsiTypeCacheShared;
+        _piService = new PlanetaryIndustryService(EsiClientShared, _piTypes);
     }
 
     // ── Enable toggle ─────────────────────────────────────────────────────────

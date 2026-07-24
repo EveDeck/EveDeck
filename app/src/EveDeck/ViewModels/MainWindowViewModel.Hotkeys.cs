@@ -84,6 +84,10 @@ public sealed partial class MainWindowViewModel
             {
                 PreviewsSuspended = !PreviewsSuspended;
             }
+            else if (actionId.Equals("ToggleStreamSafe", StringComparison.OrdinalIgnoreCase))
+            {
+                ToggleStreamSafe();
+            }
         }
         catch (Exception ex)
         {

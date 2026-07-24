@@ -86,6 +86,9 @@ public sealed class EsiAssetItem
 public sealed class EsiCharacterSkillsResponse
 {
     [JsonPropertyName("skills")] public List<EsiSkill> Skills { get; set; } = new();
+    // Added 2026-07-24 for the preview info flyout's SP line. Extra fields are ignored elsewhere.
+    [JsonPropertyName("total_sp")] public long TotalSp { get; set; }
+    [JsonPropertyName("unallocated_sp")] public int? UnallocatedSp { get; set; }
 }
 
 public sealed class EsiSkill

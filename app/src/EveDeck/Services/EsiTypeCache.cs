@@ -85,6 +85,77 @@ public sealed class EsiTypeCache
         return await _systemInflight.GetOrAdd(systemId, id => FetchSystemAsync(id, ct));
     }
 
+    // Name + security status + region name for a system, resolving system -> constellation -> region on
+    // first sight (all immutable public facts). In-memory cache only (a handful of systems per session);
+    // used by the preview info flyout's rich System line. Degrades to a synthetic name / 0.0 sec on
+    // failure so the flyout still renders.
+    private readonly ConcurrentDictionary<int, EsiSystemInfo> _systemInfos = new();
+    private readonly ConcurrentDictionary<int, Task<EsiSystemInfo>> _systemInfoInflight = new();
+
+    public async Task<EsiSystemInfo> GetSystemInfoAsync(int systemId, CancellationToken ct)
+    {
+        if (systemId <= 0) return new EsiSystemInfo(systemId, $"System {systemId}", 0, "");
+        if (_systemInfos.TryGetValue(systemId, out var cached)) return cached;
+        return await _systemInfoInflight.GetOrAdd(systemId, id => FetchSystemInfoAsync(id, ct));
+    }
+
+    private async Task<EsiSystemInfo> FetchSystemInfoAsync(int systemId, CancellationToken ct)
+    {
+        try
+        {
+            var sys = JsonDocument.Parse(await _http.GetStringAsync($"{BaseUrl}/universe/systems/{systemId}/", ct)).RootElement;
+            var name = sys.TryGetProperty("name", out var n) ? n.GetString() ?? $"System {systemId}" : $"System {systemId}";
+            var sec = sys.TryGetProperty("security_status", out var s) ? s.GetDouble() : 0.0;
+            var region = "";
+            if (sys.TryGetProperty("constellation_id", out var cId))
+            {
+                var con = JsonDocument.Parse(await _http.GetStringAsync($"{BaseUrl}/universe/constellations/{cId.GetInt32()}/", ct)).RootElement;
+                if (con.TryGetProperty("region_id", out var rId))
+                {
+                    var reg = JsonDocument.Parse(await _http.GetStringAsync($"{BaseUrl}/universe/regions/{rId.GetInt32()}/", ct)).RootElement;
+                    region = reg.TryGetProperty("name", out var rn) ? rn.GetString() ?? "" : "";
+                }
+            }
+            var info = new EsiSystemInfo(systemId, name, sec, region);
+            _systemInfos[systemId] = info;
+            _systems[systemId] = name; // keep the plain-name cache warm too
+            return info;
+        }
+        catch
+        {
+            return new EsiSystemInfo(systemId, $"System {systemId}", 0, "");
+        }
+        finally
+        {
+            _systemInfoInflight.TryRemove(systemId, out _);
+        }
+    }
+
+    // NPC station name for the flyout's docked line. Player structures (much larger ids) need auth +
+    // docking access, so they fall back to "" and the caller shows a generic "docked" instead.
+    private readonly ConcurrentDictionary<long, string> _stationNames = new();
+    private readonly ConcurrentDictionary<long, Task<string>> _stationInflight = new();
+
+    public async Task<string> GetStationNameAsync(long stationId, CancellationToken ct)
+    {
+        if (stationId <= 0) return "";
+        if (_stationNames.TryGetValue(stationId, out var name)) return name;
+        return await _stationInflight.GetOrAdd(stationId, id => FetchStationNameAsync(id, ct));
+    }
+
+    private async Task<string> FetchStationNameAsync(long stationId, CancellationToken ct)
+    {
+        try
+        {
+            var root = JsonDocument.Parse(await _http.GetStringAsync($"{BaseUrl}/universe/stations/{stationId}/", ct)).RootElement;
+            var name = root.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+            if (!string.IsNullOrEmpty(name)) _stationNames[stationId] = name;
+            return name;
+        }
+        catch { return ""; }
+        finally { _stationInflight.TryRemove(stationId, out _); }
+    }
+
     // The schematic's name — for PI schematics this IS the product name (e.g. schematic "Water"
     // produces Water). That's the only composition fact ESI's schematics endpoint actually exposes.
     public async Task<string> GetSchematicNameAsync(int schematicId, CancellationToken ct)
@@ -309,3 +380,7 @@ public sealed class EsiTypeInfo
 
     public static EsiTypeInfo Unknown(int typeId) => new() { TypeId = typeId, Name = $"Type {typeId}" };
 }
+
+// Name + security status + region for a solar system (immutable public facts). Security is the raw
+// ESI value (e.g. 0.946, -0.31); callers round it for display.
+public readonly record struct EsiSystemInfo(int SystemId, string Name, double Security, string RegionName);

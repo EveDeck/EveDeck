@@ -464,10 +464,11 @@
                     <!-- The minimap and the slots list SHARE the leftover height instead of the
                          minimap taking a fixed 216px and starving the list. The minimap row is capped
                          at the minimap's natural 216 (never grows past it, so no gap on a tall window)
-                         and, being star-sized, shrinks below it when the window is short (e.g. high OS
-                         display scaling); a Viewbox scales the minimap down to match. The slots list
-                         gets the larger share so it stays usable without scrolling the whole panel. -->
-                    <RowDefinition Height="*" MaxHeight="216"/>
+                         and floored at 190 (MinHeight) so it stays a comfortable drop target at the
+                         default window size and normal scaling; only past that floor, on a genuinely
+                         short window (high OS display scaling), does the DownOnly Viewbox scale it
+                         down further. The slots list keeps the larger share and its own scroll. -->
+                    <RowDefinition Height="*" MinHeight="190" MaxHeight="216"/>
                     <RowDefinition Height="2*"/>
                   </Grid.RowDefinitions>
 
@@ -1519,6 +1520,28 @@ EveDeck will not crop a preview down to just the HUD -- showing only part of a c
                 <TextBlock Text="ms  (0 = instant, default 250)" VerticalAlignment="Center"
                            Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="6,0,0,0"/>
               </StackPanel>
+              <CheckBox Content="Show an info button on each preview"
+                        IsChecked="{Binding CornerOverlayInfoButtonEnabled}"
+                        Margin="0,0,0,2"/>
+              <TextBlock Text="Adds a small button in each preview's top-right corner; click it for a compact card of that character's live status from ESI. Read-only. Needs the character linked (Clients tab) with the location / ship / fatigue / skill-queue scopes — re-link to grant them."
+                         TextWrapping="Wrap" FontSize="11" Margin="20,0,0,6"
+                         Foreground="{StaticResource MutedBrush}"/>
+              <WrapPanel Margin="20,0,0,10" IsEnabled="{Binding CornerOverlayInfoButtonEnabled}">
+                <TextBlock Text="Show:" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,8,0"/>
+                <CheckBox Content="Wallet" IsChecked="{Binding InfoFlyoutShowWallet}" Margin="0,0,14,0"/>
+                <CheckBox Content="Ship" IsChecked="{Binding InfoFlyoutShowShip}" Margin="0,0,14,0"/>
+                <CheckBox Content="System" IsChecked="{Binding InfoFlyoutShowLocation}" Margin="0,0,14,0"/>
+                <CheckBox Content="System kills" IsChecked="{Binding InfoFlyoutShowDanger}" Margin="0,0,14,0"/>
+                <CheckBox Content="Training" IsChecked="{Binding InfoFlyoutShowSkill}" Margin="0,0,14,0"/>
+                <CheckBox Content="SP" IsChecked="{Binding InfoFlyoutShowSp}" Margin="0,0,14,0"/>
+                <CheckBox Content="Jump fatigue" IsChecked="{Binding InfoFlyoutShowFatigue}"/>
+              </WrapPanel>
+              <CheckBox Content="Stream-safe mode (hide names, systems, and ISK on the overlay)"
+                        IsChecked="{Binding StreamSafeMode}"
+                        Margin="0,4,0,2"/>
+              <TextBlock Text="For streaming or screen-sharing: aliases character names to &quot;Alt N&quot;, drops system names from the pills and info card, and hides wallet ISK. Affects only the on-screen overlay, never the app itself. Bind the 'Toggle stream-safe overlay' hotkey (Hotkeys tab) to flip it mid-stream."
+                         TextWrapping="Wrap" FontSize="11" Margin="20,0,0,10"
+                         Foreground="{StaticResource MutedBrush}"/>
               <CheckBox Content="Show character name pills"
                         IsChecked="{Binding CornerOverlayShowLabel}"
                         Margin="0,0,0,6"/>
@@ -1830,6 +1853,27 @@ the only visible one), so your alert history is still there from the system cloc
 after the popup has disappeared. Depends on Windows notifications being allowed for EveDeck in
 Settings &gt; System &gt; Notifications.
                     </TextBlock>
+
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,14,0,0" MaxWidth="640">
+                      <StackPanel>
+                        <DockPanel>
+                          <CheckBox DockPanel.Dock="Right" Content="Enabled" IsChecked="{Binding DowntimeCountdownEnabled}" VerticalAlignment="Center"/>
+                          <TextBlock Text="Downtime countdown" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,10" MaxWidth="600">
+                          Shows a small always-on-top countdown in the final stretch before EVE's daily downtime, and pops one "dock up" toast when that window opens.
+                        </TextBlock>
+                        <WrapPanel VerticalAlignment="Center" IsEnabled="{Binding DowntimeCountdownEnabled}">
+                          <TextBlock Text="Downtime at" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                          <TextBox Text="{Binding DowntimeUtcTime, UpdateSourceTrigger=PropertyChanged}" Width="56" Margin="6,0" VerticalAlignment="Center"
+                                   ToolTip="EVE downtime in UTC, HH:mm (default 11:00)."/>
+                          <TextBlock Text="UTC · show it" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                          <TextBox Text="{Binding DowntimeLeadMinutes, UpdateSourceTrigger=PropertyChanged}" Width="48" Margin="6,0" VerticalAlignment="Center"/>
+                          <TextBlock Text="min before" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                        </WrapPanel>
+                      </StackPanel>
+                    </Border>
                   </StackPanel>
 
                   <!-- section 15: Comms -->
@@ -2044,6 +2088,34 @@ Add captures whatever you have set up right now. Save re-captures the current se
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
               <StackPanel>
+
+                <!-- Skill-queue alerts -->
+                <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,8">
+                  <StackPanel>
+                    <DockPanel>
+                      <CheckBox DockPanel.Dock="Right" Content="Enabled" IsChecked="{Binding SkillAlertsEnabled}" VerticalAlignment="Center"/>
+                      <TextBlock Text="Skill queue alerts" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,10" MaxWidth="720">
+                      Windows notifications when a linked character finishes a skill, empties their queue, or is
+                      about to run dry. Needs the skill-queue scope — re-link characters (Clients tab) that were
+                      linked before this feature to grant it. Read-only; EveDeck never changes your queue.
+                    </TextBlock>
+                    <WrapPanel>
+                      <CheckBox Content="Skill completed" IsChecked="{Binding SkillAlertCompleted}" IsEnabled="{Binding SkillAlertsEnabled}" Margin="0,0,14,0"/>
+                      <CheckBox Content="Queue empty" IsChecked="{Binding SkillAlertQueueEmpty}" IsEnabled="{Binding SkillAlertsEnabled}" Margin="0,0,14,0"/>
+                      <CheckBox Content="Queue running low" IsChecked="{Binding SkillAlertQueueLow}" IsEnabled="{Binding SkillAlertsEnabled}"/>
+                    </WrapPanel>
+                    <WrapPanel Margin="0,8,0,0" VerticalAlignment="Center">
+                      <TextBlock Text="Poll every" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                      <TextBox Text="{Binding SkillQueueRefreshMinutes}" Width="42" Margin="6,0" VerticalAlignment="Center"/>
+                      <TextBlock Text="min · warn when queue under" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                      <TextBox Text="{Binding SkillAlertLowThresholdHours}" Width="42" Margin="6,0" VerticalAlignment="Center"/>
+                      <TextBlock Text="h" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                    </WrapPanel>
+                  </StackPanel>
+                </Border>
 
                 <!-- Factory-load calculator -->
                 <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
