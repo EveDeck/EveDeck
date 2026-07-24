@@ -61,6 +61,21 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    public string DowntimePosition
+    {
+        get => _settings.DowntimePosition;
+        set
+        {
+            if (_settings.DowntimePosition == value) return;
+            _settings.DowntimePosition = value;
+            OnPropertyChanged();
+            Save();
+            // Drop the current window so the next tick re-creates it at the new anchor.
+            HideDowntimeWindow();
+            if (_settings.DowntimeCountdownEnabled) DowntimeTick();
+        }
+    }
+
     private void DowntimeTick()
     {
         if (!_settings.DowntimeCountdownEnabled) return;
@@ -113,7 +128,9 @@ public sealed partial class MainWindowViewModel
             var monitor = Monitors.FirstOrDefault(m => m.Id == LayoutTargetMonitorId) ?? Monitors.FirstOrDefault();
             if (monitor is null) return;
             var dpiScale = monitor.DpiX / 96.0;
-            _downtimeWindow = new DowntimeCountdownWindow(monitor.WorkArea.X, monitor.WorkArea.Y, monitor.WorkArea.Width, dpiScale);
+            var anchor = ParseToastAnchor(_settings.DowntimePosition);
+            _downtimeWindow = new DowntimeCountdownWindow(
+                monitor.WorkArea.X, monitor.WorkArea.Y, monitor.WorkArea.Width, monitor.WorkArea.Height, dpiScale, anchor);
             _downtimeWindow.Show();
         }
         _downtimeWindow.SetText(text);

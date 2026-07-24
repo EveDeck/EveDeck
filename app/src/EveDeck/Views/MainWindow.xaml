@@ -1872,6 +1872,17 @@ Settings &gt; System &gt; Notifications.
                           <TextBox Text="{Binding DowntimeLeadMinutes, UpdateSourceTrigger=PropertyChanged}" Width="48" Margin="6,0" VerticalAlignment="Center"/>
                           <TextBlock Text="min before" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                         </WrapPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding DowntimeCountdownEnabled}">
+                          <TextBlock Text="Position" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Margin="0,0,8,0"/>
+                          <ComboBox Width="150" SelectedValuePath="Tag" FontSize="12" SelectedValue="{Binding DowntimePosition}">
+                            <ComboBoxItem Tag="TopLeft" Content="Top left"/>
+                            <ComboBoxItem Tag="TopCenter" Content="Top center"/>
+                            <ComboBoxItem Tag="TopRight" Content="Top right"/>
+                            <ComboBoxItem Tag="BottomLeft" Content="Bottom left"/>
+                            <ComboBoxItem Tag="BottomCenter" Content="Bottom center"/>
+                            <ComboBoxItem Tag="BottomRight" Content="Bottom right"/>
+                          </ComboBox>
+                        </StackPanel>
                       </StackPanel>
                     </Border>
                   </StackPanel>
