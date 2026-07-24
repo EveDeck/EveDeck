@@ -1,12 +1,16 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using EveDeck.Utilities;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
+using Cursors = System.Windows.Input.Cursors;
 using FontFamily = System.Windows.Media.FontFamily;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
+using Orientation = System.Windows.Controls.Orientation;
+using VerticalAlignment = System.Windows.VerticalAlignment;
 
 namespace EveDeck.Views;
 
@@ -20,6 +24,9 @@ namespace EveDeck.Views;
 internal sealed class InfoFlyoutWindow : Window
 {
     private readonly StackPanel _lines = new();
+    // Collapsible "Planets" dropdown (added 2026-07-24): rebuilt wholesale by BuildPlanetsSection each
+    // SetLines call, same "cheap to fully repaint, no incremental diffing" approach as _lines above.
+    private readonly StackPanel _planetsSection = new();
     private readonly int _physX, _physY;
     private readonly double _dpiScale;
     private nint _ownerHwnd;
@@ -55,6 +62,7 @@ internal sealed class InfoFlyoutWindow : Window
         var panel = new StackPanel();
         panel.Children.Add(header);
         panel.Children.Add(_lines);
+        panel.Children.Add(_planetsSection);
 
         Content = new Border
         {
@@ -75,9 +83,12 @@ internal sealed class InfoFlyoutWindow : Window
     // reasserts) buries the card within a couple of seconds, which looked like it "disappeared".
     public void SetOwner(nint ownerHwnd) => _ownerHwnd = ownerHwnd;
 
-    // Replaces the card's body lines (each a short "Label: value" string). Safe to call repeatedly as
-    // the async ESI fetches resolve.
-    public void SetLines(IEnumerable<string> lines)
+    // Replaces the card's body lines (each a short "Label: value" string), plus the optional collapsible
+    // "Planets" dropdown (one row per colony, its soonest extractor countdown -- see
+    // MainWindowViewModel.InfoFlyout.cs.PopulateInfoFlyoutAsync). Null/empty omits the dropdown
+    // entirely rather than showing an empty "Planets" header. Safe to call repeatedly as the async ESI
+    // fetches resolve.
+    public void SetLines(IEnumerable<string> lines, IReadOnlyList<string>? planetLines = null)
     {
         _lines.Children.Clear();
         foreach (var line in lines)
@@ -92,8 +103,79 @@ internal sealed class InfoFlyoutWindow : Window
                 HorizontalAlignment = HorizontalAlignment.Left,
             });
         }
+        BuildPlanetsSection(planetLines);
         // Content changed size after the first pin; re-pin so the corner stays put.
         if (IsLoaded) Dispatcher.BeginInvoke(new Action(PinPhysical));
+    }
+
+    // Builds (or removes) the "Planets" dropdown: a clickable header row ("<arrow> Planets (N)") that
+    // toggles an indented body of per-colony countdown lines. Built from scratch on every call rather
+    // than diffed in place -- the card is small and this only runs once per flyout open, so the
+    // simplicity is worth more than the saved allocations. Starts collapsed every time: the window
+    // itself is recreated fresh on each badge click (see MainWindowViewModel.InfoFlyout.OnInfoButtonClicked),
+    // so there is no prior expanded/collapsed state to preserve.
+    private void BuildPlanetsSection(IReadOnlyList<string>? planetLines)
+    {
+        _planetsSection.Children.Clear();
+        if (planetLines is null || planetLines.Count == 0) return;
+
+        var mutedBrush = new SolidColorBrush(Color.FromRgb(0x74, 0x88, 0xA0));
+        var textBrush = new SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE1));
+
+        var arrow = new TextBlock
+        {
+            Text = "▸", // ▸ (collapsed)
+            Foreground = mutedBrush,
+            FontFamily = new FontFamily("Segoe UI"),
+            FontSize = 9,
+            Margin = new Thickness(0, 0, 5, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var headerText = new TextBlock
+        {
+            Text = $"Planets ({planetLines.Count})",
+            Foreground = textBrush,
+            FontFamily = new FontFamily("Segoe UI"),
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 12,
+        };
+        var headerRow = new StackPanel { Orientation = Orientation.Horizontal };
+        headerRow.Children.Add(arrow);
+        headerRow.Children.Add(headerText);
+
+        var headerBorder = new Border
+        {
+            Background = Brushes.Transparent, // makes the whole row (not just glyph/text) hit-testable
+            Padding = new Thickness(0, 2, 0, 2),
+            Margin = new Thickness(0, 5, 0, 0),
+            Cursor = Cursors.Hand,
+            Child = headerRow,
+        };
+
+        var body = new StackPanel { Margin = new Thickness(14, 2, 0, 0), Visibility = Visibility.Collapsed };
+        foreach (var line in planetLines)
+        {
+            body.Children.Add(new TextBlock
+            {
+                Text = line,
+                Foreground = textBrush,
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11,
+                Margin = new Thickness(0, 1, 0, 1),
+            });
+        }
+
+        var expanded = false;
+        headerBorder.MouseLeftButtonUp += (_, _) =>
+        {
+            expanded = !expanded;
+            arrow.Text = expanded ? "▾" : "▸"; // ▾ expanded / ▸ collapsed
+            body.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+            PinPhysical(); // body's height just changed the window's SizeToContent measurement
+        };
+
+        _planetsSection.Children.Add(headerBorder);
+        _planetsSection.Children.Add(body);
     }
 
     protected override void OnSourceInitialized(EventArgs e)

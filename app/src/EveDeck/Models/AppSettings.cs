@@ -317,6 +317,10 @@ public sealed class AppSettings
     public bool InfoFlyoutShowDanger { get; set; } = true;
     // Total + unallocated skill points.
     public bool InfoFlyoutShowSp { get; set; } = true;
+    // Collapsible "Planets" dropdown: each PI colony's soonest extractor countdown (added 2026-07-24,
+    // v1.28.1). Needs esi-planets.manage_planets.v1 -- already part of the base login scope, so this
+    // works for any previously-linked character without a re-link.
+    public bool InfoFlyoutShowPlanets { get; set; } = true;
 
     // Stream-safe mode (added 2026-07-24): masks identifying info on the overlays / pills / info flyout
     // for streamers -- aliases character names to "Alt N", drops system names, and hides wallet ISK.

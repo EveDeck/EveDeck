@@ -1523,7 +1523,7 @@ EveDeck will not crop a preview down to just the HUD -- showing only part of a c
               <CheckBox Content="Show an info button on each preview"
                         IsChecked="{Binding CornerOverlayInfoButtonEnabled}"
                         Margin="0,0,0,2"/>
-              <TextBlock Text="Adds a small button in each preview's top-right corner; click it for a compact card of that character's live status from ESI. Read-only. Needs the character linked (Clients tab) with the location / ship / fatigue / skill-queue scopes — re-link to grant them."
+              <TextBlock Text="Adds a small button in each preview's top-right corner; click it for a compact card of that character's live status from ESI. Read-only. Needs the character linked (Clients tab) with the location / ship / fatigue / skill-queue / planets scopes — re-link to grant them."
                          TextWrapping="Wrap" FontSize="11" Margin="20,0,0,6"
                          Foreground="{StaticResource MutedBrush}"/>
               <WrapPanel Margin="20,0,0,10" IsEnabled="{Binding CornerOverlayInfoButtonEnabled}">
@@ -1534,7 +1534,8 @@ EveDeck will not crop a preview down to just the HUD -- showing only part of a c
                 <CheckBox Content="System kills" IsChecked="{Binding InfoFlyoutShowDanger}" Margin="0,0,14,0"/>
                 <CheckBox Content="Training" IsChecked="{Binding InfoFlyoutShowSkill}" Margin="0,0,14,0"/>
                 <CheckBox Content="SP" IsChecked="{Binding InfoFlyoutShowSp}" Margin="0,0,14,0"/>
-                <CheckBox Content="Jump fatigue" IsChecked="{Binding InfoFlyoutShowFatigue}"/>
+                <CheckBox Content="Jump fatigue" IsChecked="{Binding InfoFlyoutShowFatigue}" Margin="0,0,14,0"/>
+                <CheckBox Content="Planets" IsChecked="{Binding InfoFlyoutShowPlanets}"/>
               </WrapPanel>
               <CheckBox Content="Stream-safe mode (hide names, systems, and ISK on the overlay)"
                         IsChecked="{Binding StreamSafeMode}"

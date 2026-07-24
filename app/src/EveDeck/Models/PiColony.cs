@@ -50,7 +50,9 @@ public sealed class PiExtractor : ObservableObject
         return soon;
     }
 
-    private static string FormatSpan(TimeSpan t)
+    // internal (not private) so PiPlanetExtraction.FormatCountdown below can share the exact same
+    // "2d 3h" / "3h 12m" / "12m" formatting instead of drifting a second copy.
+    internal static string FormatSpan(TimeSpan t)
     {
         if (t.TotalDays >= 1) return $"{(int)t.TotalDays}d {t.Hours}h";
         if (t.TotalHours >= 1) return $"{(int)t.TotalHours}h {t.Minutes}m";
@@ -133,6 +135,28 @@ public sealed class PiColony : ObservableObject
     public string Title => $"{SystemName} — {PlanetType}";
 
     public string IcLevelText => InterplanetaryConsolidationLevel is int lvl ? $" · IC L{lvl}" : "";
+}
+
+// Lightweight per-planet extraction summary for the preview info flyout's "Planets" dropdown (added
+// 2026-07-24) -- just enough for a countdown list, skipping the factory/storage/schematic resolution
+// the full Planets tab needs (see PlanetaryIndustryService.FetchExtractionSummaryAsync). A snapshot
+// rendered once per flyout open rather than a ticking bound value like PiExtractor, so this is a plain
+// record with a pure formatter instead of an ObservableObject.
+public sealed record PiPlanetExtraction(string SystemName, string PlanetType, int ExtractorCount, DateTimeOffset? NextExpiry)
+{
+    public string Title => $"{SystemName} — {PlanetType}";
+
+    // "2d 3h" / "expired" / "idle" (has an extractor pin but nothing currently cycling) -- mirrors
+    // PiExtractor's own states. When more than one extractor is running on this planet, the count is
+    // appended so the soonest time isn't mistaken for the only one -- a second resource can still run
+    // dry later even though this line only has room for one countdown.
+    public string FormatCountdown(DateTimeOffset now)
+    {
+        if (NextExpiry is not DateTimeOffset expiry) return "idle";
+        var remaining = expiry - now;
+        var countdown = remaining <= TimeSpan.Zero ? "expired" : PiExtractor.FormatSpan(remaining);
+        return ExtractorCount > 1 ? $"{countdown} (soonest of {ExtractorCount})" : countdown;
+    }
 }
 
 // A commodity chosen as a factory-load input (shown in the calculator's input list).
