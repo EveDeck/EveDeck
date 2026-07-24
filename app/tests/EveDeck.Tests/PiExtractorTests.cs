@@ -117,4 +117,60 @@ public class PiExtractorTests
         Assert.False(idle.HasRecipe);
         Assert.Equal("no schematic set", idle.RecipeText);
     }
+
+    // ── PiPlanetExtraction (preview info flyout's "Planets" dropdown, added 2026-07-24) ────────────────
+
+    [Fact]
+    public void PlanetExtraction_FormatCountdown_FutureExpiry_ShowsSpan()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 1, NextExpiry: now.AddDays(1).AddHours(3));
+
+        var text = e.FormatCountdown(now);
+
+        Assert.Equal("1d 3h", text);
+    }
+
+    [Fact]
+    public void PlanetExtraction_FormatCountdown_PastExpiry_ShowsExpired()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 1, NextExpiry: now.AddHours(-2));
+
+        Assert.Equal("expired", e.FormatCountdown(now));
+    }
+
+    [Fact]
+    public void PlanetExtraction_FormatCountdown_NoActiveCycle_ShowsIdle()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 1, NextExpiry: null);
+
+        Assert.Equal("idle", e.FormatCountdown(now));
+    }
+
+    [Fact]
+    public void PlanetExtraction_FormatCountdown_MultipleExtractors_AppendsCount()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 3, NextExpiry: now.AddHours(5));
+
+        Assert.Equal("5h 0m (soonest of 3)", e.FormatCountdown(now));
+    }
+
+    [Fact]
+    public void PlanetExtraction_FormatCountdown_SingleExtractor_OmitsCountSuffix()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 1, NextExpiry: now.AddHours(5));
+
+        Assert.DoesNotContain("soonest of", e.FormatCountdown(now));
+    }
+
+    [Fact]
+    public void PlanetExtraction_Title_CombinesSystemAndType()
+    {
+        var e = new PiPlanetExtraction("Jita", "Barren", ExtractorCount: 1, NextExpiry: null);
+        Assert.Equal("Jita — Barren", e.Title);
+    }
 }
