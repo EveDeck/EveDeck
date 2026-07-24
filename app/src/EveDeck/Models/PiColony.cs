@@ -94,6 +94,10 @@ public sealed class PiColony : ObservableObject
     public string CharacterName { get; init; } = "";
     public int SeatNumber { get; init; }
     public int PlanetId { get; init; }
+    // The real ESI planet name (e.g. "Jita IV") -- resolved once via EsiTypeCache.GetPlanetNameAsync
+    // and cached forever (immutable). Empty if the lookup hasn't resolved yet / failed; Title falls
+    // back to the synthesized "System — Type" form in that case.
+    public string PlanetName { get; init; } = "";
     public string PlanetType { get; init; } = "";
     public string SystemName { get; init; } = "";
     public int UpgradeLevel { get; init; }
@@ -132,30 +136,44 @@ public sealed class PiColony : ObservableObject
     private bool _isExpanded;
     public bool IsExpanded { get => _isExpanded; set => SetProperty(ref _isExpanded, value); }
 
-    public string Title => $"{SystemName} — {PlanetType}";
+    public string Title => string.IsNullOrEmpty(PlanetName) ? $"{SystemName} — {PlanetType}" : $"{PlanetName} — {PlanetType}";
 
     public string IcLevelText => InterplanetaryConsolidationLevel is int lvl ? $" · IC L{lvl}" : "";
-}
 
-// Lightweight per-planet extraction summary for the preview info flyout's "Planets" dropdown (added
-// 2026-07-24) -- just enough for a countdown list, skipping the factory/storage/schematic resolution
-// the full Planets tab needs (see PlanetaryIndustryService.FetchExtractionSummaryAsync). A snapshot
-// rendered once per flyout open rather than a ticking bound value like PiExtractor, so this is a plain
-// record with a pure formatter instead of an ObservableObject.
-public sealed record PiPlanetExtraction(string SystemName, string PlanetType, int ExtractorCount, DateTimeOffset? NextExpiry)
-{
-    public string Title => $"{SystemName} — {PlanetType}";
-
-    // "2d 3h" / "expired" / "idle" (has an extractor pin but nothing currently cycling) -- mirrors
-    // PiExtractor's own states. When more than one extractor is running on this planet, the count is
-    // appended so the soonest time isn't mistaken for the only one -- a second resource can still run
-    // dry later even though this line only has room for one countdown.
-    public string FormatCountdown(DateTimeOffset now)
+    // Compact one-line status for the preview info flyout's "Planets" dropdown (added 2026-07-24):
+    // soonest extractor countdown, plus what's being produced and how full the fullest buffer is (a
+    // proxy for finished-product stock -- ESI doesn't expose per-product storage quantity directly,
+    // only volume, so fill% is the closest real signal without guessing at unit counts). Pure and
+    // side-effect-free -- unlike MainWindowViewModel.Pi.cs's RefreshCountdownsAndAlerts, which also
+    // raises alerts -- so it's safe to call on every flyout open without touching alert state.
+    public string DescribeStatus(DateTimeOffset now)
     {
-        if (NextExpiry is not DateTimeOffset expiry) return "idle";
-        var remaining = expiry - now;
-        var countdown = remaining <= TimeSpan.Zero ? "expired" : PiExtractor.FormatSpan(remaining);
-        return ExtractorCount > 1 ? $"{countdown} (soonest of {ExtractorCount})" : countdown;
+        var parts = new List<string>();
+
+        if (Extractors.Count > 0)
+        {
+            string extraction;
+            if (NextExpiry is not DateTimeOffset expiry) extraction = "idle";
+            else
+            {
+                var remaining = expiry - now;
+                extraction = remaining <= TimeSpan.Zero ? "expired" : PiExtractor.FormatSpan(remaining);
+            }
+            parts.Add(Extractors.Count > 1 ? $"{extraction} (soonest of {Extractors.Count})" : extraction);
+        }
+
+        if (Factories.Count > 0)
+        {
+            var products = Factories.Where(f => f.HasRecipe).Select(f => f.OutputName).Distinct().ToList();
+            var producing = products.Count > 0 ? string.Join(", ", products) : "idle";
+            parts.Add($"producing {producing} · {WorstFillPercent:F0}% full");
+        }
+        else if (Storages.Count > 0)
+        {
+            parts.Add($"{WorstFillPercent:F0}% full");
+        }
+
+        return parts.Count > 0 ? string.Join("  ·  ", parts) : "no activity";
     }
 }
 

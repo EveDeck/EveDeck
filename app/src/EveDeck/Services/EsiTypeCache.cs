@@ -29,13 +29,18 @@ public sealed class EsiTypeCache
     private readonly string _systemPath;
     private readonly string _schematicPath;
     private readonly string _nameIdPath;
+    private readonly string _planetPath;
     private readonly ConcurrentDictionary<int, EsiTypeInfo> _types = new();
     private readonly ConcurrentDictionary<int, string> _systems = new();
     private readonly ConcurrentDictionary<int, string> _schematicNames = new();
     private readonly ConcurrentDictionary<string, int> _typeIdByName = new(StringComparer.OrdinalIgnoreCase);
+    // The real ESI planet name (e.g. "Jita IV") -- this already carries the roman-numeral orbital
+    // position EVE names planets with, so nothing needs deriving it separately.
+    private readonly ConcurrentDictionary<int, string> _planetNames = new();
     private readonly ConcurrentDictionary<int, Task<EsiTypeInfo>> _typeInflight = new();
     private readonly ConcurrentDictionary<int, Task<string>> _systemInflight = new();
     private readonly ConcurrentDictionary<int, Task<string>> _schematicInflight = new();
+    private readonly ConcurrentDictionary<int, Task<string>> _planetInflight = new();
 
     // Derived from the account's own colony routing (see PlanetaryIndustryService): for a raw resource
     // fed into a factory pin whose OTHER inputs are none (a Basic Industry Facility, single input), the
@@ -58,10 +63,12 @@ public sealed class EsiTypeCache
         _systemPath = Path.Combine(dir, "esi-systems.json");
         _schematicPath = Path.Combine(dir, "esi-schematic-names.json");
         _nameIdPath = Path.Combine(dir, "esi-name-ids.json");
+        _planetPath = Path.Combine(dir, "esi-planet-names.json");
         LoadTypes();
         LoadSystems();
         LoadSchematicNames();
         LoadNameIds();
+        LoadPlanetNames();
     }
 
     private static HttpClient CreateHttp()
@@ -128,6 +135,43 @@ public sealed class EsiTypeCache
         finally
         {
             _systemInfoInflight.TryRemove(systemId, out _);
+        }
+    }
+
+    // The real ESI planet name (e.g. "Jita IV") for the preview info flyout's Planets dropdown and the
+    // Planets tab (added 2026-07-24) -- EVE names planets "{System} {Roman numeral}" with no further
+    // decoration, so fetching the real name is simpler and more correct than deriving the numeral from
+    // orbital position ourselves. Falls back to the synthesized "System — Type" title on failure (see
+    // PiColony.Title).
+    public async Task<string> GetPlanetNameAsync(int planetId, CancellationToken ct)
+    {
+        if (planetId <= 0) return "";
+        if (_planetNames.TryGetValue(planetId, out var name)) return name;
+        return await _planetInflight.GetOrAdd(planetId, id => FetchPlanetNameAsync(id, ct));
+    }
+
+    private async Task<string> FetchPlanetNameAsync(int planetId, CancellationToken ct)
+    {
+        try
+        {
+            var json = await _http.GetStringAsync($"{BaseUrl}/universe/planets/{planetId}/", ct);
+            var root = JsonDocument.Parse(json).RootElement;
+            var name = root.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+            if (!string.IsNullOrEmpty(name))
+            {
+                _planetNames[planetId] = name;
+                SavePlanetNames();
+            }
+            return name;
+        }
+        catch
+        {
+            // Don't poison the cache with a failed lookup; the next refresh just retries.
+            return "";
+        }
+        finally
+        {
+            _planetInflight.TryRemove(planetId, out _);
         }
     }
 
@@ -333,6 +377,18 @@ public sealed class EsiTypeCache
         catch { /* stale/corrupt cache is harmless */ }
     }
 
+    private void LoadPlanetNames()
+    {
+        try
+        {
+            if (!File.Exists(_planetPath)) return;
+            var map = JsonSerializer.Deserialize<Dictionary<int, string>>(File.ReadAllText(_planetPath), JsonOptions);
+            if (map is null) return;
+            foreach (var kv in map) _planetNames[kv.Key] = kv.Value;
+        }
+        catch { /* stale/corrupt cache is harmless — it just gets rebuilt from ESI */ }
+    }
+
     private void SaveTypes()
     {
         lock (_saveLock)
@@ -365,6 +421,15 @@ public sealed class EsiTypeCache
         lock (_saveLock)
         {
             try { File.WriteAllText(_nameIdPath, JsonSerializer.Serialize(_typeIdByName.ToDictionary(k => k.Key, v => v.Value), JsonOptions)); }
+            catch { /* cache write is best-effort */ }
+        }
+    }
+
+    private void SavePlanetNames()
+    {
+        lock (_saveLock)
+        {
+            try { File.WriteAllText(_planetPath, JsonSerializer.Serialize(_planetNames.ToDictionary(k => k.Key, v => v.Value), JsonOptions)); }
             catch { /* cache write is best-effort */ }
         }
     }

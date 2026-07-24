@@ -14,11 +14,11 @@ public sealed class PlanetaryIndustryService
 {
     private const string InterplanetaryConsolidationSkillName = "Interplanetary Consolidation";
 
-    // Short-TTL cache for FetchExtractionSummaryAsync (the preview info flyout's "Planets" dropdown) --
+    // Short-TTL cache for FetchColonyStatusAsync (the preview info flyout's "Planets" dropdown) --
     // mirrors CharacterInfoService's DefaultTtl so repeatedly opening a seat's flyout doesn't re-walk
-    // every colony's /planets/{id}/ detail on each click.
-    private static readonly TimeSpan ExtractionSummaryTtl = TimeSpan.FromSeconds(60);
-    private readonly ConcurrentDictionary<long, (DateTimeOffset FetchedAt, List<PiPlanetExtraction> Value)> _extractionCache = new();
+    // every colony's /planets/{id}/ detail (plus schematic/type resolution) on each click.
+    private static readonly TimeSpan ColonyStatusTtl = TimeSpan.FromSeconds(60);
+    private readonly ConcurrentDictionary<long, (DateTimeOffset FetchedAt, List<PiColony> Value)> _colonyStatusCache = new();
 
     private readonly EsiClient _client;
     private readonly EsiTypeCache _types;
@@ -208,12 +208,15 @@ public sealed class PlanetaryIndustryService
             }
         }
 
+        var planetName = await _types.GetPlanetNameAsync(summary.PlanetId, ct);
+
         return new PiColony
         {
             CharacterId = charId,
             CharacterName = name,
             SeatNumber = seat,
             PlanetId = summary.PlanetId,
+            PlanetName = planetName,
             PlanetType = Capitalize(summary.PlanetType),
             SystemName = systemName,
             UpgradeLevel = summary.UpgradeLevel,
@@ -254,53 +257,30 @@ public sealed class PlanetaryIndustryService
         return result;
     }
 
-    // Lightweight fetch for the preview info flyout's "Planets" dropdown: just extractor expiry per
-    // colony, skipping the factory/schematic/IC-skill resolution FetchColoniesAsync does for the full
-    // Planets tab -- unneeded for a countdown list and meaningfully slower to load inside the badge's
-    // popup. Colonies with no extractor pins (pure factory colonies) are omitted; "extraction time
-    // left" doesn't apply to them. Failures degrade to an empty list (same "just omit this line"
-    // philosophy CharacterInfoService uses elsewhere in the flyout) rather than throwing -- a missing
-    // planets scope on a character linked before it was granted is a normal, expected case here.
-    public async Task<List<PiPlanetExtraction>> FetchExtractionSummaryAsync(long characterId, CancellationToken ct)
+    // Fetch for the preview info flyout's "Planets" dropdown: full colony detail (extractors,
+    // factories, storage) for ONE character, via the same FetchColoniesAsync the Planets tab uses --
+    // deliberately not a separate lightweight parser, so extractor/factory/storage parsing stays in
+    // one place. Costs one extra /skills/ call for the IC level the flyout doesn't display; harmless
+    // and not worth forking the pipeline to avoid. Errors degrade to an empty list (same "just omit
+    // this section" philosophy CharacterInfoService uses elsewhere in the flyout) -- a missing planets
+    // scope on a character linked before it was granted is a normal, expected case here.
+    public async Task<List<PiColony>> FetchColonyStatusAsync(long characterId, CancellationToken ct)
     {
-        if (_extractionCache.TryGetValue(characterId, out var hit) && DateTimeOffset.UtcNow - hit.FetchedAt < ExtractionSummaryTtl)
+        if (_colonyStatusCache.TryGetValue(characterId, out var hit) && DateTimeOffset.UtcNow - hit.FetchedAt < ColonyStatusTtl)
             return hit.Value;
 
-        var result = new List<PiPlanetExtraction>();
+        var result = new List<PiColony>();
         try
         {
-            var summaries = await _client.GetAsync<List<EsiPlanetSummary>>($"/characters/{characterId}/planets/", characterId, ct);
-            if (summaries is not null)
-            {
-                foreach (var s in summaries)
-                {
-                    EsiPlanetDetail? detail;
-                    try
-                    {
-                        detail = await _client.GetAsync<EsiPlanetDetail>($"/characters/{characterId}/planets/{s.PlanetId}/", characterId, ct);
-                    }
-                    catch
-                    {
-                        continue; // skip just this planet -- same resilience as FetchColoniesAsync
-                    }
-                    if (detail is null) continue;
-
-                    var extractorPins = detail.Pins.Where(p => p.Extractor is not null).ToList();
-                    if (extractorPins.Count == 0) continue;
-
-                    var nextExpiry = extractorPins.Select(p => p.ExpiryTime).DefaultIfEmpty(null).Min();
-                    var systemName = await _types.GetSystemNameAsync(s.SolarSystemId, ct);
-                    result.Add(new PiPlanetExtraction(systemName, Capitalize(s.PlanetType), extractorPins.Count, nextExpiry));
-                }
-            }
+            result = await FetchColoniesAsync(new[] { (characterId, 0, "") }, onError: null, ct);
         }
         catch
         {
-            // No planets scope granted yet, or a transient ESI failure -- fall through with whatever
-            // (possibly empty) result was collected so far; the flyout just omits the section.
+            // Fall through with whatever (possibly empty) result was collected; the flyout just omits
+            // the Planets section rather than showing an error.
         }
 
-        _extractionCache[characterId] = (DateTimeOffset.UtcNow, result);
+        _colonyStatusCache[characterId] = (DateTimeOffset.UtcNow, result);
         return result;
     }
 

@@ -234,20 +234,19 @@ public sealed partial class MainWindowViewModel
             }
 
             // Planets dropdown -- rendered as its own collapsible section by InfoFlyoutWindow, not a
-            // flat line, so it's gathered separately from `lines`. Colonies with no extractor pins are
-            // already filtered out by FetchExtractionSummaryAsync; an empty result here just means the
-            // section doesn't appear (no colonies, or the planets scope isn't granted on this character).
+            // flat line, so it's gathered separately from `lines`. Colonies with neither an extractor
+            // nor a factory/storage pin (nothing to report) are skipped; an empty result here just
+            // means the section doesn't appear (no colonies, or the planets scope isn't granted).
             if (_settings.InfoFlyoutShowPlanets)
             {
                 EnsurePiServices();
-                var extractions = await _piService!.FetchExtractionSummaryAsync(characterId, ct);
-                if (extractions.Count > 0)
-                {
-                    planetLines = extractions
-                        .OrderBy(e => e.NextExpiry ?? System.DateTimeOffset.MaxValue)
-                        .Select(e => $"{e.Title}: {e.FormatCountdown(now)}")
-                        .ToList();
-                }
+                var colonies = await _piService!.FetchColonyStatusAsync(characterId, ct);
+                var withActivity = colonies
+                    .Where(c => c.Extractors.Count > 0 || c.Factories.Count > 0 || c.Storages.Count > 0)
+                    .OrderBy(c => c.NextExpiry ?? System.DateTimeOffset.MaxValue)
+                    .ToList();
+                if (withActivity.Count > 0)
+                    planetLines = withActivity.Select(c => $"{c.Title}: {c.DescribeStatus(now)}").ToList();
             }
         }
         catch (System.Exception ex)
