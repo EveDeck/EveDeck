@@ -77,11 +77,16 @@ public sealed class GameEventRule : ObservableObject
     // already gates on incoming-only lines (see MainWindowViewModel.ChatAlerts.IsIncomingDamage), but
     // a scramble attempt is a distinct "you may not be able to escape" event worth its own rule with
     // sound that survives Abyss Mode, rather than being buried in Combat's glow-only, sound-silenced
-    // stream of hits.
+    // stream of hits. "Warp disruption" is the long-point sibling module (Warp Disruptor vs Warp
+    // Scrambler) -- its pattern is inferred by analogy to the verified "warp scramble attempt" wording
+    // rather than confirmed against a real log line, since EVE's own wording for it wasn't in the
+    // sample. Both patterns are plain user-editable text (see the Pattern property doc) if either
+    // turns out to not match the client's actual logged wording.
     public static IEnumerable<GameEventRule> Defaults() => new[]
     {
         new GameEventRule { Name = "Combat",            Pattern = "(combat)", FlashOnTile = true },
         new GameEventRule { Name = "Warp scramble",     Pattern = "warp scramble attempt", FlashOnTile = true, SuppressSoundInAbyss = false },
+        new GameEventRule { Name = "Warp disruption",   Pattern = "warp disruptor attempt", FlashOnTile = true, SuppressSoundInAbyss = false },
         new GameEventRule { Name = "Asteroid depleted", Pattern = "depleted", PlaySound = false },
         new GameEventRule { Name = "Mining crystal",    Pattern = "crystal",  PlaySound = false },
         new GameEventRule { Name = "Fleet invite",      Pattern = "join their fleet", SuppressWhenFocused = false },
