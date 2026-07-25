@@ -334,6 +334,42 @@
                     <TextBlock Grid.Column="2" Text="{Binding CharacterName}" FontSize="11" FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                     <StackPanel Grid.Column="3" Orientation="Horizontal">
+                      <!-- Main-character picker: the seat's main is EsiCharacters[0] and drives the
+                           seat portrait, info flyout and skill-queue fallbacks. A filled star marks
+                           the current main; the others offer a hollow star to take that role. -->
+                      <TextBlock Text="&#x2605;" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"
+                                 Foreground="{StaticResource AccentBrush}"
+                                 ToolTip="Main character for this seat (portrait, info flyout and skill queue use this one).">
+                        <TextBlock.Style>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding IsMain}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                              </DataTrigger>
+                              <!-- A lone character is trivially the main, so don't badge it. -->
+                              <DataTrigger Binding="{Binding DataContext.EsiCharacters.Count, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="1">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBlock.Style>
+                      </TextBlock>
+                      <Button Content="&#x2606;"
+                              Command="{Binding DataContext.SetMainCharacterCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                              CommandParameter="{Binding}"
+                              Padding="4,0" Margin="0,0,4,0" MinWidth="0" MinHeight="0" FontSize="11"
+                              ToolTip="Make this the seat's main character - its portrait, info flyout and skill queue become the seat's.">
+                        <Button.Style>
+                          <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding IsMain}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </Button.Style>
+                      </Button>
                       <Button Content="↻"
                               Command="{Binding DataContext.ReauthEsiCharacterCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                               CommandParameter="{Binding}"

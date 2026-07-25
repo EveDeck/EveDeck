@@ -554,6 +554,16 @@ public partial class MainWindow : Window
         }), System.Windows.Threading.DispatcherPriority.Input);
     }
 
+    // F2 renames the selected custom profile, matching the shell convention. The command's own
+    // CanExecute keeps built-in presets out of it, so no extra check here.
+    private void ProfilesListBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F2) return;
+        if (!_viewModel.RenameProfileCommand.CanExecute(null)) return;
+        _viewModel.RenameProfileCommand.Execute(null);
+        e.Handled = true;
+    }
+
     // ── Minimap drag-drop (Clients tab) ──────────────────────────────────────
 
     private static bool MiniMapAccepts(DragEventArgs e)

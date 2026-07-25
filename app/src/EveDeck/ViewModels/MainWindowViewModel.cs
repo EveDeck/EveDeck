@@ -141,6 +141,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ToggleSelectedBorderlessCommand = new RelayCommand(ToggleSelectedBorderless, () => SelectedWindow is not null);
         NewProfileCommand = new RelayCommand(NewProfile);
         EditLayoutCommand = new RelayCommand(EditLayoutOnMonitor);
+        RenameProfileCommand = new RelayCommand(RenameProfile, () => SelectedProfile is not null && !SelectedProfile.IsBuiltIn);
         DuplicateProfileCommand = new RelayCommand(DuplicateProfile, () => SelectedProfile is not null);
         DeleteProfileCommand = new RelayCommand(DeleteProfile, () => SelectedProfile is not null && !SelectedProfile.IsBuiltIn && Profiles.Count > 1);
         ImportProfileCommand = new RelayCommand(ImportProfile);
@@ -149,8 +150,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CaptureHotkeyCommand = new RelayCommand(BeginHotkeyCapture, parameter => parameter is HotkeyBinding || SelectedHotkey is not null);
         ClearHotkeyCommand = new RelayCommand(ClearHotkey, parameter => parameter is HotkeyBinding || SelectedHotkey is not null);
         ResetHotkeysCommand = new RelayCommand(ResetHotkeysToDefaults);  // 2c
-        SetMasterSlotCommand = new RelayCommand(SetMasterSlot);
+        SetMasterSlotCommand = new RelayCommand(parameter => SetMasterSlot(parameter, sortToTop: true));
         AddEsiCharacterCommand = new RelayCommand(AddEsiCharacter);
+        // No CanExecute guard: RelayCommand doesn't requery, so a stale "disabled" would stick once the
+        // main changes. The seat card hides the button on the current main and SetMainCharacter no-ops.
+        SetMainCharacterCommand = new RelayCommand(SetMainCharacter);
         RemoveEsiCharacterCommand = new RelayCommand(RemoveEsiCharacter);
         ReauthEsiCharacterCommand = new RelayCommand(ReauthEsiCharacter);
         RestoreBackupCommand = new RelayCommand(() => RestoreSelectedBackup(), () => SelectedBackup is not null);
@@ -217,6 +221,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         WindowsView = new CollectionViewSource { Source = Windows }.View;
         WindowsView.Filter = o => o is EveWindowInfo w && !IsWindowAssigned(w);
+
+        // Seat list view for the Clients tab. Its own view instance (not the default view of
+        // Assignments) so the mini-map and everything else keep seeing the raw manual order.
+        AssignmentsView = new ListCollectionView(Assignments) { CustomSort = new MasterFirstSeatComparer(this) };
 
         LogsView = CollectionViewSource.GetDefaultView(Logs);  // 2h
 
@@ -401,6 +409,31 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<LayoutProfile> Profiles { get; }
     public ICollectionView ProfilesView { get; }
     public ICollectionView WindowsView { get; }
+
+    // Display-only ordering of the seat list: the master seat is shown first, everything else keeps
+    // the user's manual order underneath. Deliberately a VIEW and not a reorder of Assignments --
+    // physically moving the master to index 0 reshuffled the manual seat order on every master change
+    // and every centred tile (the "seat order won't stick" bug; see SetMasterSlot). Re-sorted only
+    // when the user explicitly picks a master, so a hover-peek or tile click never shuffles the list.
+    public ICollectionView AssignmentsView { get; }
+
+    private sealed class MasterFirstSeatComparer : System.Collections.IComparer
+    {
+        private readonly MainWindowViewModel _viewModel;
+        public MasterFirstSeatComparer(MainWindowViewModel viewModel) => _viewModel = viewModel;
+
+        public int Compare(object? x, object? y)
+        {
+            if (x is not SlotAssignment a || y is not SlotAssignment b) return 0;
+            var master = _viewModel.ActiveMasterSeat;
+            var aIsMaster = a.SlotNumber == master;
+            var bIsMaster = b.SlotNumber == master;
+            if (aIsMaster != bIsMaster) return aIsMaster ? -1 : 1;
+            // Otherwise fall back to the underlying manual order so drag-drop and Ctrl+Up/Down still read
+            // exactly as the user arranged them.
+            return _viewModel.Assignments.IndexOf(a).CompareTo(_viewModel.Assignments.IndexOf(b));
+        }
+    }
     public ObservableCollection<HotkeyBinding> Hotkeys { get; }
     public ObservableCollection<LogEntry> Logs { get; }
     public ICollectionView LogsView { get; }  // 2h
@@ -431,6 +464,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public RelayCommand ToggleSelectedBorderlessCommand { get; }
     public RelayCommand NewProfileCommand { get; }
     public RelayCommand EditLayoutCommand { get; }
+    public RelayCommand RenameProfileCommand { get; }
     public RelayCommand DuplicateProfileCommand { get; }
     public RelayCommand DeleteProfileCommand { get; }
     public RelayCommand ImportProfileCommand { get; }
@@ -441,6 +475,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public RelayCommand ResetHotkeysCommand { get; }       // 2c
     public RelayCommand SetMasterSlotCommand { get; }
     public RelayCommand AddEsiCharacterCommand { get; }
+    public RelayCommand SetMainCharacterCommand { get; }
     public RelayCommand RemoveEsiCharacterCommand { get; }
     public RelayCommand ReauthEsiCharacterCommand { get; }
     public RelayCommand RestoreBackupCommand { get; }
@@ -2534,6 +2569,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         AssignWindowToSlotCommand.RaiseCanExecuteChanged();
         RestoreSelectedStyleCommand.RaiseCanExecuteChanged();
         ToggleSelectedBorderlessCommand.RaiseCanExecuteChanged();
+        RenameProfileCommand.RaiseCanExecuteChanged();
         DuplicateProfileCommand.RaiseCanExecuteChanged();
         DeleteProfileCommand.RaiseCanExecuteChanged();
         DeleteSelectedSlotCommand.RaiseCanExecuteChanged();

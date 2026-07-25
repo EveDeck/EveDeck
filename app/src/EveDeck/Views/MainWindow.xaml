@@ -648,7 +648,7 @@
                        when the window is small. -->
                   <ListBox x:Name="SlotsListBox" Grid.Row="3" MinHeight="120"
                            PreviewKeyDown="SlotsListBox_PreviewKeyDown"
-                           ItemsSource="{Binding Assignments}"
+                           ItemsSource="{Binding AssignmentsView}"
                            SelectedItem="{Binding SelectedAssignment}"
                            VirtualizingPanel.ScrollUnit="Pixel"
                            VirtualizingPanel.IsVirtualizing="True"
@@ -719,6 +719,7 @@
                   </StackPanel>
                   <ListBox Grid.Row="1" ItemsSource="{Binding ProfilesView}"
                            SelectedItem="{Binding SelectedProfile}"
+                           PreviewKeyDown="ProfilesListBox_PreviewKeyDown"
                            DisplayMemberPath="Name">
                     <ListBox.GroupStyle>
                       <GroupStyle>
@@ -776,6 +777,8 @@
                     <Button Content="New" Command="{Binding NewProfileCommand}"/>
                     <Button Content="Edit on Monitor" Command="{Binding EditLayoutCommand}"
                             ToolTip="Open a full-screen editor on the target monitor: drag slots to move them, drag edges to resize, add or remove slots. Editing a built-in preset saves a custom copy."/>
+                    <Button Content="Rename" Command="{Binding RenameProfileCommand}"
+                            ToolTip="Rename the selected custom profile (F2). Built-in presets can't be renamed - duplicate one first."/>
                     <Button Content="Duplicate" Command="{Binding DuplicateProfileCommand}"/>
                     <Button Content="Delete" Command="{Binding DeleteProfileCommand}" Style="{StaticResource DangerButton}"/>
                     <Button Content="Import" Command="{Binding ImportProfileCommand}"/>
