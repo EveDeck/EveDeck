@@ -136,6 +136,28 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    // Promote one of a seat's linked characters to be its MAIN, i.e. move it to EsiCharacters[0].
+    // The main drives the seat portrait, the info flyout's character and the skill-queue fallbacks, so
+    // on a seat holding a main plus two alts the user needs to say which one that is instead of being
+    // stuck with whichever they happened to link first. The seat's typed Label is deliberately NOT
+    // rewritten -- a custom label is the user's, same reasoning as LabelAlias in DisplayLabel.
+    private void SetMainCharacter(object? parameter)
+    {
+        if (parameter is not EsiCharacter character) return;
+
+        var slot = Assignments.FirstOrDefault(a => a.EsiCharacters.Contains(character));
+        if (slot is null) return;
+
+        var index = slot.EsiCharacters.IndexOf(character);
+        if (index <= 0) return;   // already the main
+
+        slot.EsiCharacters.Move(index, 0);
+
+        Log.Info($"{character.CharacterName} is now the main character for seat {slot.SlotNumber} ({slot.Label}).");
+        Save();
+        RaiseIdentityDependents();
+    }
+
     private void RemoveEsiCharacter(object? parameter)
     {
         if (parameter is not EsiCharacter character) return;

@@ -565,17 +565,20 @@ public sealed partial class MainWindowViewModel
     public void SetMasterSeatNumber(int seatNumber)
     {
         var seat = Assignments.FirstOrDefault(a => a.SlotNumber == seatNumber);
-        if (seat is not null) SetMasterSlot(seat);
+        if (seat is not null) SetMasterSlot(seat, sortToTop: true);
     }
 
-    private void SetMasterSlot(object? parameter)
+    // sortToTop: re-sort the Clients tab's seat VIEW so the new master shows first. Only the explicit
+    // "Set master" button and the setup wizard pass true; a centred tile or hover-peek must not shuffle
+    // the list. Note this never touches the Assignments collection itself -- physically moving the
+    // master to index 0 reshuffled the manual seat order (the "seat order won't stick" bug), so the
+    // master is pinned first for display only and the user's arrangement survives underneath.
+    private void SetMasterSlot(object? parameter, bool sortToTop = false)
     {
         if (parameter is not SlotAssignment assignment) return;
         ActiveMasterSeat = assignment.SlotNumber;
         SyncMasterSlot();
-        // Master is identified by SlotNumber / IsMaster, never by list position, so leave the seat
-        // where the user put it. Moving it to index 0 here reshuffled the manual seat order every
-        // time a master was set or a tile was centered -- the "seat order won't stick" bug.
+        if (sortToTop) AssignmentsView.Refresh();
         OnPropertyChanged(nameof(MasterSlotNumber));
         OnPropertyChanged(nameof(MasterSeatSummary));
         RaiseIdentityDependents();

@@ -63,6 +63,9 @@ public sealed class SlotAssignment : ObservableObject
 
     private void RaiseCharacterDependents()
     {
+        // Keep each character's IsMain flag in step with its position -- the seat card binds to it to
+        // show which of the (up to 3) linked characters is the main and to offer "make main" on the rest.
+        for (var i = 0; i < _esiCharacters.Count; i++) _esiCharacters[i].IsMain = i == 0;
         OnPropertyChanged(nameof(MainCharacter));
         OnPropertyChanged(nameof(PortraitUrl));
         OnPropertyChanged(nameof(HasPortrait));
