@@ -404,7 +404,9 @@ public sealed partial class MainWindowViewModel
             var window = FindSeatWindow(seat);
             CreatePill(position, seat, rect,
                 window is not null ? PillTextForPosition(position) : OfflinePillText(seat), SeatPortrait(seat));
-            _labelSurface?.SetInfoButton(position, rect, _settings.CornerOverlayInfoButtonEnabled);
+            // Badge only where there's a live client to badge -- an offline seat rebuilds its overlay
+            // with no preview and no pill, so it must not come back with a floating badge either.
+            _labelSurface?.SetInfoButton(position, rect, _settings.CornerOverlayInfoButtonEnabled && window is not null);
             _tileSurface.SetInfoButtonHitRect(position, rect.X, rect.Y, rect.Width, rect.Height);
 
             // Two seats resolving to the SAME window means every tile registers a DWM thumbnail
@@ -1104,8 +1106,10 @@ public sealed partial class MainWindowViewModel
         _hoverPeekTimer.Stop();
         _pendingHoverPosition = -1;
         _tileSurface?.ClearZoom();
-        // Restore the badge hidden while this tile was zoomed (see ExecuteHoverPeek).
-        _labelSurface?.SetInfoButtonVisible(position, _settings.CornerOverlayInfoButtonEnabled);
+        // Restore the badge hidden while this tile was zoomed (see ExecuteHoverPeek) -- but only if the
+        // tile still has a live client, so hovering off a seat that went offline mid-peek can't
+        // resurrect its badge.
+        RefreshInfoBadgeVisibility(position);
         RevertPeekSwap();
     }
 
@@ -1162,6 +1166,23 @@ public sealed partial class MainWindowViewModel
         if (_tileSurface is null || !_cornerRects.ContainsKey(position)) return;
         _tileSurface.SetSource(position, sourceHwnd);
         _cornerSourceHandles[position] = sourceHwnd;
+        RefreshInfoBadgeVisibility(position);
+    }
+
+    // The info badge is drawn on the LABEL surface, not the tile surface, so it does not disappear
+    // with the DWM thumbnail when a seat's client closes -- it has to be told, the same way the pill
+    // is. Keep it in lockstep with whether the tile is actually showing a live preview: no client
+    // (or a tile suppressed because you're playing that client, or it's still on the login screen)
+    // means no badge. Seats with PreventPreview keep theirs -- that client is running, the tile just
+    // draws a placeholder, and the flyout still has something to say.
+    private void RefreshInfoBadgeVisibility(int position)
+    {
+        if (_labelSurface is null || !_cornerRects.TryGetValue(position, out var rect)) return;
+        var live = _cornerSourceHandles.GetValueOrDefault(position) != 0;
+        // SetInfoButton, not SetInfoButtonVisible: a seat that was offline when the overlay was built
+        // has no badge element yet, and SetInfoButtonVisible silently no-ops on a missing one -- its
+        // badge would never appear when the client came back. SetInfoButton builds on demand.
+        _labelSurface.SetInfoButton(position, rect, _settings.CornerOverlayInfoButtonEnabled && live);
     }
 
     private void RefreshPositionPill(int position)
@@ -1635,6 +1656,10 @@ public sealed partial class MainWindowViewModel
                     _tileSurface.SetSource(position, 0);
                     _labelSurface?.SetPillContent(position, OfflinePillText(seat), SeatPortrait(seat));
                     _cornerSourceHandles[position] = 0;
+                    RefreshInfoBadgeVisibility(position);
+                    // A card left open over a tile whose client just closed is the same stale artifact
+                    // as the badge itself -- it's anchored to a badge that no longer exists.
+                    if (_infoFlyoutPosition == position) CloseInfoFlyout();
                 }
                 continue;
             }
@@ -1654,6 +1679,7 @@ public sealed partial class MainWindowViewModel
                 if (hiddenAsActive) _labelSurface?.SetPillContent(position, "", SeatPortrait(seat));
                 else RefreshPositionPill(position);
                 _cornerSourceHandles[position] = desiredHandle;
+                RefreshInfoBadgeVisibility(position);
             }
         }
 
