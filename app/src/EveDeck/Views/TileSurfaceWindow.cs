@@ -662,6 +662,12 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     {
         foreach (var (pos, rect) in _infoButtonRects)
         {
+            // A hidden tile draws no preview and no badge (its client is gone, or it's suppressed as
+            // the active/login-screen client), so its badge corner must not stay clickable either --
+            // otherwise an invisible hotspot lingers over a dead tile. Positions with no _tiles entry
+            // (the master rect in dominant-master layouts) are never in _hiddenTiles, so they're
+            // unaffected.
+            if (_hiddenTiles.Contains(pos)) continue;
             var effective = _tiles.TryGetValue(pos, out var live) ? live : rect;
             if (OverlayInfoButton.RectFor(effective).Contains(location)) { position = pos; return true; }
         }
