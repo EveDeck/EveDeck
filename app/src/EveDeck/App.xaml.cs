@@ -95,6 +95,14 @@ public partial class App : Application
         // window for us, so do it explicitly.
         var mainWindow = new Views.MainWindow();
         MainWindow = mainWindow;
+
+        // Tie the app's lifetime to the main window only. The default (OnLastWindowClose) kept the
+        // process alive whenever ANY window was still open at exit -- a live toast, a hover/info
+        // flyout, the layout editor -- so tray > Exit left an invisible EveDeck.exe in Task Manager
+        // still holding the single-instance mutex, and the next launch reported "already running".
+        // Set after MainWindow is assigned: WPF auto-adopts the first shown window (the splash) as
+        // MainWindow, and closing the splash under this mode would shut the app down.
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
         mainWindow.ContentRendered += (_, _) => CloseSplash(splash);
         mainWindow.Show();
 
@@ -138,6 +146,12 @@ public partial class App : Application
         }
         _singleInstanceMutex?.Dispose();
         base.OnExit(e);
+
+        // Hard backstop. Everything above already ran, so nothing is lost by cutting the process
+        // here, and it guarantees a stray non-background thread (an in-flight ESI HttpListener
+        // callback, a WinForms message loop on an overlay surface) can never strand a zombie
+        // EveDeck.exe that would block the next launch on the single-instance mutex.
+        Environment.Exit(e.ApplicationExitCode);
     }
 
     // True once this has already fired once for the current crash. Without this, an exception
