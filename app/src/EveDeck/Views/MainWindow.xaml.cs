@@ -931,6 +931,27 @@ public partial class MainWindow : Window
         SaveWindowPosition();
         _viewModel.Cleanup();
         _viewModel.Save();
+        CloseResidualWindows();
         base.OnClosed(e);
+    }
+
+    // Cleanup() closes the windows the view-model owns (corner overlays, talker overlay, downtime
+    // clock, frame overlay), but transient popups it doesn't track -- toasts, hover/info flyouts, an
+    // open layout editor -- would otherwise be left on screen for the instant before shutdown, and
+    // any one of them going wrong is how a zombie process used to survive tray > Exit. Sweep them.
+    private void CloseResidualWindows()
+    {
+        // Snapshot first: closing a window mutates Application.Windows mid-enumeration.
+        var windows = System.Windows.Application.Current?.Windows
+            .OfType<System.Windows.Window>()
+            .Where(w => !ReferenceEquals(w, this))
+            .ToList();
+        if (windows is null) return;
+
+        foreach (var window in windows)
+        {
+            try { window.Close(); }
+            catch (Exception ex) { _viewModel.Log.Error($"Failed to close {window.GetType().Name} on exit: {ex}"); }
+        }
     }
 }
