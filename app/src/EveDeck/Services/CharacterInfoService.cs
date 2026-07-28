@@ -3,13 +3,12 @@ using EveDeck.Models;
 
 namespace EveDeck.Services;
 
-// Typed, short-TTL-cached access to the live per-character ESI facts behind the preview info flyout
-// and the skill-queue alerts (added 2026-07-24): skill queue, location, active ship, jump fatigue.
+// Typed, short-TTL-cached access to the live per-character ESI facts behind the preview info flyout:
+// location, active ship, jump fatigue, and skill points.
 //
 // Every getter caches its result per (characterId, endpoint) for a short window (default 60s) so that
 // repeatedly opening a seat's info flyout doesn't refetch on every click, while the data stays fresh
-// enough to be useful. Pass forceRefresh: true to bypass the cache -- the skill-queue poller does this
-// on its own (much longer) cadence so it always evaluates a current queue, independent of flyout reads.
+// enough to be useful.
 //
 // This is a thin fetch+cache layer only. Name resolution (skill/ship type id -> name, system id ->
 // name) is deliberately left to the existing EsiTypeCache, which the consuming features already use;
@@ -42,8 +41,7 @@ public sealed class CharacterInfoService
     public Task<EsiCharacterFatigue?> GetFatigueAsync(long characterId, bool forceRefresh, CancellationToken ct)
         => CachedAsync<EsiCharacterFatigue>($"/characters/{characterId}/fatigue/", characterId, "fatigue", forceRefresh, ct);
 
-    // Total SP + unallocated SP for the flyout's SP line (also carries the trained-skill list, unused
-    // here). esi-skills.read_skills.v1, already requested for PI.
+    // Total SP + unallocated SP for the flyout's SP line (esi-skills.read_skills.v1).
     public Task<EsiCharacterSkillsResponse?> GetSkillsAsync(long characterId, bool forceRefresh, CancellationToken ct)
         => CachedAsync<EsiCharacterSkillsResponse>($"/characters/{characterId}/skills/", characterId, "skills", forceRefresh, ct);
 

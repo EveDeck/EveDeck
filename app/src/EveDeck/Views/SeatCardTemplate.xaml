@@ -374,7 +374,7 @@
                               Command="{Binding DataContext.ReauthEsiCharacterCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                               CommandParameter="{Binding}"
                               Padding="4,0" Margin="0" MinWidth="0" MinHeight="0" FontSize="11"
-                              ToolTip="Re-run EVE SSO login for this character (e.g. to grant a newly added scope like Planetary Industry) without removing it from the seat"/>
+                              ToolTip="Re-run EVE SSO login for this character (e.g. to grant a newly added scope) without removing it from the seat"/>
                       <Button Content="×"
                               Command="{Binding DataContext.RemoveEsiCharacterCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                               CommandParameter="{Binding}"

@@ -284,8 +284,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         InitLaunchGroups();
         InitChatAlerts();
         InitConfigProfiles();
-        InitPi();
-        InitSkillAlerts();
         InitDowntime();
 
         // After InitConfigProfiles (which wires the commands) and after the startup LAYOUT profile
@@ -2467,7 +2465,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _autoApplyTimer.Stop();
         _launchGroupCts?.Cancel();
         StopChatAlerts();
-        StopPi();
         StopCornerOverlays();
         StopTalkerOverlay();
         _downtimeTimer.Stop();

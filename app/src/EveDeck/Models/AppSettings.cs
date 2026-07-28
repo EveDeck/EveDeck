@@ -279,29 +279,7 @@ public sealed class AppSettings
     // OverlayAllowedApps above (which ships with sensible defaults for a DIFFERENT purpose).
     public ObservableCollection<PreviewableApp> PreviewableApps { get; set; } = new();
 
-    // ── Planetary Industry (Planets tab) ──────────────────────────────────────
-    // Read-only ESI colony monitor + factory-load calculator. Off until the user opts in, since it
-    // needs the esi-planets scope which older linked characters won't have granted.
-    public bool PiEnabled { get; set; } = false;
-    // Poll cadence. ESI caches colonies for ~10 min server-side, so polling faster just burns the
-    // error budget for stale data.
-    public int PiRefreshMinutes { get; set; } = 10;
-    // Alert (seat flash + sound) when an extractor is within this many hours of expiring.
-    public double PiExtractorAlertHours { get; set; } = 6.0;
-    // Alert when a colony's fullest storage/launchpad passes this fill percentage.
-    public int PiStorageAlertPercent { get; set; } = 90;
 
-    // Skill-queue alerts (added 2026-07-24). Notify when a character's skill finishes, their queue
-    // empties, or the whole queue is about to run dry. Off until opted in, and needs the
-    // esi-skills.read_skillqueue.v1 scope (re-link characters linked before 2026-07-24 to grant it).
-    public bool SkillAlertsEnabled { get; set; } = false;
-    public bool SkillAlertCompleted { get; set; } = true;
-    public bool SkillAlertQueueEmpty { get; set; } = true;
-    public bool SkillAlertQueueLow { get; set; } = true;
-    // Fire the "queue low" alert when the queue will run dry within this many hours.
-    public int SkillAlertLowThresholdHours { get; set; } = 24;
-    // Poll cadence. ESI caches the skill queue ~1 min server-side; default well above that.
-    public int SkillQueueRefreshMinutes { get; set; } = 15;
 
     // Preview info flyout (added 2026-07-24): a small "i" badge on each corner preview opens a compact
     // card of live ESI facts for that seat's character. Off until opted in; needs the
@@ -317,10 +295,6 @@ public sealed class AppSettings
     public bool InfoFlyoutShowDanger { get; set; } = true;
     // Total + unallocated skill points.
     public bool InfoFlyoutShowSp { get; set; } = true;
-    // Collapsible "Planets" dropdown: each PI colony's soonest extractor countdown (added 2026-07-24,
-    // v1.28.1). Needs esi-planets.manage_planets.v1 -- already part of the base login scope, so this
-    // works for any previously-linked character without a re-link.
-    public bool InfoFlyoutShowPlanets { get; set; } = true;
 
     // Stream-safe mode (added 2026-07-24): masks identifying info on the overlays / pills / info flyout
     // for streamers -- aliases character names to "Alt N", drops system names, and hides wallet ISK.
@@ -337,21 +311,4 @@ public sealed class AppSettings
     // EVE's own top-centre UI, so default to the top-right corner instead.
     public string DowntimePosition { get; set; } = "TopRight";
 
-    // The character whose station assets the factory-load calculator totals against — typically
-    // whoever hauls hauled-in P1/P2/etc from the extractor alts and holds the working stockpile.
-    // Null = fall back to summing every linked character's assets (can double-count material still
-    // sitting on extractor alts that hasn't been consolidated yet).
-    public long? PiConsolidationCharacterId { get; set; } = null;
-
-    // Factory-load calculator inputs. FactoryInputTypeIds are the P1 (or any tier) commodity type ids
-    // whose stock gets split across PiFactoryCount factories, each burning PiFactoryBurnPerHour of
-    // every input per hour.
-    public ObservableCollection<int> PiFactoryInputTypeIds { get; set; } = new();
-    public int PiFactoryCount { get; set; } = 16;
-    public double PiFactoryBurnPerHour { get; set; } = 240;
-
-    // Type ids the user has unchecked from gating the split's "scarcest input" calc — see
-    // PiFactoryInput.IncludeInSplit. Typically an intermediate tier consumed entirely on-planet
-    // (chained straight into the next facility) rather than genuinely hauled/staged stock.
-    public ObservableCollection<int> PiFactoryExcludedInputTypeIds { get; set; } = new();
 }

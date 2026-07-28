@@ -20,6 +20,13 @@ public sealed partial class MainWindowViewModel
     private ZkillSystemActivityService? _zkillActivity;
     private ZkillSystemActivityService ZkillActivityShared => _zkillActivity ??= new ZkillSystemActivityService();
 
+    private CharacterInfoService? _characterInfo;
+
+    private CharacterInfoService CharacterInfoShared => _characterInfo ??= new CharacterInfoService(new EsiClient(_esiAuth, TokenStore), TimeSpan.FromSeconds(60));
+
+    private EsiTypeCache? _esiTypeCache;
+    private EsiTypeCache EsiTypeCacheShared => _esiTypeCache ??= new EsiTypeCache(_configService.AppDataFolder);
+
     // ── Settings-bound toggles ──────────────────────────────────────────────────────────────────────
 
     public bool CornerOverlayInfoButtonEnabled
@@ -79,12 +86,6 @@ public sealed partial class MainWindowViewModel
         set { if (_settings.InfoFlyoutShowSp == value) return; _settings.InfoFlyoutShowSp = value; OnPropertyChanged(); Save(); }
     }
 
-    public bool InfoFlyoutShowPlanets
-    {
-        get => _settings.InfoFlyoutShowPlanets;
-        set { if (_settings.InfoFlyoutShowPlanets == value) return; _settings.InfoFlyoutShowPlanets = value; OnPropertyChanged(); Save(); }
-    }
-
     // ── Badge click ─────────────────────────────────────────────────────────────────────────────────
 
     // Fired from TileSurfaceWindow on the UI thread (same as OnCornerTileClicked). Toggles the card
@@ -137,7 +138,6 @@ public sealed partial class MainWindowViewModel
     private async System.Threading.Tasks.Task PopulateInfoFlyoutAsync(InfoFlyoutWindow flyout, int position, long characterId)
     {
         var lines = new List<string>();
-        List<string>? planetLines = null;
         var now = System.DateTimeOffset.UtcNow;
         var ct = CancellationToken.None;
         try
@@ -219,7 +219,7 @@ public sealed partial class MainWindowViewModel
                 if (skills is not null)
                 {
                     var sp = $"SP: {FormatSp(skills.TotalSp)}";
-                    if (skills.UnallocatedSp is > 0) sp += $" (+{FormatSp(skills.UnallocatedSp.Value)} unallocated)";
+                    if (skills.UnallocatedSp > 0) sp += $" (+{FormatSp(skills.UnallocatedSp)} unallocated)";
                     lines.Add(sp);
                 }
             }
@@ -232,42 +232,23 @@ public sealed partial class MainWindowViewModel
                     ? $"Jump fatigue: {HumanizeDuration(expire.Value - now)}"
                     : "Jump fatigue: none");
             }
-
-            // Planets dropdown -- rendered as its own collapsible section by InfoFlyoutWindow, not a
-            // flat line, so it's gathered separately from `lines`. Colonies with neither an extractor
-            // nor a factory/storage pin (nothing to report) are skipped; an empty result here just
-            // means the section doesn't appear (no colonies, or the planets scope isn't granted).
-            if (_settings.InfoFlyoutShowPlanets)
-            {
-                EnsurePiServices();
-                var colonies = await _piService!.FetchColonyStatusAsync(characterId, ct);
-                var withActivity = colonies
-                    .Where(c => c.Extractors.Count > 0 || c.Factories.Count > 0 || c.Storages.Count > 0)
-                    .OrderBy(c => c.NextExpiry ?? System.DateTimeOffset.MaxValue)
-                    .ToList();
-                if (withActivity.Count > 0)
-                    planetLines = withActivity.Select(c => $"{c.Title}: {c.DescribeStatus(now)}").ToList();
-            }
         }
         catch (System.Exception ex)
         {
             Log.Warn($"Info flyout ESI fetch failed: {ex}");
         }
 
-        if (lines.Count == 0 && planetLines is null)
+        if (lines.Count == 0)
         {
-            // Distinguish "every toggle is off" (a config nudge) from "toggles are on but nothing came
-            // back" (e.g. Planets enabled on a character with no colonies) -- pre-existing code only
-            // checked emptiness, which misreported the latter as the former.
             var anyEnabled = _settings.InfoFlyoutShowWallet || _settings.InfoFlyoutShowShip
                 || _settings.InfoFlyoutShowLocation || _settings.InfoFlyoutShowDanger
                 || _settings.InfoFlyoutShowSkill || _settings.InfoFlyoutShowSp
-                || _settings.InfoFlyoutShowFatigue || _settings.InfoFlyoutShowPlanets;
+                || _settings.InfoFlyoutShowFatigue;
             lines.Add(anyEnabled ? "No data available yet." : "All info lines are turned off.");
         }
         // Only apply if this is still the active card for this tile (the user may have clicked away).
         if (ReferenceEquals(_infoFlyout, flyout) && _infoFlyoutPosition == position)
-            flyout.SetLines(lines, planetLines);
+            flyout.SetLines(lines);
     }
 
     // The character to show for a seat: whoever is actually logged into the seat's window right now
@@ -329,4 +310,15 @@ public sealed partial class MainWindowViewModel
         if (span.TotalMinutes >= 1) return $"{(int)span.TotalMinutes}m";
         return "<1m";
     }
+
+    // Roman numeral for skill level (I, II, III, IV, V).
+    private static string RomanLevel(int level) => level switch
+    {
+        1 => "I",
+        2 => "II",
+        3 => "III",
+        4 => "IV",
+        5 => "V",
+        _ => level.ToString()
+    };
 }
