@@ -9,7 +9,7 @@
         Background="#12161D">
   <StackPanel Margin="18" MinWidth="320">
     <TextBlock Text="Rename Profile" Foreground="#EAF2FF" FontSize="15" FontWeight="SemiBold"/>
-    <TextBlock Text="Give this custom layout a name you'll recognise in the profile list and hotkeys."
+    <TextBlock Text="Give this layout a name for the profile list and hotkeys."
                Foreground="#8CA0B8" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,12"/>
     <TextBox x:Name="NameBox" Padding="6,4" FontSize="13"
              KeyDown="OnNameBoxKeyDown"/>
