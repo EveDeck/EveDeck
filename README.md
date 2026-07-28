@@ -7,9 +7,9 @@
 ### Command your fleet. One window at a time.
 
 **A multibox toolkit for EVE Online — EULA-safe window layout &amp; focus management, plus
-intel alerts and comms integrations.**<br />
-Live GPU-quality previews, hotkey focus switching, resolution-independent layout profiles,
-jump-distance intel alerts, and Mumble/Jabber comms bridges — all from a single
+situational-awareness alerts and a comms integration.**<br />
+Live client previews, hotkey focus switching, resolution-independent layout profiles,
+jump-distance intel alerts, and a Mumble comms bridge — all from a single
 self-contained Windows app.
 
 [![Download latest](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fevedeck.space%2Fapi%2Fversion&query=%24.version&prefix=v&label=Download&color=2563eb&style=for-the-badge)](https://github.com/objectless/EveDeck/releases/latest)
@@ -33,7 +33,7 @@ pixel-perfect layouts, shows live previews of every background client, and lets 
 throw focus to any character with a single keypress — while staying strictly inside the
 EVE Online EULA. **It is a window manager only. One input, one client, always.**
 And because it never captures or renders anything itself — previews are Windows' own DWM
-thumbnails — it barely touches your CPU: under 1% in a real 5-account session, less than a
+thumbnails — it barely touches your CPU: 0–5% in a real 5-account session, less than a
 single instance of Discord.
 
 <p align="center">
@@ -64,10 +64,14 @@ client isn't running, the next seat in line is promoted to master until it retur
 
 🧑‍🚀 **Character identity &amp; ESI** — character names and portraits via EVE SSO (PKCE
 OAuth). Fixed seats (*Model A*): accounts keep their seat and labels never scramble —
-window positions rotate, identities don't. No passwords, ever.
+window positions rotate, identities don't. No passwords, ever. An optional info flyout pulls
+live ESI facts (wallet, ship, location, training, jump fatigue) for whichever character is
+in a seat, and optional jump fatigue / reactivation-timer badges sit right on the preview so
+you can see at a glance whether a character can jump again yet.
 
 ⌨️ **Hotkeys &amp; focus control** — global hotkeys to centre any seat, swap with the
-master, focus by screen direction, or follow a named character wherever they've rotated to.
+master, focus by screen direction, follow a named character wherever they've rotated to, or
+jump straight back to whatever non-EVE window you were using before (Ctrl+Alt+B by default).
 Gated mode fires keys only while EVE is the active app.
 
 🖥️ **Desktop &amp; system** — borderless toggling, active-window frame glow, focus-aware
@@ -76,14 +80,17 @@ launch, one-click in-app auto-update (silent installer upgrade or self-updating 
 build), an overlay allow-list that keeps chosen companion apps like Mumble/Discord above
 the corner overlays, rolling settings backups, per-profile taskbar avoidance, and background
 CPU throttling for inactive clients. EveDeck's own footprint stays tiny throughout — typically
-under 1% CPU and ~250MB RAM even while managing five live clients.
+0–5% CPU and 150–500MB RAM even while managing five live clients.
 
 🚨 **Alerts &amp; pill polish** — flash a seat and play a sound on in-game combat/aggression
-events read straight from EVE's gamelog, not just chat keywords; per-seat system and offline
-pills with a configurable hide timer; minimize-all and auto-minimize hotkeys with a per-seat
-"never minimize" flag for scouts you always want visible; a separate font, size, and color for
-the centered master pill vs. the smaller corner alt pills; a zoom-style hover preview option;
-and an `evedeck://` link handler for one-click deep links from Discord or a browser.
+events read straight from EVE's gamelog, not just chat keywords; optional seat health alerts
+for a character getting podded (cross-checked against zKillboard so a ship swap or a
+deliberate bare-pod flight doesn't false-alarm) or a client silently disconnecting; per-seat
+system and offline pills — each system gets its own consistent color — with a configurable
+hide timer; minimize-all and auto-minimize hotkeys with a per-seat "never minimize" flag for
+scouts you always want visible; a separate font, size, and color for the centered master
+pill vs. the smaller corner alt pills; a zoom-style hover preview option; and an
+`evedeck://` link handler for one-click deep links from Discord or a browser.
 
 📋 **Profile Sync** — copy one character's EVE settings to any number of alts in a click:
 both per-character (`core_char`) and per-account (`core_user`) files, so window positions
@@ -189,7 +196,7 @@ inside. Just extract and run.
 **How much CPU or memory does EveDeck use?**
 Very little. EveDeck doesn't capture or render anything itself — previews are Windows' own
 DWM thumbnails, so the OS compositor does that work, not EveDeck. In a real 5-account
-session it typically runs well under 1% CPU and around 250MB RAM alongside the EVE clients
+session it typically runs 0–5% CPU and 150–500MB RAM alongside the EVE clients
 themselves — less than a single instance of Discord.
 
 **Does it work with multiple monitors?**

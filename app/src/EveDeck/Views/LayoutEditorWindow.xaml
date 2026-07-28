@@ -36,7 +36,7 @@
           <Button Content="Cancel" Click="OnCancel" Padding="10,4"/>
         </StackPanel>
         <TextBlock Foreground="#8CA0B8" FontSize="11" Margin="0,7,0,0"
-                   Text="Drag a slot to move it (across any monitor). Drag its edges or corners to resize. Click to select, Delete removes, Enter saves, Esc cancels. Stacked slots are fanned apart so you can grab them."/>
+                   Text="Drag to move (across monitors), drag edges/corners to resize. Delete removes, Enter saves, Esc cancels. Stacked slots fan apart for grabbing."/>
       </StackPanel>
     </Border>
   </Grid>

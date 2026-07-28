@@ -268,16 +268,16 @@
               <!-- Center, not the default Stretch: otherwise the buttons grow to the height of the
                    two-line title block opposite them. -->
               <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Auto-Assign All" Command="{Binding AutoAssignAllCommand}" ToolTip="Assign all unassigned detected windows to empty slots in order"/>
+                <Button Content="Auto-Assign All" Command="{Binding AutoAssignAllCommand}" ToolTip="Automatically assign all unassigned windows to available slots"/>
                 <Button Content="Refresh" Command="{Binding RefreshCommand}"/>
                 <Button Content="Refresh Portraits" Command="{Binding RefreshPortraitsCommand}"
-                        ToolTip="Re-download every cached character portrait, in case one changed in-game."/>
+                        ToolTip="Refresh all cached character portraits from the EVE servers."/>
                 <Button Content="Toggle Borderless" Command="{Binding ToggleSelectedBorderlessCommand}"/>
                 <Button Content="Restore Style" Command="{Binding RestoreSelectedStyleCommand}"/>
               </StackPanel>
               <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="Clients" FontSize="20" FontWeight="SemiBold"/>
-                <TextBlock Text="Pick an EVE window on the left, then click Assign next to the slot you want it to use. New clients can be matched automatically with Auto-Assign All."
+                <TextBlock Text="Select an EVE window on the left, then click Assign next to a slot. Use Auto-Assign All to match all unassigned windows at once."
                            Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
               </StackPanel>
             </DockPanel>
@@ -334,7 +334,7 @@
                                 Margin="0,6,0,0"/>
                       <Button Content="Spawn Test Windows"
                               Command="{Binding SpawnTestWindowsCommand}"
-                              ToolTip="Open one Notepad window per slot, titled 'EveDeck TEST - Slot N', so you can test layout placement without EVE running."
+                              ToolTip="Create test windows to preview the layout without running EVE."
                               HorizontalAlignment="Stretch"
                               Margin="0"/>
                     </DockPanel>
@@ -475,7 +475,7 @@
                   <!-- Character Set switcher -->
                   <DockPanel Grid.Row="0" Margin="0,0,0,8">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                      <Button Content="+ Set" Command="{Binding AddCharacterSetCommand}" Padding="7,3" FontSize="11" ToolTip="Add a new character set (clones slot/hotkey structure, empty window assignments)"/>
+                      <Button Content="+ Set" Command="{Binding AddCharacterSetCommand}" Padding="7,3" FontSize="11" ToolTip="Add a new character set with the same layout and hotkeys."/>
                       <Button Content="Del" Command="{Binding DeleteCharacterSetCommand}" Padding="7,3" FontSize="11" Margin="4,0,0,0" Style="{StaticResource DangerButton}" ToolTip="Delete the active character set"/>
                     </StackPanel>
                     <StackPanel VerticalAlignment="Center">
@@ -526,7 +526,7 @@
                               <Button Content="Launch" Padding="7,3" FontSize="11" MinHeight="0" Margin="2,0,0,0"
                                       Command="{Binding DataContext.LaunchGroupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                       CommandParameter="{Binding}"
-                                      ToolTip="Launch the EVE Launcher once per named seat in this group, spaced out by its launch delay"/>
+                                      ToolTip="Launch EVE once per seat in this group with the configured launch delay."/>
                             </StackPanel>
                           </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -541,7 +541,7 @@
                     </StackPanel>
                     <StackPanel VerticalAlignment="Center">
                       <TextBlock Text="Slots" FontSize="15" FontWeight="SemiBold"/>
-                      <TextBlock Text="Each slot is one seat. Assign a window, then drag a slot's ⠿ grip onto the mini-map to set its corner — or drop on the center to make it Master."
+                      <TextBlock Text="Drag a slot's ⠿ grip onto the mini-map to set its corner. Drop on the center to make it Master."
                                  Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
                       <TextBlock Text="You can also drag a window straight from Detected Windows onto a mini-map cell to assign it to whichever seat sits there."
                                  Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
@@ -686,7 +686,7 @@
               </StackPanel>
               <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="Layouts" FontSize="20" FontWeight="SemiBold"/>
-                <TextBlock Text="A layout is the on-screen grid your clients snap into. Choose one and click Apply Profile. Built-in presets can't be edited — Duplicate one (or Capture Current to save your current window positions) to make your own."
+                <TextBlock Text="Pick a preset layout or design your own. Click Apply Profile to arrange your clients. Built-in presets are read-only; duplicate one to edit it."
                            Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
               </StackPanel>
             </DockPanel>
@@ -1066,9 +1066,9 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                       ToolTip="Reset all hotkey bindings to factory defaults"/>
               <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="Hotkeys" FontSize="20" FontWeight="SemiBold"/>
-                <TextBlock Text="Global shortcuts for switching clients and applying layouts. Click Set on a row, press the key combo you want (Esc cancels), and the row highlights while it listens. Tick the On box to enable a shortcut."
+                <TextBlock Text="Set global hotkeys to switch clients and apply layouts. Click Set, press the keys you want (Esc cancels), then toggle On to enable it."
                            Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
-                <TextBlock Text="Tip: see Options → Hotkey Behavior to control whether hotkeys fire while EVE isn't the active window."
+                <TextBlock Text="Tip: Options → Hotkey Behavior controls whether hotkeys fire when EVE is not in focus."
                            Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
               </StackPanel>
             </DockPanel>
@@ -1303,7 +1303,7 @@ Auto-filled from the EVE window title when a client is assigned — "EVE - Name"
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=1}">
                     <TextBlock Text="Visual Effects" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14">
-Styling for the active-client highlight frame and the preview-label pills (font, style, opacity). Per-seat overrides live behind the "Style..." button on each slot below.
+Customize the active-client frame and preview labels (color, size, font, opacity). Per-seat overrides are on each slot card below.
               </TextBlock>
 
               <TextBlock Text="Active frame" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
@@ -1417,7 +1417,7 @@ Styling for the active-client highlight frame and the preview-label pills (font,
               <CheckBox Content="Re-apply active profile when clients are (re)launched"
                         IsChecked="{Binding AutoApplyOnClientLaunch}"
                         Margin="0,0,0,4"/>
-              <TextBlock Text="Remembers your layout: close all clients and open them again and they snap back into place automatically (requires Auto-refresh)."
+              <TextBlock Text="Snaps clients back to their positions when relaunched (requires Auto-refresh enabled)."
                          Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/>
                   </StackPanel>
                   <!-- section 3: Window Behavior -->
@@ -1467,7 +1467,7 @@ Scales the entire EveDeck interface up or down. Useful on 4K displays running at
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=6}">
                     <TextBlock Text="Setup" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,8">
-Re-run the guided setup to pick your client count and target monitor and apply a matching layout.
+Re-run the first-time setup wizard.
               </TextBlock>
               <Button Content="Run setup wizard" Click="RunSetupWizard_Click"
                       HorizontalAlignment="Left" MinWidth="150" Margin="0,0,0,4"/>
@@ -1476,7 +1476,7 @@ Re-run the guided setup to pick your client count and target monitor and apply a
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=7}">
                     <TextBlock Text="Previews" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14">
-Shows your background clients as live mini-previews in the screen corners while the master client fills the center. The previews are real-time video of each client, so you can keep an eye on all of them at once. Switching between clients is instant because the windows don't actually move or resize.
+Shows live thumbnail previews of background clients in the screen corners while the master fills center. Switching is instant -- no window moves, just overlay visibility changes.
               </TextBlock>
               <CheckBox Content="Enable live previews"
                         IsChecked="{Binding CornerOverlaysEnabled}"
@@ -1485,17 +1485,15 @@ Shows your background clients as live mini-previews in the screen corners while 
                         IsChecked="{Binding FocusPreviewOnClick}"
                         Margin="0,0,0,2"/>
               <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
-Can't read a capacitor or HUD in a preview? A preview shows the whole client shrunk into the tile, so a 2560-wide client in a 320-wide tile is an 8x reduction. Three things actually help, in order of effect: raise UI Scaling inside EVE itself on your alt clients (Esc &gt; Display &amp; Graphics) so the HUD is physically bigger in the source; make that tile larger; and raise the hover zoom for that seat. Preview opacity below 100% also washes detail out.
-
-EveDeck will not crop a preview down to just the HUD -- showing only part of a client is against the EULA, so scaling the whole window is the supported route.
+Preview tiles shrink the whole client window. To read them better: raise UI Scaling in EVE (Esc > Display &amp; Graphics), enlarge the tile, or raise the hover zoom below. EveDeck will not crop to just the HUD -- that would violate the EULA.
               </TextBlock>
-              <TextBlock Text="Clicking a preview switches focus to that client — the same as the center-seat hotkey. The click only moves windows; it is never sent into the EVE client."
+              <TextBlock Text="Clicking a preview switches focus to that client (same as a hotkey). The click is never sent into EVE."
                          TextWrapping="Wrap" FontSize="11" Margin="20,0,0,10"
                          Foreground="{StaticResource MutedBrush}"/>
               <CheckBox Content="Hover a preview to peek at that client over the master"
                         IsChecked="{Binding HoverPreviewEnabled}"
                         Margin="0,0,0,2"/>
-              <TextBlock Text="Moving your mouse over a preview temporarily raises that client over the master so you can see it at a glance. It returns to its parked position when you move away."
+              <TextBlock Text="Hover over a preview to peek at that client. It returns to its corner when you move away."
                          TextWrapping="Wrap" FontSize="11" Margin="20,0,0,6"
                          Foreground="{StaticResource MutedBrush}"/>
               <StackPanel Orientation="Horizontal" Margin="20,0,0,4" VerticalAlignment="Center"
@@ -1525,7 +1523,7 @@ EveDeck will not crop a preview down to just the HUD -- showing only part of a c
               <CheckBox Content="Show an info button on each preview"
                         IsChecked="{Binding CornerOverlayInfoButtonEnabled}"
                         Margin="0,0,0,2"/>
-              <TextBlock Text="Adds a small button in each preview's top-right corner; click it for a compact card of that character's live status from ESI. Read-only. Needs the character linked (Clients tab) with the location / ship / fatigue / skill-queue / planets scopes — re-link to grant them."
+              <TextBlock Text="Adds a button to each preview showing live character status (wallet, ship, location, skills). Requires ESI scopes: re-link the character to grant them."
                          TextWrapping="Wrap" FontSize="11" Margin="20,0,0,6"
                          Foreground="{StaticResource MutedBrush}"/>
               <WrapPanel Margin="20,0,0,10" IsEnabled="{Binding CornerOverlayInfoButtonEnabled}">
@@ -1541,13 +1539,13 @@ EveDeck will not crop a preview down to just the HUD -- showing only part of a c
               <CheckBox Content="Show jump fatigue / reactivation-timer badges on each preview"
                         IsChecked="{Binding CornerOverlayShowJumpBadges}"
                         Margin="0,0,0,2"/>
-              <TextBlock Text="Adds two small badges in each preview's top-left corner when a linked character has active jump fatigue or is on jump-drive reactivation cooldown; hover for the exact remaining time. Read-only. Needs the same fatigue/skills scopes as the info flyout above."
+              <TextBlock Text="Shows jump fatigue and reactivation cooldown badges on each preview. Requires the same ESI scopes as the info button above."
                          TextWrapping="Wrap" FontSize="11" Margin="20,0,0,6"
                          Foreground="{StaticResource MutedBrush}"/>
               <CheckBox Content="Stream-safe mode (hide names, systems, and ISK on the overlay)"
                         IsChecked="{Binding StreamSafeMode}"
                         Margin="0,4,0,2"/>
-              <TextBlock Text="For streaming or screen-sharing: aliases character names to &quot;Alt N&quot;, drops system names from the pills and info card, and hides wallet ISK. Affects only the on-screen overlay, never the app itself. Bind the 'Toggle stream-safe overlay' hotkey (Hotkeys tab) to flip it mid-stream."
+              <TextBlock Text="For streaming: hides character names, systems, and ISK on the overlay only. Bind 'Toggle stream-safe overlay' in Hotkeys to toggle mid-stream."
                          TextWrapping="Wrap" FontSize="11" Margin="20,0,0,10"
                          Foreground="{StaticResource MutedBrush}"/>
               <CheckBox Content="Show character name pills"
@@ -1563,24 +1561,24 @@ EveDeck will not crop a preview down to just the HUD -- showing only part of a c
                         IsChecked="{Binding HideActiveSeatTile}"
                         ToolTip="The active client is already on screen full-size; hiding its own tile reduces clutter"
                         Margin="0,0,0,6"/>
-              <TextBlock Text="Tip: to hide one seat's preview permanently, use its &quot;Hide preview&quot; box on the Clients tab."
+              <TextBlock Text="To hide a single seat's preview permanently, use its 'Hide preview' checkbox on the Clients tab."
                          Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
 
-              <CheckBox Content="Hide a preview tile while that client is still on the login screen"
+              <CheckBox Content="Hide preview tiles while clients are at the login screen"
                         IsChecked="{Binding HidePreviewsAtLoginScreen}"
-                        ToolTip="A client that hasn't picked a character yet shows nothing useful in its thumbnail. Detected from the window title only."
+                        ToolTip="A client at login shows nothing useful in its preview."
                         Margin="0,0,0,6"/>
 
-              <CheckBox Content="Hide all previews while EVE isn't the active app"
+              <CheckBox Content="Hide all previews while EVE is not in focus"
                         IsChecked="{Binding HidePreviewsOnFocusLoss}"
-                        ToolTip="Alt-tab to a browser, Discord or a spreadsheet and the previews get out of the way; switch back to EVE and they return. Nothing is torn down, so coming back is instant."
+                        ToolTip="Alt-tab to another app and previews hide; switch back to EVE and they return instantly."
                         Margin="0,0,0,6"/>
               <StackPanel Orientation="Horizontal" Margin="16,0,0,10" VerticalAlignment="Center">
                 <TextBlock Text="after" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
                 <TextBox Width="48" Margin="6,0,0,0"
                          Text="{Binding HidePreviewsOnFocusLossDelaySeconds, UpdateSourceTrigger=PropertyChanged}"
                          HorizontalContentAlignment="Center" FontSize="11"/>
-                <TextBlock Text="sec (0 = instantly; a short delay stops seat swaps flickering the overlay)"
+                <TextBlock Text="sec (0 = instant; short delay prevents flicker when swapping seats)"
                            VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="6,0,0,0"/>
               </StackPanel>
 
@@ -1688,7 +1686,7 @@ Apps listed here also show up as detected/assignable windows (Clients tab) so on
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=8}">
                     <TextBlock Text="Settings Backup" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
-EveDeck snapshots your settings on each launch (5 today + 1 per day for 7 days). Each entry shows how many slots and characters were saved. Select one below to restore it, or create a manual backup before making big changes. Export saves your current settings to any file; Import loads from a file and restarts.
+EveDeck snapshots your settings on every launch, keeping 5 from today plus 1 per day for the past week. Select one to restore, or create a manual backup before big changes. Export/Import lets you save settings to a file.
               </TextBlock>
 
               <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
@@ -1723,7 +1721,7 @@ EveDeck snapshots your settings on each launch (5 today + 1 per day for 7 days).
                         Margin="0,0,0,6"
                         ToolTip="Temporarily disables every EveDeck hotkey. Bind 'Suspend / resume all hotkeys' in the Hotkeys tab to toggle this from the keyboard — that one binding keeps working while suspended."/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4">
-When on, swap/cycle/apply-layout hotkeys only work while an EVE client is the active window — and the keys pass through normally to other apps (browser, chat, etc.) the rest of the time. Focus-slot and character-switch hotkeys stay active everywhere so you can always jump back into EVE. Turn this off to make every hotkey global.
+When enabled: swap/cycle/apply-layout hotkeys work only in EVE; other apps get the keystrokes. Focus and character-switch hotkeys stay global so you can always jump back to EVE.
               </TextBlock>
                   </StackPanel>
                   <!-- section 10: Performance -->
@@ -1733,7 +1731,7 @@ When on, swap/cycle/apply-layout hotkeys only work while an EVE client is the ac
                         IsChecked="{Binding ThrottleBackgroundProcesses}"
                         Margin="0,0,0,4"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
-EveDeck lowers the OS scheduling priority of inactive EVE clients whenever another client is in the foreground, so the active one gets more CPU and GPU headroom. Tip: also set Options &gt; Display &amp; Graphics &gt; Limit background framerate to 1-5 FPS inside EVE itself for the biggest gain -- EVE handles its own render loop; EveDeck handles OS scheduling.
+Gives the active EVE client priority over inactive ones. Combine with EVE's own 'Limit background framerate' setting for best results.
               </TextBlock>
               <CheckBox Content="Power-throttle background EVE clients (EcoQoS)"
                         IsChecked="{Binding EcoQosBackgroundClients}"
@@ -1743,22 +1741,20 @@ EveDeck lowers the OS scheduling priority of inactive EVE clients whenever anoth
                         IsEnabled="{Binding EcoQosBackgroundClients}"
                         Margin="16,0,0,4"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
-Asks Windows to park inactive clients on efficiency cores and clock them down -- a deeper cut than the priority drop above, and the two stack. The second box spares whichever client you would land on next when cycling, so it is already back at full speed by the time you get there.
-
-EveDeck deliberately does NOT cap another client's frame rate: doing that means injecting a DLL into the EVE client to hook its render loop, which EveDeck will never do. EcoQoS is pure OS scheduling -- nothing is injected into, read from, or written to EVE. Requires Windows 10 1809 or newer; on older builds it logs once and stays off.
+Parks inactive clients on efficiency cores and clocks them down (deeper cut than priority above, and they stack). Spares the next cycled client so it's ready when you switch. EcoQoS is pure OS scheduling -- no DLL injection, no memory reads/writes. Requires Windows 10 1809+.
               </TextBlock>
               <CheckBox Content="Auto-minimize EVE clients that are not the active window"
                         IsChecked="{Binding AutoMinimizeInactiveClients}"
                         Margin="0,0,0,4"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
-Flat layouts only: whenever an EVE client takes focus, the others are minimized to save GPU/CPU. Ignored while corner overlays are live (minimized windows stop rendering, which would freeze the live previews). Seats marked "never minimize" on their slot card are always skipped -- as they are for the "Minimize all EVE clients" hotkey.
+Minimizes inactive clients to save GPU/CPU (flat layouts only; disabled while previews are live). Respects 'never minimize' checkboxes on slot cards.
               </TextBlock>
                   </StackPanel>
                   <!-- section 11: EVE Launcher -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=11}">
                     <TextBlock Text="EVE Launcher" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,8">
-Used by each character set's "Launch" button. EveDeck checks the common install locations automatically; only set a path here if it isn't found there.
+Path to eveLauncher.exe. EveDeck finds it automatically; only set this if it's in a non-standard location.
               </TextBlock>
               <TextBox Text="{Binding EveLauncherPathOverride, UpdateSourceTrigger=PropertyChanged}"
                        Padding="6,4" FontSize="12"
@@ -1768,7 +1764,7 @@ Used by each character set's "Launch" button. EveDeck checks the common install 
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=12}">
                     <TextBlock Text="Overlay Allow List" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
-Apps listed here stay visually above EveDeck's corner-overlay tiles/labels even while an EVE client has focus -- useful if you keep a voice chat, intel, or fitting tool window positioned over the game. Matched by process name (case-insensitive, partial match, no ".exe") -- e.g. "discord" matches Discord.exe.
+Apps here stay above the overlay tiles so voice chat, intel, and tools can sit over the game. Matched by process name (case-insensitive, no ".exe").
               </TextBlock>
               <ItemsControl ItemsSource="{Binding OverlayAllowedApps}" Margin="0,0,0,6">
                 <ItemsControl.ItemTemplate>
@@ -1793,9 +1789,7 @@ Apps listed here stay visually above EveDeck's corner-overlay tiles/labels even 
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=13}">
                     <TextBlock Text="Notifications" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14" MaxWidth="640">
-Controls where EveDeck's own toast popups appear on screen, and whether they're also mirrored into
-Windows' own Notification Center (click the system clock) so they're still reviewable after the
-popup itself has faded.
+Control where toasts appear and whether they're also sent to Windows Notification Center (so they stay reviewable after fading).
                     </TextBlock>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
                       <TextBlock Text="Popup position" VerticalAlignment="Center" Width="110" Foreground="{StaticResource MutedBrush}"/>
@@ -1815,10 +1809,7 @@ Takes effect the next time a toast is shown (or after restarting EveDeck).
                     <CheckBox Content="Mirror alerts into the Windows Notification Center" FontSize="12"
                               IsChecked="{Binding NativeNotificationCenterEnabled, UpdateSourceTrigger=PropertyChanged}"/>
                     <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,6,0,0" MaxWidth="500">
-Silently sends a copy of every alert to Windows itself (no second popup -- EveDeck's own toast stays
-the only visible one), so your alert history is still there from the system clock's flyout even
-after the popup has disappeared. Depends on Windows notifications being allowed for EveDeck in
-Settings &gt; System &gt; Notifications.
+Sends alerts to Windows Notification Center (no second popup). Requires notifications enabled for EveDeck in Settings > System > Notifications.
                     </TextBlock>
 
                     <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
@@ -1829,7 +1820,7 @@ Settings &gt; System &gt; Notifications.
                           <TextBlock Text="Downtime countdown" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
                         </DockPanel>
                         <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,10" MaxWidth="600">
-                          Shows a small always-on-top countdown in the final stretch before EVE's daily downtime, and pops one "dock up" toast when that window opens.
+Displays a countdown to EVE's daily downtime and a "dock up" toast when the downtime window opens.
                         </TextBlock>
                         <WrapPanel VerticalAlignment="Center" IsEnabled="{Binding DowntimeCountdownEnabled}">
                           <TextBlock Text="Downtime at" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
@@ -1859,7 +1850,7 @@ Settings &gt; System &gt; Notifications.
                       <StackPanel>
                         <TextBlock Text="Game Event Alerts" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,10"/>
                         <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10" MaxWidth="600">
-Watches EVE's gamelog files (Documents\EVE\logs\Gamelogs) for events on your OTHER clients -- combat, warp scrambles, mining crystal breaks, fleet invites. By default a match shows a toast notification (plus an optional sound) over the game. "Glow" events instead pulse that seat's tile/master rect on the overlay -- for "this character is under attack right now" alerts where a toast per line would be constant spam (Combat and Warp scramble are Glow by default). Passive log reading only -- never sends anything into an EVE client. Pattern is a case-insensitive text match against new log lines; "Focused" skips the alert when that character's window is already active.
+Reads gamelogs (Documents\EVE\logs\Gamelogs) for combat, warp scrambles, fleet invites, etc. on parked clients. Toast shows an alert; Glow pulses the tile (better for spam like constant combat). Passive log reading only -- never sends input to EVE. "Focused" skips the alert if that client is already active.
                         </TextBlock>
                         <ItemsControl ItemsSource="{Binding GameEventRules}" Margin="0,0,0,6">
                           <ItemsControl.ItemTemplate>
@@ -1892,12 +1883,12 @@ Watches EVE's gamelog files (Documents\EVE\logs\Gamelogs) for events on your OTH
                           </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <Button Content="+ Add Event" Command="{Binding AddGameEventRuleCommand}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
-                        <CheckBox Content="Abyss Mode -- suppress Glow-event sound for rules that opt in (keep the visual glow)" FontSize="12" Margin="0,10,0,0"
+                        <CheckBox Content="Abyss Mode (suppress Glow-event sounds during runs)" FontSize="12" Margin="0,10,0,0"
                                   IsChecked="{Binding AbyssModeEnabled, UpdateSourceTrigger=PropertyChanged}"
-                                  ToolTip="Abyssal Deadspace can put up to three of your characters under simultaneous, expected combat damage -- toggle this on before a run so Combat's sound doesn't fire constantly. Rules with 'Silence in Abyss' unchecked (e.g. Warp scramble) stay audible. Turn back off for normal play."/>
-                        <CheckBox Content="Notifications on top of previews and allow-listed apps" FontSize="12" Margin="0,6,0,0"
+                                  ToolTip="Silences event sounds for rules with 'Silence in Abyss' checked. Rules without it (e.g., Warp scramble) stay audible."/>
+                        <CheckBox Content="Toasts above overlay tiles and allow-listed apps" FontSize="12" Margin="0,6,0,0"
                                   IsChecked="{Binding ToastsAboveOverlays, UpdateSourceTrigger=PropertyChanged}"
-                                  ToolTip="Keeps toast notifications above the corner-overlay previews and any Overlay Allow List app (Discord, Mumble, ...) for the few seconds they're on screen. Turn off to let those apps sit over your alerts instead."/>
+                                  ToolTip="Keeps alert toasts visible above previews and allow-listed apps."/>
                       </StackPanel>
                     </Border>
 
@@ -1907,13 +1898,13 @@ Watches EVE's gamelog files (Documents\EVE\logs\Gamelogs) for events on your OTH
                       <StackPanel>
                         <TextBlock Text="Seat health alerts" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,10"/>
                         <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10" MaxWidth="600">
-Read-only ESI checks for two failure modes that are easy to miss on a parked or idle alt. Needs each character linked (Clients tab) with the location/ship/online scopes -- re-link characters that were linked before this feature to grant them.
+ESI checks for common parked-alt failures: podding and disconnects. Requires character links with location/ship/online scopes (re-link if needed).
                         </TextBlock>
                         <CheckBox IsChecked="{Binding SeatHealthAlertPodded, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6">
-                          <TextBlock Text="Podded (correlated against zKillboard to tell a real kill from a deliberate bare-pod flight or an in-station ship swap)" TextWrapping="Wrap" MaxWidth="580"/>
+                          <TextBlock Text="Podded (cross-checked with zKillboard to skip false positives like bare-pod flights)" TextWrapping="Wrap" MaxWidth="580"/>
                         </CheckBox>
                         <CheckBox IsChecked="{Binding SeatHealthAlertDisconnected, UpdateSourceTrigger=PropertyChanged}">
-                          <TextBlock Text="Disconnected (ESI reports the game session offline while the seat's window is still open)" TextWrapping="Wrap" MaxWidth="580"/>
+                          <TextBlock Text="Disconnected (ESI shows offline session while the client window is still open)" TextWrapping="Wrap" MaxWidth="580"/>
                         </CheckBox>
                       </StackPanel>
                     </Border>
@@ -1923,7 +1914,7 @@ Read-only ESI checks for two failure modes that are easy to miss on a parked or 
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=14}">
                     <TextBlock Text="Comms" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
-EveDeck's own who-is-talking panel for Mumble, fed by a small companion plugin that runs inside your Mumble client. Drag it anywhere on screen and use the lock icon to stop accidental drags.
+Mumble who-is-talking panel that matches EveDeck's look. Uses a small plugin inside your Mumble client. Drag it around and lock it to prevent accidental moves.
                     </TextBlock>
 
                     <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
@@ -1934,7 +1925,7 @@ EveDeck's own who-is-talking panel for Mumble, fed by a small companion plugin t
                           <TextBlock Text="Talker Overlay (Mumble plugin)" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
                         </DockPanel>
                         <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0">
-EveDeck's own who-is-talking panel, styled to match the app -- no Mumble window wrangling. Needs the EveDeck plugin installed once and enabled inside Mumble (Configure &gt; Plugins &gt; "EveDeck Talker Bridge"). Read-only: the plugin only reports names and talking state, never audio or messages.
+Needs the EveDeck Talker Bridge plugin installed in Mumble (Configure > Plugins). Shows names and talking state only -- no audio or messages sent anywhere.
                         </TextBlock>
                         <TextBlock Text="{Binding TalkerOverlayStatus}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"/>
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
@@ -1959,9 +1950,7 @@ EveDeck's own who-is-talking panel, styled to match the app -- no Mumble window 
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=15}">
                     <TextBlock Text="Config Profiles" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
-One named switch for your whole setup - "Mining" vs "PvP". A config profile remembers which layout and which character set to use, plus every overlay appearance setting (labels, colors, zoom, hide rules). Switch between them from the EveDeck tray icon.
-
-Add captures whatever you have set up right now. Save re-captures the current setup into an existing profile. The layout and character set are remembered by reference, so editing a layout updates every config profile that uses it.
+Named snapshots of your whole setup: layout, character set, and all overlay appearance settings. Switch between them from the tray icon. Layouts and character sets update all profiles that use them automatically.
                     </TextBlock>
 
                     <ItemsControl ItemsSource="{Binding ConfigProfiles}" Margin="0,0,0,8">
@@ -2018,7 +2007,7 @@ Add captures whatever you have set up right now. Save re-captures the current se
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
               <Button Content="Refresh" Command="{Binding RefreshCommand}"/>
               <CheckBox Content="Use physical pixels" IsChecked="{Binding UsePhysicalPixels}" VerticalAlignment="Center"/>
-              <TextBlock Text="Your displays and their exact pixel coordinates, used when placing layouts. If positions look off, toggle 'Use physical pixels' — Windows display scaling can otherwise shift the numbers."
+              <TextBlock Text="Your displays and their coordinates used for placing layouts. If positions are off, toggle 'Use physical pixels' to account for Windows scaling."
                          VerticalAlignment="Center"
                          Foreground="{StaticResource MutedBrush}"
                          FontSize="11"
@@ -2106,7 +2095,7 @@ Hotkeys are guarded in code so actions are limited to focusing one client, cycli
               </TextBlock>
               <TextBlock Text="Blocked by design" FontSize="15" FontWeight="SemiBold" Margin="0,20,0,8"/>
               <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}">
-Input broadcasting, input multiplexing, gameplay key forwarding, mouse click forwarding, automation, memory reading, DLL injection, and login automation are outside the scope of this app and should not be added.
+Input broadcasting, input multiplexing, key/mouse forwarding, gameplay automation, memory reads, DLL injection, and login automation are permanently out of scope.
               </TextBlock>
             </StackPanel>
           </ScrollViewer>
@@ -2225,7 +2214,7 @@ Input broadcasting, input multiplexing, gameplay key forwarding, mouse click for
                   <StackPanel>
                     <TextBlock Text="SOURCE" FontSize="10" FontWeight="Bold"
                                Foreground="{StaticResource AccentBrush}" Margin="0,0,0,2"/>
-                    <TextBlock Text="Copy settings from this character. Tip: the last client you closed has the freshest settings (sorted newest first)."
+                    <TextBlock Text="Copy EVE UI settings from this character to others. (Sorted by most recent.)"
                                Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap"/>
                   </StackPanel>
                 </Border>
@@ -2249,7 +2238,7 @@ Input broadcasting, input multiplexing, gameplay key forwarding, mouse click for
                     </DataTemplate>
                   </ListBox.ItemTemplate>
                 </ListBox>
-                <TextBlock Grid.Row="2" Text="Account file (window positions live here) — auto-selected to match the source character"
+                <TextBlock Grid.Row="2" Text="Account file (source for window positions) — auto-matched to the character above."
                            Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="2,8,0,4"/>
                 <ListBox Grid.Row="3" MaxHeight="140"
                          ItemsSource="{Binding AccountProfiles}"
@@ -2315,7 +2304,7 @@ Input broadcasting, input multiplexing, gameplay key forwarding, mouse click for
                     </DataTemplate>
                   </ListBox.ItemTemplate>
                 </ListBox>
-                <TextBlock Grid.Row="2" Text="Account files to receive the account settings — auto-checked with their characters"
+                <TextBlock Grid.Row="2" Text="Account files to receive window positions — auto-matched to the characters."
                            Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="2,8,0,4"/>
                 <ListBox Grid.Row="3" MaxHeight="140"
                          ItemsSource="{Binding AccountProfiles}">
@@ -2412,7 +2401,7 @@ Input broadcasting, input multiplexing, gameplay key forwarding, mouse click for
               <!-- What it does -->
               <TextBlock Text="What it does" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,16">
-EveDeck arranges your EVE clients into tidy on-screen layouts and lets you jump between them with hotkeys. It can frame the active client, dim the ones you're not using, and show parked clients as live thumbnails in the screen corners — so a full multibox setup stays readable on a single monitor. It only moves, sizes, and focuses windows; it never plays the game for you.
+EveDeck arranges your EVE clients into on-screen layouts and lets you switch between them with hotkeys. Frame the active client, dim idle ones, and see parked clients as live corner previews. It only moves, sizes, and focuses windows -- it never plays the game.
               </TextBlock>
 
               <!-- A quick tour -->
@@ -2428,19 +2417,19 @@ EveDeck arranges your EVE clients into tidy on-screen layouts and lets you jump 
                   <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Clients" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="Match each detected EVE window to a slot in your layout." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="Assign detected EVE windows to layout slots." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Layouts" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="Pick or design where the slots sit on screen, then apply it. Includes the AMD VSR / Nvidia DSR guide for giving the master slot more pixels." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="Design where slots sit on screen and apply them. Includes VSR/DSR setup for giving the master slot more pixels." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Hotkeys" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
                 <TextBlock Grid.Row="2" Grid.Column="1" Text="Bind keys to focus a client, cycle, or swap one into the master slot." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Options" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
-                <TextBlock Grid.Row="3" Grid.Column="1" Text="Tune the active frame, dimming, previews, scaling, and startup." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="Customize appearance, previews, alerts, and startup behavior." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Monitors" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
                 <TextBlock Grid.Row="4" Grid.Column="1" Text="See your displays and their exact coordinates for placing layouts." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
                 <TextBlock Grid.Row="5" Grid.Column="0" Text="Disclaimer" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
-                <TextBlock Grid.Row="5" Grid.Column="1" Text="Exactly what EveDeck will and won't do to your clients." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="5" Grid.Column="1" Text="EULA-safe scope and design guarantees." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
                 <TextBlock Grid.Row="6" Grid.Column="0" Text="Logs" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
-                <TextBlock Grid.Row="6" Grid.Column="1" Text="A running record of what EveDeck has done, for troubleshooting." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="6" Grid.Column="1" Text="Activity and error log for troubleshooting." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
                 <TextBlock Grid.Row="7" Grid.Column="0" Text="Profile Sync" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
                 <TextBlock Grid.Row="7" Grid.Column="1" Text="Mass-copy one character's EVE UI settings to multiple alts in one click." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
                 <TextBlock Grid.Row="8" Grid.Column="0" Text="About" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
@@ -2452,13 +2441,13 @@ EveDeck arranges your EVE clients into tidy on-screen layouts and lets you jump 
               <!-- Credits -->
               <TextBlock Text="Credits" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,16">
-Built by the EveDeck project. Window management and live previews use native Windows APIs (Win32 and DWM) — live thumbnails are DWM window thumbnails, not screen capture. EVE Online is a trademark of Fenris Creations hf.; EveDeck is an unofficial, community-made tool and is not affiliated with or endorsed by Fenris Creations.
+Built by the EveDeck project using native Windows APIs (Win32 and DWM). EVE Online is a trademark of Fenris Creations hf.; EveDeck is an unofficial, community-made tool not affiliated with Fenris Creations.
               </TextBlock>
 
               <!-- Compliance -->
               <TextBlock Text="Fair play" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
-EveDeck is designed to respect EVE's one-input-to-one-client rule. It manages window placement and shows passive thumbnails only — it never broadcasts input, automates gameplay, reads client memory, or injects code. See the Disclaimer tab for the full policy.
+EveDeck respects EVE's one-input-to-one-client rule. It manages windows and shows passive previews only -- no input broadcasting, gameplay automation, memory reads, or code injection. See Disclaimer for details.
               </TextBlock>
 
             </StackPanel>

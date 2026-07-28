@@ -139,10 +139,10 @@ public sealed class SetupWizardViewModel : ObservableObject
     {
         get
         {
-            if (ClientCount == 1) return "A single client filling the chosen monitor.";
-            if (IsCenterMaster) return ClientCount.ToString() + " clients: a ring of corner/edge tiles with a larger master client floating centered on top. Preview mode with fast hotkey swapping.";
-            if (ClientCount <= 15) return ClientCount.ToString() + " clients arranged in an even grid across the monitor.";
-            return ClientCount.ToString() + " clients. Each slot maps to one EVE account. Use the Layouts tab to design a custom grid.";
+            if (ClientCount == 1) return "One client filling the monitor.";
+            if (IsCenterMaster) return ClientCount.ToString() + " clients in a ring with a master client centered on top.";
+            if (ClientCount <= 15) return ClientCount.ToString() + " clients arranged in a grid across the monitor.";
+            return ClientCount.ToString() + " clients. Design a custom layout in the Layouts tab.";
         }
     }
 
@@ -164,11 +164,11 @@ public sealed class SetupWizardViewModel : ObservableObject
             if (notWidescreen)
             {
                 parts.Add(IsCenterMaster
-                    ? $"This display is {w}×{h} ({RatioText(w, h)}), not 16:9. The corner-master layout assumes 16:9 — tiles will be stretched to fill and won't be exactly 16:9. You can still proceed, or pick a grid layout instead."
-                    : $"This display is {w}×{h} ({RatioText(w, h)}). Grid tiles will be sized to fit the monitor, which is fine at any aspect ratio.");
+                    ? $"This monitor is {w}×{h} ({RatioText(w, h)}), not 16:9. The center-master layout assumes 16:9; tiles may appear stretched. You can proceed or choose a grid layout instead."
+                    : $"This monitor is {w}×{h} ({RatioText(w, h)}). The grid will fit any aspect ratio.");
             }
             if (m.ScalePercent != 100)
-                parts.Add($"Display scaling is {m.ScalePercent:0}%. EveDeck places windows in physical pixels, so the layout already accounts for this.");
+                parts.Add($"Display scaling is {m.ScalePercent:0}%. EveDeck accounts for this automatically.");
 
             return string.Join("\n\n", parts);
         }
@@ -193,22 +193,22 @@ public sealed class SetupWizardViewModel : ObservableObject
             };
             if (IsCenterMaster)
             {
-                lines.Add($"• Preview mode ON, master = center slot {ClientCount}");
-                lines.Add($"• Click a preview to center that client: {(FocusPreviewOnClick ? "on" : "off")}");
+                lines.Add($"• Center-master layout with slot {ClientCount} as master");
+                lines.Add($"• Click a preview to swap it to center: {(FocusPreviewOnClick ? "enabled" : "disabled")}");
             }
 
             var totalChars = WizardSlots.Sum(s => s.EsiCharacters.Count);
             var assignedSeats = WizardSlots.Count(s => s.EsiCharacters.Count > 0);
             lines.Add(totalChars > 0
-                ? $"• ESI characters linked: {totalChars} across {assignedSeats} slot(s)"
-                : "• ESI characters: none linked — add them via the Clients tab after finishing");
+                ? $"• Characters linked: {totalChars} across {assignedSeats} seat(s)"
+                : "• No characters linked yet (you can add them later)");
 
             var masterSlot = WizardSlots.FirstOrDefault(s => s.SlotNumber == MasterSeatNumber);
             if (masterSlot is not null)
                 lines.Add($"• Master account (centered at rest): {masterSlot.Label}");
 
             lines.Add("");
-            lines.Add("After finishing, assign your running EVE clients to seats in the Clients tab, then Apply (Ctrl+Alt+A).");
+            lines.Add("After finishing, assign your EVE clients to seats in the Clients tab, then Apply (Ctrl+Alt+A).");
             return string.Join("\n", lines);
         }
     }
