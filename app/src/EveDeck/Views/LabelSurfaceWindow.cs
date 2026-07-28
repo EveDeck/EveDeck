@@ -41,6 +41,8 @@ internal sealed class LabelSurfaceWindow : Window
     private readonly Dictionary<int, PillElement> _pills = new();
     private readonly Dictionary<int, AlertGlowElement> _glows = new();
     private readonly Dictionary<int, Border> _infoButtons = new();
+    private readonly Dictionary<int, Border> _fatigueBadges = new();
+    private readonly Dictionary<int, Border> _reactivationBadges = new();
     private readonly int _physX, _physY, _physWidth, _physHeight;
     private readonly double _dpiScale;
     private readonly bool _iconStyle;
@@ -160,6 +162,7 @@ internal sealed class LabelSurfaceWindow : Window
         if (_pills.TryGetValue(key, out var pill))
             pill.Place(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height);
         MoveInfoButton(key, physRect);
+        MoveJumpBadges(key, physRect);
     }
 
     // The small "i" info badge in a tile's top-right corner (added 2026-07-24). Drawn here, on the
@@ -232,6 +235,87 @@ internal sealed class LabelSurfaceWindow : Window
             Child = glyph,
             // The whole surface is input-transparent (WS_EX_TRANSPARENT); the click is hit-tested on
             // the tile surface underneath. This is purely a visual affordance.
+            IsHitTestVisible = false,
+        };
+    }
+
+    // Jump-status badges in a tile's top-left corner (added 2026-07-28): fatigue ("F", amber) and
+    // jump-reactivation-timer ("R", cyan), each shown only while its underlying value is active.
+    // Same click-through/hit-tested-elsewhere split as the info button, except these have no click
+    // target at all -- hover-to-text is driven by MainWindowViewModel's existing tile cursor-poll
+    // (this whole surface is WS_EX_TRANSPARENT, so a WPF ToolTip on these would never fire).
+    private static readonly Color FatigueBadgeColor = Color.FromRgb(0xFB, 0xBF, 0x24);
+    private static readonly Color ReactivationBadgeColor = Color.FromRgb(0x22, 0xD3, 0xEE);
+
+    public void SetFatigueBadge(int key, WindowRect physRect, bool visible) =>
+        SetJumpBadge(_fatigueBadges, key, physRect, visible, slot: 0, "F", FatigueBadgeColor);
+
+    public void SetReactivationBadge(int key, WindowRect physRect, bool visible) =>
+        SetJumpBadge(_reactivationBadges, key, physRect, visible, slot: 1, "R", ReactivationBadgeColor);
+
+    public void MoveJumpBadges(int key, WindowRect physRect)
+    {
+        if (_fatigueBadges.TryGetValue(key, out var f) && f.Visibility == Visibility.Visible) PlaceJumpBadge(f, physRect, 0);
+        if (_reactivationBadges.TryGetValue(key, out var r) && r.Visibility == Visibility.Visible) PlaceJumpBadge(r, physRect, 1);
+    }
+
+    // Hides both badges without discarding them -- used while a tile is hover-zoomed, same reasoning
+    // as SetInfoButtonVisible. No-op for whichever badge was never created (inactive/feature off).
+    public void SetJumpBadgesVisible(int key, bool visible)
+    {
+        if (_fatigueBadges.TryGetValue(key, out var f)) f.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (_reactivationBadges.TryGetValue(key, out var r)) r.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SetJumpBadge(Dictionary<int, Border> badges, int key, WindowRect physRect, bool visible, int slot, string glyph, Color color)
+    {
+        if (!visible)
+        {
+            if (badges.TryGetValue(key, out var hidden)) hidden.Visibility = Visibility.Collapsed;
+            return;
+        }
+        if (!badges.TryGetValue(key, out var btn))
+        {
+            btn = BuildJumpBadge(glyph, color);
+            badges[key] = btn;
+            _canvas.Children.Add(btn);
+        }
+        btn.Visibility = Visibility.Visible;
+        PlaceJumpBadge(btn, physRect, slot);
+    }
+
+    private void PlaceJumpBadge(Border btn, WindowRect physRect, int slot)
+    {
+        var tile = new System.Drawing.Rectangle(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height);
+        var r = OverlayJumpBadge.RectFor(tile, slot);
+        _canvas.Children.Remove(btn);          // keep it drawn last so it stays above the pill/glow
+        _canvas.Children.Add(btn);
+        Canvas.SetLeft(btn, r.X / _dpiScale);
+        Canvas.SetTop(btn, r.Y / _dpiScale);
+        btn.Width = r.Width / _dpiScale;
+        btn.Height = r.Height / _dpiScale;
+    }
+
+    private static Border BuildJumpBadge(string glyph, Color color)
+    {
+        var text = new TextBlock
+        {
+            Text = glyph,
+            Foreground = new SolidColorBrush(color),
+            FontFamily = new FontFamily("Segoe UI"),
+            FontWeight = FontWeights.Bold,
+            FontSize = 10,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false,
+        };
+        return new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(0xB0, 0x0D, 0x11, 0x17)),
+            BorderBrush = new SolidColorBrush(color),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(999),
+            Child = text,
             IsHitTestVisible = false,
         };
     }

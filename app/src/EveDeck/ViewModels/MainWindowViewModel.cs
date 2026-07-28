@@ -257,6 +257,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         _frameBrush = ParseFrameBrush(_settings.ActiveFrameColor);
         _frameTimer.Tick += OnFrameTick;
+        _jumpStatusTimer.Tick += OnJumpStatusTick;
+        _seatHealthTimer.Tick += OnSeatHealthTick;
+        if (_settings.SeatHealthAlertPodded || _settings.SeatHealthAlertDisconnected) _seatHealthTimer.Start();
         _hoverPeekTimer.Tick += OnHoverPeekTimerTick;
         if (_settings.ActiveFrameEnabled) StartFrameOverlay();
 
@@ -2462,6 +2465,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         PortraitCacheService.Instance.Changed -= OnPortraitCacheChanged;
         _portraitSweepTimer.Stop();
         _frameTimer.Stop();
+        _seatHealthTimer.Stop();
         _autoApplyTimer.Stop();
         _launchGroupCts?.Cancel();
         StopChatAlerts();

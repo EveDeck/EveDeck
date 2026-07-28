@@ -45,6 +45,11 @@ public sealed class CharacterInfoService
     public Task<EsiCharacterSkillsResponse?> GetSkillsAsync(long characterId, bool forceRefresh, CancellationToken ct)
         => CachedAsync<EsiCharacterSkillsResponse>($"/characters/{characterId}/skills/", characterId, "skills", forceRefresh, ct);
 
+    // Whether the character's game session is actually connected (esi-location.read_online.v1), for
+    // the seat-health "disconnected" alert -- distinct from the seat's window merely still existing.
+    public Task<EsiCharacterOnline?> GetOnlineAsync(long characterId, bool forceRefresh, CancellationToken ct)
+        => CachedAsync<EsiCharacterOnline>($"/characters/{characterId}/online/", characterId, "online", forceRefresh, ct);
+
     // Character wallet balance (esi-wallet.read_character_wallet.v1). Swallows failures (e.g. a character
     // linked before the wallet scope was granted -> 403) so the flyout just omits the line instead of
     // losing every line after it. Not cached -- a single cheap call, and the balance changes constantly.

@@ -380,7 +380,7 @@ public sealed partial class MainWindowViewModel
         // The label surface hosts both the name pills AND the info badge (the badge has to composite
         // above the DWM thumbnails), so create it when EITHER is enabled. CreatePill is separately
         // gated on CornerOverlayShowLabel, so an info-badge-only overlay draws no pills.
-        if (_settings.CornerOverlayShowLabel || _settings.CornerOverlayInfoButtonEnabled)
+        if (_settings.CornerOverlayShowLabel || _settings.CornerOverlayInfoButtonEnabled || _settings.CornerOverlayShowJumpBadges)
         {
             _labelSurface = new LabelSurfaceWindow(surfX, surfY, surfW, surfH, dpiScale, _settings);
             _labelSurface.SetOwner(_tileSurface.Handle);
@@ -448,6 +448,7 @@ public sealed partial class MainWindowViewModel
 
         ApplySurfaceZOrder();
         _frameTimer.Start();
+        if (_settings.CornerOverlayShowJumpBadges) _jumpStatusTimer.Start();
     }
 
     private CharacterPortrait? SeatPortrait(int seat) => Seat(seat)?.RunningPortrait;
@@ -572,7 +573,11 @@ public sealed partial class MainWindowViewModel
         var (family, size, color) = ResolveLabelFont(seat, isMaster);
         var (bold, italic, dropShadow, outline, opacity) = ResolveLabelStyle(seat, isMaster);
         _labelSurface.SetPill(key, rect, ResolveLabelAnchor(seat, isMaster), family, size, color, bold, italic, dropShadow, outline, opacity);
-        _labelSurface.SetPillContent(key, text, portrait);
+        // Match RefreshPositionPill's system-suffix coloring so the initial paint doesn't show the
+        // system name in default color until the first refresh tick recolors it.
+        var live = FindSeatWindow(seat) is not null;
+        var sys = live ? SeatSystemName(seat) : "";
+        _labelSurface.SetPillContent(key, text, portrait, sys, SystemColorHex(sys));
     }
 
     // -- Pill captions -----------------------------------------------------------
@@ -708,6 +713,7 @@ public sealed partial class MainWindowViewModel
         _cornerSourceHandles.Clear();
         _cornerRects.Clear();
         _seatOfflineSince.Clear();
+        StopJumpStatus();
 
         if (!_settings.ActiveFrameEnabled) _frameTimer.Stop();
     }
@@ -1027,6 +1033,7 @@ public sealed partial class MainWindowViewModel
             // preview looks and reads wrong. It reappears when the zoom clears (OnCornerTileHoverLeft),
             // and the badge corner suppresses the zoom anyway so it's reachable to click.
             _labelSurface?.SetInfoButtonVisible(position, false);
+            _labelSurface?.SetJumpBadgesVisible(position, false);
             // The magnified tile can now grow over master's screen area (no longer geometrically
             // clamped away from it) -- reassert topmost right away so the enlarged DWM thumbnail wins
             // the compositing there instead of relying on whatever z-order state happened to be
@@ -1110,6 +1117,7 @@ public sealed partial class MainWindowViewModel
         // tile still has a live client, so hovering off a seat that went offline mid-peek can't
         // resurrect its badge.
         RefreshInfoBadgeVisibility(position);
+        RefreshJumpBadgeVisibility(position);
         RevertPeekSwap();
     }
 
@@ -1617,6 +1625,35 @@ public sealed partial class MainWindowViewModel
                 zone.Inflate(OverlayInfoButton.SizePx, OverlayInfoButton.SizePx);
                 if (zone.Contains(cur.X, cur.Y)) hitPos = -1;
             }
+
+            // Jump-status badge hover: suppress zoom the same way the info-button zone does (both
+            // badges must stay easy, static hover targets), and show/hide the shared hover-tip window
+            // with that badge's precomputed text. LabelSurfaceWindow is WS_EX_TRANSPARENT end to end,
+            // so this poll -- not a WPF mouse event -- is the only way to detect the hover at all.
+            var overJumpBadge = false;
+            if (hitPos >= 0 && _settings.CornerOverlayShowJumpBadges && _cornerRects.TryGetValue(hitPos, out var jbRect)
+                && _jumpStatusByPosition.TryGetValue(hitPos, out var jbState))
+            {
+                var jbTile = new System.Drawing.Rectangle(jbRect.X, jbRect.Y, jbRect.Width, jbRect.Height);
+                var overFatigue = jbState.FatigueActive && OverlayJumpBadge.RectFor(jbTile, 0).Contains(cur.X, cur.Y);
+                var overReactivation = !overFatigue && jbState.ReactivationActive && OverlayJumpBadge.RectFor(jbTile, 1).Contains(cur.X, cur.Y);
+                if (overFatigue || overReactivation)
+                {
+                    overJumpBadge = true;
+                    hitPos = -1;
+                    var slot = overFatigue ? 0 : 1;
+                    var text = overFatigue ? jbState.FatigueText : jbState.ReactivationText;
+                    var badgeRect = OverlayJumpBadge.RectFor(jbTile, slot);
+                    ShowJumpHoverTip(badgeRect.X, badgeRect.Y, badgeRect.Width, text);
+                    _jumpHoverActive = true;
+                }
+            }
+            if (!overJumpBadge && _jumpHoverActive)
+            {
+                HideJumpHoverTip();
+                _jumpHoverActive = false;
+            }
+
             if (hitPos < 0 && _peekPosition >= 0 && _cursorOverPosition >= 0 && _peekMasterRect is { } peekMr)
             {
                 if (cur.X >= peekMr.X && cur.X < peekMr.X + peekMr.Width && cur.Y >= peekMr.Y && cur.Y < peekMr.Y + peekMr.Height)
@@ -1657,6 +1694,7 @@ public sealed partial class MainWindowViewModel
                     _labelSurface?.SetPillContent(position, OfflinePillText(seat), SeatPortrait(seat));
                     _cornerSourceHandles[position] = 0;
                     RefreshInfoBadgeVisibility(position);
+                    RefreshJumpBadgeVisibility(position);
                     // A card left open over a tile whose client just closed is the same stale artifact
                     // as the badge itself -- it's anchored to a badge that no longer exists.
                     if (_infoFlyoutPosition == position) CloseInfoFlyout();
@@ -1680,6 +1718,7 @@ public sealed partial class MainWindowViewModel
                 else RefreshPositionPill(position);
                 _cornerSourceHandles[position] = desiredHandle;
                 RefreshInfoBadgeVisibility(position);
+                RefreshJumpBadgeVisibility(position);
             }
         }
 
