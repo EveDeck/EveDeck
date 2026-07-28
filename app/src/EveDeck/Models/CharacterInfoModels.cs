@@ -2,10 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace EveDeck.Models;
 
-// ESI response shapes for the per-seat preview info flyout and the skill-queue alerts (added
-// 2026-07-24). All read-only public/character endpoints; see EsiAuthService for the scopes they need.
-// Deserialized by CharacterInfoService via EsiClient.GetAsync. Type ids (skill/ship) are resolved to
-// display names by the existing EsiTypeCache; system ids by EsiTypeCache.GetSystemNameAsync.
+// ESI response shapes for the per-seat preview info flyout. All read-only public/character endpoints;
+// see EsiAuthService for the scopes they need. Deserialized by CharacterInfoService via EsiClient.GetAsync.
+// Type ids (skill/ship) are resolved to display names by the existing EsiTypeCache; system ids by
+// EsiTypeCache.GetSystemNameAsync.
 
 // One entry of GET /characters/{id}/skillqueue/ (esi-skills.read_skillqueue.v1). The queue is returned
 // as a JSON array ordered by QueuePosition. FinishDate/StartDate are absent (null) when the queue is
@@ -57,4 +57,12 @@ public sealed class EsiCharacterFatigue
     [JsonPropertyName("last_jump_date")] public DateTimeOffset? LastJumpDate { get; set; }
     [JsonPropertyName("jump_fatigue_expire_date")] public DateTimeOffset? JumpFatigueExpireDate { get; set; }
     [JsonPropertyName("last_update_date")] public DateTimeOffset? LastUpdateDate { get; set; }
+}
+
+// GET /characters/{id}/skills/ (esi-skills.read_skills.v1). Returns total and unallocated skill points.
+// Used by the preview info flyout's "SP" line.
+public sealed class EsiCharacterSkillsResponse
+{
+    [JsonPropertyName("total_sp")] public long TotalSp { get; set; }
+    [JsonPropertyName("unallocated_sp")] public long UnallocatedSp { get; set; }
 }

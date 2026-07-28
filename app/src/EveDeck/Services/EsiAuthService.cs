@@ -16,8 +16,6 @@ public sealed class EsiAuthService
     private const string VerifyUrl = "https://login.eveonline.com/oauth/verify";
     private const string RedirectUri = "http://localhost:4080/callback/";
 
-    public const string ScopePlanets = "esi-planets.manage_planets.v1";
-    public const string ScopeAssets = "esi-assets.read_assets.v1";
     public const string ScopeSkills = "esi-skills.read_skills.v1";
     // Added 2026-07-24 for the skill-queue alerts and the per-seat preview info flyout. All read-only.
     // Adding these to the login scope means existing linked characters must re-consent once to grant
@@ -34,9 +32,8 @@ public sealed class EsiAuthService
     // Added 2026-07-24 for the flyout's wallet-balance line.
     public const string ScopeWallet = "esi-wallet.read_character_wallet.v1";
 
-    // Requested on every login. The PI scopes are read-only in practice (we only GET), but ESI has no
-    // read-only planets scope — manage_planets is the only one that exposes colonies.
-    private const string Scope = "publicData " + ScopePlanets + " " + ScopeAssets + " " + ScopeSkills
+    // Requested on every login.
+    private const string Scope = "publicData " + ScopeSkills
         + " " + ScopeSkillQueue + " " + ScopeLocation + " " + ScopeShipType + " " + ScopeFatigue
         + " " + ScopeStructures + " " + ScopeWallet;
 

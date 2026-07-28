@@ -10,8 +10,8 @@ public sealed partial class MainWindowViewModel
     private readonly EsiAuthService _esiAuth = new();
     private bool _esiLoginInProgress;
 
-    // Encrypted refresh/access token store for the PI monitor. Lazily created so tests that never
-    // touch ESI don't write a tokens file. Keyed off the same app-data folder as settings.json.
+    // Encrypted refresh/access token store for linked ESI characters. Lazily created so tests that
+    // never touch ESI don't write a tokens file. Keyed off the same app-data folder as settings.json.
     private EsiTokenStore? _tokenStore;
     public EsiTokenStore TokenStore => _tokenStore ??= new EsiTokenStore(_configService.AppDataFolder);
 
@@ -44,12 +44,10 @@ public sealed partial class MainWindowViewModel
                 return;
             }
 
-            // Persist the (encrypted) token so the PI monitor can call ESI on this character's behalf.
+            // Persist the (encrypted) token so the info flyout and skill queue can call ESI on this character's behalf.
             TokenStore.Put(token);
-            if (!token.HasScope(EsiAuthService.ScopePlanets))
-                Log.Warn($"{characterName} was linked without the Planetary Industry scope — the Planets tab won't see their colonies. Re-link and keep all boxes ticked to fix.");
             if (!token.HasScope(EsiAuthService.ScopeSkills))
-                Log.Warn($"{characterName} was linked without the skills scope — their colony cards won't show an Interplanetary Consolidation level. Re-link and keep all boxes ticked to fix.");
+                Log.Warn($"{characterName} was linked without the skills scope — their info flyout won't show total SP. Re-link and keep all boxes ticked to fix.");
 
             // The first character linked anywhere becomes the app master (its name + portrait brand
             // the title bar). Detect BEFORE adding so we only promote on a truly empty roster.
@@ -90,8 +88,8 @@ public sealed partial class MainWindowViewModel
     }
 
     // Re-runs the SSO login for an already-linked character to refresh its stored ESI token — e.g.
-    // to pick up a newly-added scope (like Planetary Industry) without removing and re-adding the
-    // character. Does not touch the seat/assignment, only the token in TokenStore.
+    // to pick up a newly-added scope without removing and re-adding the character. Does not touch
+    // the seat/assignment, only the token in TokenStore.
     private async void ReauthEsiCharacter(object? parameter)
     {
         if (parameter is not EsiCharacter character) return;
@@ -116,7 +114,6 @@ public sealed partial class MainWindowViewModel
 
             TokenStore.Put(token);
             var missing = new List<string>();
-            if (!token.HasScope(EsiAuthService.ScopePlanets)) missing.Add("Planetary Industry");
             if (!token.HasScope(EsiAuthService.ScopeSkills)) missing.Add("skills");
             Log.Info(missing.Count == 0
                 ? $"Re-authorised {character.CharacterName} — all scopes granted."
@@ -180,12 +177,9 @@ public sealed partial class MainWindowViewModel
             slot.Label = slot.EsiCharacters[0].CharacterName;
 
         TokenStore.Remove(character.CharacterId);
-        // Drop any carried skill-queue state + cached ESI facts so a re-linked character (or a reused
-        // seat) can't inherit the removed character's stale queue snapshot or flyout data.
-        _skillQueueService?.Forget(character.CharacterId);
+        // Drop cached ESI facts so a re-linked character (or a reused seat) can't inherit the removed
+        // character's stale flyout data.
         _characterInfo?.Invalidate(character.CharacterId);
-        if (_settings.PiConsolidationCharacterId == character.CharacterId)
-            _settings.PiConsolidationCharacterId = null;
 
         Log.Info($"Removed {character.CharacterName} from seat {slot.SlotNumber}.");
         Save();

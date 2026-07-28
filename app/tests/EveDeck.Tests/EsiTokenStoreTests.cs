@@ -26,7 +26,7 @@ public class EsiTokenStoreTests : IDisposable
         RefreshToken = "refresh-secret-abc",
         AccessToken = "access-jwt-xyz",
         ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(20),
-        Scopes = new() { "publicData", EsiAuthService.ScopePlanets },
+        Scopes = new() { "publicData", EsiAuthService.ScopeSkills },
     };
 
     [Fact]
@@ -38,7 +38,7 @@ public class EsiTokenStoreTests : IDisposable
         var got = store.Get(90000001);
         Assert.NotNull(got);
         Assert.Equal("refresh-secret-abc", got!.RefreshToken);
-        Assert.True(got.HasScope(EsiAuthService.ScopePlanets));
+        Assert.True(got.HasScope(EsiAuthService.ScopeSkills));
     }
 
     [Fact]
