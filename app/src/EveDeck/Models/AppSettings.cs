@@ -296,6 +296,23 @@ public sealed class AppSettings
     // Total + unallocated skill points.
     public bool InfoFlyoutShowSp { get; set; } = true;
 
+    // Jump-status badges on each corner preview (added 2026-07-28): small "F"/"R" badges in the
+    // tile's top-left corner, shown only while a linked character has active jump fatigue or is on
+    // its jump-reactivation cooldown; hover for the exact remaining time. Off until opted in, needs
+    // the fatigue/skills scopes (already covered by the standard link). One toggle for both, since
+    // the badges are meant to be glanced at together rather than tuned independently.
+    public bool CornerOverlayShowJumpBadges { get; set; } = false;
+
+    // Seat health alerts (added 2026-07-28): toast notifications for a linked character's ship
+    // flipping to a capsule (correlated against zKillboard to distinguish a real kill from a
+    // deliberate bare-pod flight or an in-station ship swap) and for an ESI online/offline mismatch
+    // against the seat's window (catches a silently disconnected client whose window is still open).
+    // Independent toggles -- these are unrelated failure modes, on their own polling timer, not tied
+    // to corner overlays being enabled. Off until opted in; the online check needs a fresh re-link
+    // (see EsiAuthService.ScopeOnline).
+    public bool SeatHealthAlertPodded { get; set; } = false;
+    public bool SeatHealthAlertDisconnected { get; set; } = false;
+
     // Stream-safe mode (added 2026-07-24): masks identifying info on the overlays / pills / info flyout
     // for streamers -- aliases character names to "Alt N", drops system names, and hides wallet ISK.
     // Flip it mid-stream with the ToggleStreamSafe hotkey. Never touches the main app UI.

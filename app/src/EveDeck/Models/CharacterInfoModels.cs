@@ -59,10 +59,26 @@ public sealed class EsiCharacterFatigue
     [JsonPropertyName("last_update_date")] public DateTimeOffset? LastUpdateDate { get; set; }
 }
 
-// GET /characters/{id}/skills/ (esi-skills.read_skills.v1). Returns total and unallocated skill points.
-// Used by the preview info flyout's "SP" line.
+// GET /characters/{id}/skills/ (esi-skills.read_skills.v1). Used by the preview info flyout's "SP"
+// line (TotalSp/UnallocatedSp) and by the corner-overlay jump-reactivation badge (Skills, to read the
+// trained Jump Drive Calibration level). The real ESI response's per-skill entries also carry
+// trained_skill_level/skillpoints_in_skill; only the two fields actually used are mapped.
 public sealed class EsiCharacterSkillsResponse
 {
     [JsonPropertyName("total_sp")] public long TotalSp { get; set; }
     [JsonPropertyName("unallocated_sp")] public long UnallocatedSp { get; set; }
+    [JsonPropertyName("skills")] public List<EsiCharacterSkillEntry>? Skills { get; set; }
+}
+
+public sealed class EsiCharacterSkillEntry
+{
+    [JsonPropertyName("skill_id")] public int SkillId { get; set; }
+    [JsonPropertyName("active_skill_level")] public int ActiveSkillLevel { get; set; }
+}
+
+// GET /characters/{id}/online/ (esi-location.read_online.v1). Used by the seat-health "disconnected"
+// alert to catch a client whose window is still open but whose game session actually dropped.
+public sealed class EsiCharacterOnline
+{
+    [JsonPropertyName("online")] public bool Online { get; set; }
 }

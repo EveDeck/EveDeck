@@ -31,11 +31,15 @@ public sealed class EsiAuthService
     public const string ScopeStructures = "esi-universe.read_structures.v1";
     // Added 2026-07-24 for the flyout's wallet-balance line.
     public const string ScopeWallet = "esi-wallet.read_character_wallet.v1";
+    // Added 2026-07-28 for the seat-health "disconnected" alert (ESI online-status vs. the seat's
+    // window still being present). Characters linked before this change won't return online status
+    // until re-linked; the check degrades gracefully (skips that character) until then.
+    public const string ScopeOnline = "esi-location.read_online.v1";
 
     // Requested on every login.
     private const string Scope = "publicData " + ScopeSkills
         + " " + ScopeSkillQueue + " " + ScopeLocation + " " + ScopeShipType + " " + ScopeFatigue
-        + " " + ScopeStructures + " " + ScopeWallet;
+        + " " + ScopeStructures + " " + ScopeWallet + " " + ScopeOnline;
 
     private static readonly HttpClient _http = new();
 

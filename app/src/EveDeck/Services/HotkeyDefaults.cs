@@ -99,8 +99,10 @@ public static class HotkeyDefaults
         }
 
         // Jump focus back to the last non-EVE window you were using (e.g. a browser/spreadsheet) --
-        // pure window focus, ships unbound.
-        bindings.Add(new HotkeyBinding { ActionId = "FocusPreviousApp", DisplayName = "Focus last non-EVE window", Modifiers = 0, VirtualKey = 0, GestureText = "" });
+        // pure window focus. Bound by default (unlike most of the list above) since it's a comfort
+        // feature meant to work out of the box; Ctrl+Alt+B is free alongside the FocusSlot/ApplyLayout
+        // bindings above.
+        bindings.Add(new HotkeyBinding { ActionId = "FocusPreviousApp", DisplayName = "Focus last non-EVE window", Modifiers = ModControl | ModAlt, VirtualKey = (uint)'B', GestureText = "Ctrl+Alt+B" });
 
         // Panic pause: suspend/resume every EveDeck hotkey at once (this toggle keeps working while
         // suspended). Ships unbound.

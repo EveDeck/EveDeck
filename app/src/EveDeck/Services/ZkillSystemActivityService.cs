@@ -47,6 +47,27 @@ public sealed class ZkillSystemActivityService
         }
     }
 
+    // Whether zKillboard has recorded this character as a LOSS victim within the past `pastSeconds`
+    // (max 604800 = 7 days, zKill's own cap) -- used by the seat-health "podded" alert to distinguish
+    // an actual kill from a deliberate bare-pod flight or an in-station ship swap. zKill's own
+    // pastSeconds filter does the recency check server-side (the compact {killmail_id, zkb} entries
+    // it returns carry no timestamp to parse client-side), so "any entries at all" already means
+    // "within the window" -- no separate timestamp comparison needed. false on any failure (network,
+    // zKill error) rather than throwing; the caller falls back to an unconfirmed-but-still-useful alert.
+    public static async Task<bool> HasRecentLossAsync(long characterId, int pastSeconds, CancellationToken ct)
+    {
+        try
+        {
+            var url = $"https://zkillboard.com/api/losses/characterID/{characterId}/pastSeconds/{pastSeconds}/";
+            using var doc = JsonDocument.Parse(await _http.GetStringAsync(url, ct));
+            return doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static HttpClient CreateHttp()
     {
         var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
