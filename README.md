@@ -37,7 +37,7 @@ thumbnails — it barely touches your CPU: 0–5% in a real 5-account session, l
 single instance of Discord.
 
 <p align="center">
-  <img src="images/single.jpg" width="640" alt="A borderless EVE client filling its master slot" />
+  <img src="images/master-slot.jpg" width="640" alt="A borderless EVE client filling its master slot, live in a 5-account session" />
   <br />
   <sub>One client, borderless, filling its slot — no window chrome eating your view.</sub>
 </p>
@@ -122,12 +122,12 @@ Pick a family, set a resolution and account count, and EveDeck does the math.
 <table>
 <tr>
 <td width="50%">
-<img src="images/layoutwin.png" width="100%" alt="The Layouts tab, Side Stack profile selected" />
+<img src="images/layouts-tab.png" width="100%" alt="The Layouts tab, a custom 5-slot profile selected" />
 <br /><sub>The <b>Layouts</b> tab — pick a family, set resolution + accounts, hit Apply.</sub>
 </td>
 <td width="50%">
-<img src="images/examplesidestack.jpg" width="100%" alt="Side Stack layout running live in EVE with 5 accounts" />
-<br /><sub><b>Side Stack</b>, 5 accounts, live in EVE — master fills the screen, alts stack down the edge.</sub>
+<img src="images/grid-live.jpg" width="100%" alt="Grid layout running live in EVE with 4 accounts, stream-safe mode hiding character names" />
+<br /><sub><b>Grid</b>, 4 accounts, live in EVE — stream-safe mode swaps names for "Alt N" on the overlay.</sub>
 </td>
 </tr>
 <tr>
