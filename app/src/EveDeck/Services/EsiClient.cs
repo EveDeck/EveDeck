@@ -34,7 +34,7 @@ public sealed class EsiClient
     private static HttpClient CreateHttp()
     {
         var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("EveDeck/PI (github.com/objectless/EveDeck)");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("EveDeck/PI (github.com/EveDeck/EveDeck)");
         return http;
     }
 

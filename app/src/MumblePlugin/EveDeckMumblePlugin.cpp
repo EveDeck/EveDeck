@@ -13,7 +13,7 @@
 //                                                  pipe is detected even when nobody is talking
 //
 // The plugin never transmits audio, credentials, or messages -- it is a read-only presence feed.
-// GPL-3.0, part of EveDeck (https://github.com/objectless/EveDeck).
+// GPL-3.0, part of EveDeck (https://github.com/EveDeck/EveDeck).
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
