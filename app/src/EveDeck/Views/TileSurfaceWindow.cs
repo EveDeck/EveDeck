@@ -47,6 +47,10 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     public bool InfoButtonsEnabled;
     public Action<int>? InfoButtonClicked;
 
+    // AppSettings.CornerOverlayChromeScale -- must match what LabelSurfaceWindow drew the badge at,
+    // or the hit-test rect below diverges from the visible one.
+    public double ChromeScale = 1.0;
+
     // Badge hit rects (surface-relative), keyed by position, for EVERY position that shows an info
     // badge -- including the master rect, which in dominant-master layouts has no entry in _tiles and
     // so can't be found by the tile hit-test. Registered by the view-model. The hit-test prefers a
@@ -669,7 +673,7 @@ internal sealed class TileSurfaceWindow : WinForms.Form
             // unaffected.
             if (_hiddenTiles.Contains(pos)) continue;
             var effective = _tiles.TryGetValue(pos, out var live) ? live : rect;
-            if (OverlayInfoButton.RectFor(effective).Contains(location)) { position = pos; return true; }
+            if (OverlayInfoButton.RectFor(effective, ChromeScale).Contains(location)) { position = pos; return true; }
         }
         position = -1;
         return false;

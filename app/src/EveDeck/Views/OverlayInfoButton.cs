@@ -16,11 +16,17 @@ internal static class OverlayInfoButton
     // The button's rect for a given tile rect. Pure geometry, coordinate-space-agnostic: the tile
     // surface passes its surface-relative tile rect, the label surface its own surface-relative rect,
     // and the flyout its absolute physical rect -- each gets the corner rect back in the same space.
-    public static System.Drawing.Rectangle RectFor(System.Drawing.Rectangle tile)
+    //
+    // `scale` is AppSettings.CornerOverlayChromeScale, independent of Windows' own per-monitor DPI
+    // scale -- it lets the badge grow on a small/high-density display without touching the desktop's
+    // scaling. Every caller must pass the same value or the drawn badge and its hit-test rect diverge.
+    public static System.Drawing.Rectangle RectFor(System.Drawing.Rectangle tile, double scale = 1.0)
     {
-        var size = System.Math.Min(SizePx, System.Math.Min(tile.Width, tile.Height));
-        var x = tile.Right - InsetPx - size;
-        var y = tile.Top + InsetPx;
+        var sizePx = (int)System.Math.Round(SizePx * scale);
+        var insetPx = (int)System.Math.Round(InsetPx * scale);
+        var size = System.Math.Min(sizePx, System.Math.Min(tile.Width, tile.Height));
+        var x = tile.Right - insetPx - size;
+        var y = tile.Top + insetPx;
         return new System.Drawing.Rectangle(x, y, size, size);
     }
 }

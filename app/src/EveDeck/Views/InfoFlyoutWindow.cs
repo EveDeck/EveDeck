@@ -26,13 +26,15 @@ internal sealed class InfoFlyoutWindow : Window
     private readonly StackPanel _lines = new();
     private readonly int _physX, _physY;
     private readonly double _dpiScale;
+    private readonly double _chromeScale;
     private nint _ownerHwnd;
 
-    public InfoFlyoutWindow(int physX, int physY, double dpiScale, string title)
+    public InfoFlyoutWindow(int physX, int physY, double dpiScale, string title, double chromeScale = 1.0)
     {
         _physX = physX;
         _physY = physY;
         _dpiScale = dpiScale;
+        _chromeScale = chromeScale;
 
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
@@ -52,8 +54,8 @@ internal sealed class InfoFlyoutWindow : Window
             Foreground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6)),
             FontFamily = new FontFamily("Segoe UI"),
             FontWeight = FontWeights.SemiBold,
-            FontSize = 12,
-            Margin = new Thickness(0, 0, 0, 4),
+            FontSize = 12 * chromeScale,
+            Margin = new Thickness(0, 0, 0, 4 * chromeScale),
         };
 
         var panel = new StackPanel();
@@ -66,7 +68,7 @@ internal sealed class InfoFlyoutWindow : Window
             BorderBrush = new SolidColorBrush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(10, 8, 10, 8),
+            Padding = new Thickness(10 * chromeScale, 8 * chromeScale, 10 * chromeScale, 8 * chromeScale),
             Child = panel,
         };
 
@@ -91,7 +93,7 @@ internal sealed class InfoFlyoutWindow : Window
                 Text = line,
                 Foreground = new SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE1)),
                 FontFamily = new FontFamily("Consolas"),
-                FontSize = 12,
+                FontSize = 12 * _chromeScale,
                 Margin = new Thickness(0, 1, 0, 1),
                 HorizontalAlignment = HorizontalAlignment.Left,
             });
