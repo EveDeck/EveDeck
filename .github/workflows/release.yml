@@ -113,7 +113,7 @@ jobs:
         # release; harmless no-op on the very first run when there's nothing to seed from yet.
         run: |
           dotnet tool install -g vpk
-          vpk download github --repoUrl https://github.com/objectless/EveDeck --token ${{ secrets.GITHUB_TOKEN }}
+          vpk download github --repoUrl https://github.com/EveDeck/EveDeck --token ${{ secrets.GITHUB_TOKEN }}
           vpk pack -u EveDeck -v ${{ steps.ver.outputs.version }} -p publish-ci -e EveDeck.exe `
             --packTitle EveDeck --icon app\src\EveDeck\Assets\evedeck.ico
 
@@ -314,7 +314,7 @@ jobs:
       # release and deploy. RELEASES_REPO_TOKEN must have write access to EveDeck-site.
       - uses: actions/checkout@v4
         with:
-          repository: objectless/EveDeck-site
+          repository: EveDeck/EveDeck-site
           token: ${{ secrets.RELEASES_REPO_TOKEN }}
           ref: main
 
@@ -361,7 +361,7 @@ jobs:
             }
             END { if (buf != "") print buf }
           ')
-          FLAGS=("--installer-url=https://github.com/objectless/EveDeck/releases/download/v$VERSION/EveDeck-Setup-v$VERSION.exe")
+          FLAGS=("--installer-url=https://github.com/EveDeck/EveDeck/releases/download/v$VERSION/EveDeck-Setup-v$VERSION.exe")
           [ -n "$PORTABLE_SHA256" ] && FLAGS+=("--sha256=$PORTABLE_SHA256")
           [ -n "$PORTABLE_VT_URL" ] && FLAGS+=("--virustotal-url=$PORTABLE_VT_URL")
           [ -n "$PORTABLE_VT_SUMMARY" ] && FLAGS+=("--virustotal-summary=$PORTABLE_VT_SUMMARY")
@@ -374,7 +374,7 @@ jobs:
           # not a plain zip -- reusing the same content.ts fields (no schema change) since this is
           # a replacement, not an addition, of the old portable download.
           node scripts/add-release.mjs "$VERSION" \
-            "https://github.com/objectless/EveDeck/releases/download/v$VERSION/EveDeck-win-Portable.zip" \
+            "https://github.com/EveDeck/EveDeck/releases/download/v$VERSION/EveDeck-win-Portable.zip" \
             "${FLAGS[@]}" "${BULLETS[@]}"
 
       - name: Commit content.ts update

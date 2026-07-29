@@ -12,7 +12,7 @@ Live client previews, hotkey focus switching, resolution-independent layout prof
 jump-distance intel alerts, and a Mumble comms bridge — all from a single
 self-contained Windows app.
 
-[![Download latest](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fevedeck.space%2Fapi%2Fversion&query=%24.version&prefix=v&label=Download&color=2563eb&style=for-the-badge)](https://github.com/objectless/EveDeck/releases/latest)
+[![Download latest](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fevedeck.space%2Fapi%2Fversion&query=%24.version&prefix=v&label=Download&color=2563eb&style=for-the-badge)](https://github.com/EveDeck/EveDeck/releases/latest)
 [![Website](https://img.shields.io/badge/evedeck.space-visit-2563eb?style=for-the-badge)](https://evedeck.space)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-16a34a?style=for-the-badge)](LICENSE)
 
@@ -20,7 +20,7 @@ self-contained Windows app.
 ![EVE EULA compliant](https://img.shields.io/badge/EVE%20EULA-compliant-success)
 ![.NET bundled](https://img.shields.io/badge/.NET-bundled-8b5cf6)
 
-**[⬇ Download](https://github.com/objectless/EveDeck/releases/latest)  ·  [🌐 evedeck.space](https://evedeck.space)  ·  [📖 Setup guide](https://evedeck.space/readme)**
+**[⬇ Download](https://github.com/EveDeck/EveDeck/releases/latest)  ·  [🌐 evedeck.space](https://evedeck.space)  ·  [📖 Setup guide](https://evedeck.space/readme)**
 
 </div>
 
@@ -161,7 +161,7 @@ Pick a family, set a resolution and account count, and EveDeck does the math.
 
 ## Up and running in minutes
 
-**01 · Download &amp; run** — grab the [latest release](https://github.com/objectless/EveDeck/releases/latest),
+**01 · Download &amp; run** — grab the [latest release](https://github.com/EveDeck/EveDeck/releases/latest),
 unzip, and run `EveDeck.exe`. No installer, no .NET runtime — everything is bundled.
 
 **02 · Complete the wizard** — it detects your clients, links your characters via ESI

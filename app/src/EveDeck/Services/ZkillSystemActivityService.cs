@@ -72,7 +72,7 @@ public sealed class ZkillSystemActivityService
     {
         var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
         // zKillboard asks for a descriptive, contactable User-Agent.
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("EveDeck (github.com/objectless/EveDeck)");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("EveDeck (github.com/EveDeck/EveDeck)");
         http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
         return http;
     }

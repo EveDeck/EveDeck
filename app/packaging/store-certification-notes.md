@@ -52,7 +52,7 @@ from:
 The app collects no personal data, has no accounts, and contains no telemetry or analytics. Privacy
 policy: https://evedeck.space/privacy
 
-The source is public and GPL-3.0 licensed: https://github.com/objectless/EveDeck — the compliance
+The source is public and GPL-3.0 licensed: https://github.com/EveDeck/EveDeck — the compliance
 boundary described above is documented in COMPLIANCE.md in that repository.
 
 EveDeck is an independent project and is not affiliated with or endorsed by CCP hf / Fenris

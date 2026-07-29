@@ -17,7 +17,7 @@ public enum InstallKind { Velopack, Inno, Unknown }
 /// </summary>
 public sealed class UpdateApplyService
 {
-    private const string GithubRepoUrl = "https://github.com/objectless/EveDeck";
+    private const string GithubRepoUrl = "https://github.com/EveDeck/EveDeck";
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(5) };
 
     private readonly LogService? _log;
