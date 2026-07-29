@@ -286,6 +286,11 @@ public sealed class AppSettings
     // location/ship-type/fatigue/skill-queue scopes (re-link characters to grant them). Each line is
     // independently toggleable so the card stays as small as the user wants.
     public bool CornerOverlayInfoButtonEnabled { get; set; } = false;
+    // Independent of Windows' own per-monitor DPI scaling (added 2026-07-29): scales the info
+    // badge, jump-status badges, and their popup text so they can be read on a small/high-density
+    // display (e.g. a tablet used as a monitor) without cranking Windows scaling up, which affects
+    // the whole desktop including EVE itself.
+    public double CornerOverlayChromeScale { get; set; } = 1.0;
     public bool InfoFlyoutShowWallet { get; set; } = true;
     public bool InfoFlyoutShowShip { get; set; } = true;
     public bool InfoFlyoutShowLocation { get; set; } = true;

@@ -44,6 +44,23 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    // Scales the info badge, jump badges, and their popup text -- independent of Windows' own
+    // per-monitor DPI scale. Baked into LabelSurfaceWindow/TileSurfaceWindow at construction, so
+    // changing it rebuilds the overlay (same reasoning as CornerOverlayInfoButtonEnabled above).
+    public double CornerOverlayChromeScale
+    {
+        get => _settings.CornerOverlayChromeScale;
+        set
+        {
+            var clamped = Math.Clamp(value, 1.0, 4.0);
+            if (Math.Abs(_settings.CornerOverlayChromeScale - clamped) < 0.001) return;
+            _settings.CornerOverlayChromeScale = clamped;
+            OnPropertyChanged();
+            Save();
+            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+        }
+    }
+
     public bool InfoFlyoutShowWallet
     {
         get => _settings.InfoFlyoutShowWallet;
@@ -86,13 +103,20 @@ public sealed partial class MainWindowViewModel
         set { if (_settings.InfoFlyoutShowSp == value) return; _settings.InfoFlyoutShowSp = value; OnPropertyChanged(); Save(); }
     }
 
-    // ── Badge click ─────────────────────────────────────────────────────────────────────────────────
+    // ── Badge hover ─────────────────────────────────────────────────────────────────────────────────
 
-    // Fired from TileSurfaceWindow on the UI thread (same as OnCornerTileClicked). Toggles the card
-    // closed if it's already showing this tile, otherwise opens it and fills it asynchronously.
-    private async void OnInfoButtonClicked(int position)
+    // Still wired from TileSurfaceWindow's click handler purely so a plain click on the badge is
+    // swallowed there (TileSurfaceWindow returns early without invoking the focus-switch/cycle
+    // gesture) rather than switching focus to that seat. The actual open/close now lives in
+    // MaintainCornerOverlays' cursor poll (see OpenInfoFlyoutOnHover/CloseInfoFlyout below) -- a
+    // hover-to-show, exit-to-hide card reads far better than one that sticks open until re-clicked.
+    private void OnInfoButtonClicked(int position) { }
+
+    // Opens the card for `position`, called from the hover poll once the cursor lands on that seat's
+    // badge (see MaintainCornerOverlays). No-ops if the card is already open for this position.
+    private async void OpenInfoFlyoutOnHover(int position)
     {
-        if (_infoFlyout is not null && _infoFlyoutPosition == position) { CloseInfoFlyout(); return; }
+        if (_infoFlyout is not null && _infoFlyoutPosition == position) return;
         CloseInfoFlyout();
 
         // Settle any active hover-zoom/peek first so the card opens over a static preview, the badge
@@ -107,8 +131,9 @@ public sealed partial class MainWindowViewModel
         var title = StreamSafe ? $"Alt {seat}" : (character?.CharacterName ?? SeatLabel(seat));
 
         // Anchor the card just below the badge's bottom edge.
-        var badge = OverlayInfoButton.RectFor(new System.Drawing.Rectangle(rect.X, rect.Y, rect.Width, rect.Height));
-        var flyout = new InfoFlyoutWindow(badge.X, badge.Bottom + 2, _overlayDpiScale, title);
+        var chromeScale = Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0);
+        var badge = OverlayInfoButton.RectFor(new System.Drawing.Rectangle(rect.X, rect.Y, rect.Width, rect.Height), chromeScale);
+        var flyout = new InfoFlyoutWindow(badge.X, badge.Bottom + 2, _overlayDpiScale, title, chromeScale);
         // Own it to the label surface (which sits above the tile surface) so the overlay's periodic
         // topmost re-assert can't bury the card. The badge only exists when the label surface does.
         flyout.SetOwner(_labelSurface?.Handle ?? (_tileSurface?.Handle ?? 0));

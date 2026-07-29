@@ -58,7 +58,7 @@ public sealed partial class MainWindowViewModel
     {
         if (_jumpHoverTip is null)
         {
-            _jumpHoverTip = new OverlayHoverTipWindow(_overlayDpiScale);
+            _jumpHoverTip = new OverlayHoverTipWindow(_overlayDpiScale, Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0));
             _jumpHoverTip.SetOwner(_labelSurface?.Handle ?? _tileSurface?.Handle ?? 0);
         }
         _jumpHoverTip.ShowAt(physX, physY, physSize, text);

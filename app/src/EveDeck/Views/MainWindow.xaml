@@ -1542,6 +1542,17 @@ Preview tiles shrink the whole client window. To read them better: raise UI Scal
               <TextBlock Text="Shows jump fatigue and reactivation cooldown badges on each preview. Requires the same ESI scopes as the info button above."
                          TextWrapping="Wrap" FontSize="11" Margin="20,0,0,6"
                          Foreground="{StaticResource MutedBrush}"/>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,2" VerticalAlignment="Center">
+                <TextBlock Text="Badge/popup text scale" VerticalAlignment="Center" Width="140"/>
+                <TextBox Width="48"
+                         Text="{Binding CornerOverlayChromeScale, UpdateSourceTrigger=PropertyChanged}"
+                         HorizontalContentAlignment="Center" FontSize="11"/>
+                <TextBlock Text="x  (1.0-4.0, default 1.0)" VerticalAlignment="Center"
+                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="6,0,0,0"/>
+              </StackPanel>
+              <TextBlock Text="Grows the info badge, jump badges, and their popup text on-screen -- independent of Windows' own display scaling, so a small/high-DPI monitor (e.g. a tablet used as a display) can stay legible without scaling the whole desktop up."
+                         TextWrapping="Wrap" FontSize="11" Margin="0,0,0,10"
+                         Foreground="{StaticResource MutedBrush}"/>
               <CheckBox Content="Stream-safe mode (hide names, systems, and ISK on the overlay)"
                         IsChecked="{Binding StreamSafeMode}"
                         Margin="0,4,0,2"/>

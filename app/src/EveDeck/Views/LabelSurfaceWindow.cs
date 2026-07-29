@@ -49,6 +49,7 @@ internal sealed class LabelSurfaceWindow : Window
     private readonly int _baseHeight;
     private readonly LabelAnchor _anchor;
     private readonly double _inset;
+    private readonly double _chromeScale;
     private nint _ownerHwnd;
 
     public LabelSurfaceWindow(int physX, int physY, int physWidth, int physHeight,
@@ -63,6 +64,7 @@ internal sealed class LabelSurfaceWindow : Window
         _baseHeight = settings.CornerOverlayLabelHeight;
         _anchor = ParseAnchor(settings.CornerOverlayLabelAnchor);
         _inset = Math.Max(0, settings.CornerOverlayLabelInset);
+        _chromeScale = Math.Clamp(settings.CornerOverlayChromeScale, 1.0, 4.0);
 
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
@@ -178,7 +180,7 @@ internal sealed class LabelSurfaceWindow : Window
         }
         if (!_infoButtons.TryGetValue(key, out var btn))
         {
-            btn = BuildInfoButton();
+            btn = BuildInfoButton(_chromeScale);
             _infoButtons[key] = btn;
             _canvas.Children.Add(btn);
         }
@@ -204,7 +206,7 @@ internal sealed class LabelSurfaceWindow : Window
     private void PlaceInfoButton(Border btn, WindowRect physRect)
     {
         var tile = new System.Drawing.Rectangle(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height);
-        var r = OverlayInfoButton.RectFor(tile);
+        var r = OverlayInfoButton.RectFor(tile, _chromeScale);
         _canvas.Children.Remove(btn);          // keep it drawn last so it stays above the pill/glow
         _canvas.Children.Add(btn);
         Canvas.SetLeft(btn, r.X / _dpiScale);
@@ -213,7 +215,7 @@ internal sealed class LabelSurfaceWindow : Window
         btn.Height = r.Height / _dpiScale;
     }
 
-    private static Border BuildInfoButton()
+    private static Border BuildInfoButton(double chromeScale)
     {
         var glyph = new TextBlock
         {
@@ -221,7 +223,7 @@ internal sealed class LabelSurfaceWindow : Window
             Foreground = new SolidColorBrush(Color.FromRgb(0xE5, 0xE7, 0xEB)),
             FontFamily = new FontFamily("Segoe UI"),
             FontWeight = FontWeights.Bold,
-            FontSize = 12,
+            FontSize = 12 * chromeScale,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             IsHitTestVisible = false,
@@ -276,7 +278,7 @@ internal sealed class LabelSurfaceWindow : Window
         }
         if (!badges.TryGetValue(key, out var btn))
         {
-            btn = BuildJumpBadge(glyph, color);
+            btn = BuildJumpBadge(glyph, color, _chromeScale);
             badges[key] = btn;
             _canvas.Children.Add(btn);
         }
@@ -287,7 +289,7 @@ internal sealed class LabelSurfaceWindow : Window
     private void PlaceJumpBadge(Border btn, WindowRect physRect, int slot)
     {
         var tile = new System.Drawing.Rectangle(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height);
-        var r = OverlayJumpBadge.RectFor(tile, slot);
+        var r = OverlayJumpBadge.RectFor(tile, slot, _chromeScale);
         _canvas.Children.Remove(btn);          // keep it drawn last so it stays above the pill/glow
         _canvas.Children.Add(btn);
         Canvas.SetLeft(btn, r.X / _dpiScale);
@@ -296,7 +298,7 @@ internal sealed class LabelSurfaceWindow : Window
         btn.Height = r.Height / _dpiScale;
     }
 
-    private static Border BuildJumpBadge(string glyph, Color color)
+    private static Border BuildJumpBadge(string glyph, Color color, double chromeScale)
     {
         var text = new TextBlock
         {
@@ -304,7 +306,7 @@ internal sealed class LabelSurfaceWindow : Window
             Foreground = new SolidColorBrush(color),
             FontFamily = new FontFamily("Segoe UI"),
             FontWeight = FontWeights.Bold,
-            FontSize = 10,
+            FontSize = 10 * chromeScale,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             IsHitTestVisible = false,

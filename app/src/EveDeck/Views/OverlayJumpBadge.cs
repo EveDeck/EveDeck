@@ -11,11 +11,16 @@ internal static class OverlayJumpBadge
     public const int InsetPx = 4;
     public const int GapPx = 4;
 
-    public static System.Drawing.Rectangle RectFor(System.Drawing.Rectangle tile, int slot)
+    // `scale` is AppSettings.CornerOverlayChromeScale -- see OverlayInfoButton.RectFor for why it's
+    // independent of Windows' own DPI scale. Every caller must pass the same value.
+    public static System.Drawing.Rectangle RectFor(System.Drawing.Rectangle tile, int slot, double scale = 1.0)
     {
-        var size = System.Math.Min(SizePx, System.Math.Min(tile.Width, tile.Height));
-        var x = tile.Left + InsetPx + slot * (size + GapPx);
-        var y = tile.Top + InsetPx;
+        var sizePx = (int)System.Math.Round(SizePx * scale);
+        var insetPx = (int)System.Math.Round(InsetPx * scale);
+        var gapPx = (int)System.Math.Round(GapPx * scale);
+        var size = System.Math.Min(sizePx, System.Math.Min(tile.Width, tile.Height));
+        var x = tile.Left + insetPx + slot * (size + gapPx);
+        var y = tile.Top + insetPx;
         return new System.Drawing.Rectangle(x, y, size, size);
     }
 }

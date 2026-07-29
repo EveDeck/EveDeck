@@ -373,6 +373,7 @@ public sealed partial class MainWindowViewModel
         _tileSurface.TileDragStarted = OnCornerTileDragStarted;
         _tileSurface.TileDragging = OnCornerTileDragging;
         _tileSurface.InfoButtonsEnabled = _settings.CornerOverlayInfoButtonEnabled;
+        _tileSurface.ChromeScale = Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0);
         _tileSurface.InfoButtonClicked = OnInfoButtonClicked;
         _tileSurface.SetOpacity(_settings.CornerOverlayPreviewOpacity);
         _tileSurface.Show();
@@ -1600,6 +1601,33 @@ public sealed partial class MainWindowViewModel
             _cursorOverPosition = -1;
         }
 
+        // Info badge: hover to open, cursor-exit to close (2026-07-29 -- was click-to-toggle, which
+        // left the card stuck open until re-clicked). Runs unconditionally whenever the feature is on,
+        // NOT gated on HoverPreviewEnabled/dragging like the zoom poll below, and deliberately keeps
+        // polling even while the card is already open (unlike that poll) so it can detect the cursor
+        // leaving and close it again. The card has no interactive content, so "leaves the small badge
+        // rect" is a fine close trigger -- there's nothing inside it worth moving the mouse into.
+        if (_settings.CornerOverlayInfoButtonEnabled && eveOrEwcFg && !_tileSurface.IsDragging
+            && Utilities.Win32Native.GetCursorPos(out var infoCur))
+        {
+            var infoChromeScale = Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0);
+            var overInfoBadgePosition = -1;
+            foreach (var (pos, r) in _cornerRects)
+            {
+                var badgeRect = OverlayInfoButton.RectFor(new System.Drawing.Rectangle(r.X, r.Y, r.Width, r.Height), infoChromeScale);
+                if (badgeRect.Contains(infoCur.X, infoCur.Y)) { overInfoBadgePosition = pos; break; }
+            }
+            if (overInfoBadgePosition != _infoFlyoutPosition)
+            {
+                if (_infoFlyout is not null) CloseInfoFlyout();
+                if (overInfoBadgePosition >= 0) OpenInfoFlyoutOnHover(overInfoBadgePosition);
+            }
+        }
+        else if (_infoFlyout is not null)
+        {
+            CloseInfoFlyout();
+        }
+
         // Suppressed while a tile is being dragged/resized -- moving the mouse across other tiles
         // mid-drag shouldn't also trigger hover-peek/zoom on them (see OnCornerTileDragStarted for
         // the matching cleanup of whatever was already active when the drag began). Also suppressed
@@ -1621,8 +1649,10 @@ public sealed partial class MainWindowViewModel
             // target. The zone is the badge rect grown a little so the zoom releases as you approach.
             if (hitPos >= 0 && _settings.CornerOverlayInfoButtonEnabled && _cornerRects.TryGetValue(hitPos, out var hitRect))
             {
-                var zone = OverlayInfoButton.RectFor(new System.Drawing.Rectangle(hitRect.X, hitRect.Y, hitRect.Width, hitRect.Height));
-                zone.Inflate(OverlayInfoButton.SizePx, OverlayInfoButton.SizePx);
+                var chromeScale = Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0);
+                var zone = OverlayInfoButton.RectFor(new System.Drawing.Rectangle(hitRect.X, hitRect.Y, hitRect.Width, hitRect.Height), chromeScale);
+                var inflatePx = (int)Math.Round(OverlayInfoButton.SizePx * chromeScale);
+                zone.Inflate(inflatePx, inflatePx);
                 if (zone.Contains(cur.X, cur.Y)) hitPos = -1;
             }
 
@@ -1635,15 +1665,16 @@ public sealed partial class MainWindowViewModel
                 && _jumpStatusByPosition.TryGetValue(hitPos, out var jbState))
             {
                 var jbTile = new System.Drawing.Rectangle(jbRect.X, jbRect.Y, jbRect.Width, jbRect.Height);
-                var overFatigue = jbState.FatigueActive && OverlayJumpBadge.RectFor(jbTile, 0).Contains(cur.X, cur.Y);
-                var overReactivation = !overFatigue && jbState.ReactivationActive && OverlayJumpBadge.RectFor(jbTile, 1).Contains(cur.X, cur.Y);
+                var jbScale = Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0);
+                var overFatigue = jbState.FatigueActive && OverlayJumpBadge.RectFor(jbTile, 0, jbScale).Contains(cur.X, cur.Y);
+                var overReactivation = !overFatigue && jbState.ReactivationActive && OverlayJumpBadge.RectFor(jbTile, 1, jbScale).Contains(cur.X, cur.Y);
                 if (overFatigue || overReactivation)
                 {
                     overJumpBadge = true;
                     hitPos = -1;
                     var slot = overFatigue ? 0 : 1;
                     var text = overFatigue ? jbState.FatigueText : jbState.ReactivationText;
-                    var badgeRect = OverlayJumpBadge.RectFor(jbTile, slot);
+                    var badgeRect = OverlayJumpBadge.RectFor(jbTile, slot, jbScale);
                     ShowJumpHoverTip(badgeRect.X, badgeRect.Y, badgeRect.Width, text);
                     _jumpHoverActive = true;
                 }

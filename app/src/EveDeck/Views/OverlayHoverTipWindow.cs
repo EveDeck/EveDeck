@@ -16,19 +16,20 @@ namespace EveDeck.Views;
 // instance is reused across every badge/tile (only one can be hovered at a time).
 internal sealed class OverlayHoverTipWindow : Window
 {
-    private readonly TextBlock _text = new()
-    {
-        Foreground = new SolidColorBrush(Color.FromRgb(0xE5, 0xE7, 0xEB)),
-        FontFamily = new FontFamily("Segoe UI"),
-        FontSize = 11,
-    };
+    private readonly TextBlock _text;
     private readonly double _dpiScale;
     private nint _ownerHwnd;
     private int _physX, _physY;
 
-    public OverlayHoverTipWindow(double dpiScale)
+    public OverlayHoverTipWindow(double dpiScale, double chromeScale = 1.0)
     {
         _dpiScale = dpiScale;
+        _text = new TextBlock
+        {
+            Foreground = new SolidColorBrush(Color.FromRgb(0xE5, 0xE7, 0xEB)),
+            FontFamily = new FontFamily("Segoe UI"),
+            FontSize = 11 * chromeScale,
+        };
 
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
@@ -46,7 +47,7 @@ internal sealed class OverlayHoverTipWindow : Window
             BorderBrush = new SolidColorBrush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(6, 3, 6, 3),
+            Padding = new Thickness(6 * chromeScale, 3 * chromeScale, 6 * chromeScale, 3 * chromeScale),
             Child = _text,
         };
 
