@@ -155,7 +155,10 @@ Pick a family, set a resolution and account count, and EveDeck does the math.
 <img src="images/diagrams/twin-stack.svg" width="100%" alt="Twin Stack layout diagram, 4 accounts split two per edge" />
 <br /><sub><b>Twin Stack</b> — alts stacked two per edge, master bookended in the middle.</sub>
 </td>
-<td width="50%"></td>
+<td width="50%">
+<img src="images/irl-setup.jpg" width="100%" alt="A real desk setup: an LG monitor running EVE plus a tablet mirrored as a second display showing four more EveDeck previews" />
+<br /><sub>A real desk — the <b>master</b> monitor plus a tablet-as-monitor running four more previews.</sub>
+</td>
 </tr>
 </table>
 
