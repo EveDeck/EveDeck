@@ -23,16 +23,25 @@ namespace EveDeck.Views;
 // self-sizes to its content, then re-pins to the physical anchor once WPF has measured it.
 internal sealed class InfoFlyoutWindow : Window
 {
+    private const int Gap = 2;
+
     private readonly StackPanel _lines = new();
-    private readonly int _physX, _physY;
+    private readonly int _badgeLeft, _badgeTop, _badgeRight, _badgeBottom;
     private readonly double _dpiScale;
     private readonly double _chromeScale;
     private nint _ownerHwnd;
 
-    public InfoFlyoutWindow(int physX, int physY, double dpiScale, string title, double chromeScale = 1.0)
+    // Full physical rect of the "i" badge. The card picks its open direction from which quadrant of
+    // the badge's own monitor the badge sits in (not from a post-hoc overflow check against a
+    // measured width, which is fragile around DPI/timing) -- a badge in a corner tile is very often
+    // already hugging a screen edge, so PinPhysical decides up-front to open away from that edge, then
+    // clamps as a last-resort safety net so the card can never render partly off-screen.
+    public InfoFlyoutWindow(int badgeLeft, int badgeTop, int badgeRight, int badgeBottom, double dpiScale, string title, double chromeScale = 1.0)
     {
-        _physX = physX;
-        _physY = physY;
+        _badgeLeft = badgeLeft;
+        _badgeTop = badgeTop;
+        _badgeRight = badgeRight;
+        _badgeBottom = badgeBottom;
         _dpiScale = dpiScale;
         _chromeScale = chromeScale;
 
@@ -45,8 +54,10 @@ internal sealed class InfoFlyoutWindow : Window
         Topmost = true;
         SizeToContent = SizeToContent.WidthAndHeight;
         WindowStartupLocation = WindowStartupLocation.Manual;
-        Left = physX / dpiScale;
-        Top = physY / dpiScale;
+        // Rough placement for the first (unmeasured) paint -- PinPhysical corrects this to the
+        // quadrant-aware, clamped position as soon as content is rendered.
+        Left = badgeLeft / dpiScale;
+        Top = badgeBottom / dpiScale;
 
         var header = new TextBlock
         {
@@ -116,16 +127,39 @@ internal sealed class InfoFlyoutWindow : Window
             Win32Native.SetWindowLongPtr(hwnd, Win32Native.GwlpHwndParent, _ownerHwnd);
     }
 
-    // Pin the top-left to the physical anchor at the measured content size. WPF's DIP Left/Top place a
-    // window through the PRIMARY monitor's scale, which misplaces it on a monitor with a different
-    // per-monitor DPI; positioning in physical pixels keeps the card glued to its badge.
+    // Pin the top-left to the physical anchor at the measured content size, clamped/flipped to stay
+    // within the badge's own monitor work area. WPF's DIP Left/Top place a window through the PRIMARY
+    // monitor's scale, which misplaces it on a monitor with a different per-monitor DPI; positioning
+    // in physical pixels keeps the card glued to its badge.
     private void PinPhysical()
     {
         var hwnd = new WindowInteropHelper(this).Handle;
         if (hwnd == 0) return;
         var w = (int)Math.Ceiling(ActualWidth * _dpiScale);
         var h = (int)Math.Ceiling(ActualHeight * _dpiScale);
-        Win32Native.SetWindowPos(hwnd, Win32Native.HwndTopmost, _physX, _physY, w, h,
+        var (x, y) = ComputeEdgeAwarePosition(w, h);
+        Win32Native.SetWindowPos(hwnd, Win32Native.HwndTopmost, x, y, w, h,
             Win32Native.SwpNoActivate);
+    }
+
+    // Quadrant-first: if the badge sits in the right half of its monitor, open leftward (anchor the
+    // card's right edge to the badge's right edge) instead of waiting to see if the default left-aligned
+    // placement would overflow. Same for vertical: bottom-half badge opens upward. Finally clamp fully
+    // inside the work area regardless, as a hard backstop.
+    private (int x, int y) ComputeEdgeAwarePosition(int w, int h)
+    {
+        var wa = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(_badgeLeft, _badgeTop)).WorkingArea;
+        var midX = wa.Left + wa.Width / 2;
+        var midY = wa.Top + wa.Height / 2;
+
+        var x = _badgeRight > midX ? _badgeRight - w : _badgeLeft;
+        var y = _badgeTop > midY ? _badgeTop - Gap - h : _badgeBottom + Gap;
+
+        if (x + w > wa.Right) x = wa.Right - w;
+        if (x < wa.Left) x = wa.Left;
+        if (y + h > wa.Bottom) y = wa.Bottom - h;
+        if (y < wa.Top) y = wa.Top;
+
+        return (x, y);
     }
 }

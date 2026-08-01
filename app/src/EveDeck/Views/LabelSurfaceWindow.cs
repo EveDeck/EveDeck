@@ -143,7 +143,9 @@ internal sealed class LabelSurfaceWindow : Window
     // override chain (see ResolveLabelAnchor) and hands the winner down.
     public void SetPill(int key, WindowRect physRect, string? anchorName,
                         string fontFamily, double fontSize, string colorHex,
-                        bool bold, bool italic, bool dropShadow, bool outline, int opacity = 100)
+                        bool bold, bool italic, bool dropShadow, bool outline,
+                        string backgroundStyle, string backgroundColorHex, string backgroundColor2Hex, int backgroundOpacity,
+                        int opacity = 100)
     {
         var anchor = string.IsNullOrWhiteSpace(anchorName) ? _anchor : ParseAnchor(anchorName);
         if (!_pills.TryGetValue(key, out var pill))
@@ -153,7 +155,8 @@ internal sealed class LabelSurfaceWindow : Window
             _canvas.Children.Add(pill.Container);
         }
         pill.ApplyAnchor(anchor, _inset);
-        pill.ApplyAppearance(fontFamily, fontSize, colorHex, bold, italic, dropShadow, outline, opacity);
+        pill.ApplyAppearance(fontFamily, fontSize, colorHex, bold, italic, dropShadow, outline,
+            backgroundStyle, backgroundColorHex, backgroundColor2Hex, backgroundOpacity, opacity);
         pill.Place(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height);
     }
 
@@ -339,11 +342,14 @@ internal sealed class LabelSurfaceWindow : Window
     }
 
     public void SetPillAppearance(int key, string fontFamily, double fontSize, string colorHex,
-                                  bool bold, bool italic, bool dropShadow, bool outline, int opacity = 100)
+                                  bool bold, bool italic, bool dropShadow, bool outline,
+                                  string backgroundStyle, string backgroundColorHex, string backgroundColor2Hex, int backgroundOpacity,
+                                  int opacity = 100)
     {
         if (_pills.TryGetValue(key, out var pill))
         {
-            pill.ApplyAppearance(fontFamily, fontSize, colorHex, bold, italic, dropShadow, outline, opacity);
+            pill.ApplyAppearance(fontFamily, fontSize, colorHex, bold, italic, dropShadow, outline,
+                backgroundStyle, backgroundColorHex, backgroundColor2Hex, backgroundOpacity, opacity);
             pill.RePlace();
         }
     }
@@ -444,21 +450,19 @@ internal sealed class LabelSurfaceWindow : Window
             _pill.VerticalAlignment = VerticalAlignment.Center;
             ApplyAnchor(anchor, inset);
 
-            if (_iconStyle)
-            {
-                _pill.Background = Brushes.Transparent;
-                _pill.CornerRadius = new CornerRadius(0);
-                _pill.Padding = new Thickness(6, 2, 6, 2);
-            }
-            else
-            {
-                _pill.Background = new SolidColorBrush(Color.FromArgb(0xCC, 0x0D, 0x11, 0x17));
-                _pill.Padding = new Thickness(12, 4, 12, 4);
-                // The chip now sits INSIDE the tile rather than butting against its edge as a
-                // full-width strip, so every corner is rounded regardless of anchor -- there is no
-                // longer an edge "facing into" the tile to leave square.
-                _pill.CornerRadius = new CornerRadius(6);
-            }
+            // Same padding/corner radius for both label styles now that the background chip
+            // (ApplyBackground below) applies to IconText too -- it defaults to "None" there
+            // (AppSettings.CornerOverlayLabelBackgroundStyle), which looks identical to the old
+            // always-transparent IconText look, but Solid/Gradient now draw a real chip behind the
+            // portrait+name row instead of only ever being available to the Pill style.
+            // Placeholder background; ApplyBackground (called right after construction, from
+            // SetPill's ApplyAppearance) applies the real style/color, so this is never actually seen.
+            _pill.Background = new SolidColorBrush(Color.FromArgb(0xCC, 0x0D, 0x11, 0x17));
+            _pill.Padding = new Thickness(12, 4, 12, 4);
+            // The chip sits INSIDE the tile rather than butting against its edge as a full-width
+            // strip, so every corner is rounded regardless of anchor -- there is no longer an edge
+            // "facing into" the tile to leave square.
+            _pill.CornerRadius = new CornerRadius(6);
 
             Container.Children.Add(_pill);
         }
@@ -487,8 +491,11 @@ internal sealed class LabelSurfaceWindow : Window
         // Font family, size, colour and style (bold/italic/drop shadow/outline) for this label;
         // height/portrait scale with the font so large sizes are never clipped.
         public void ApplyAppearance(string family, double fontSize, string colorHex,
-                                    bool bold, bool italic, bool dropShadow, bool outline, int opacity = 100)
+                                    bool bold, bool italic, bool dropShadow, bool outline,
+                                    string backgroundStyle, string backgroundColorHex, string backgroundColor2Hex, int backgroundOpacity,
+                                    int opacity = 100)
         {
+            ApplyBackground(backgroundStyle, backgroundColorHex, backgroundColor2Hex, backgroundOpacity);
             var fontFamily = ResolveFontFamily(family);
             var weight = bold ? FontWeights.Bold : FontWeights.SemiBold;
             var style = italic ? FontStyles.Italic : FontStyles.Normal;
@@ -529,6 +536,37 @@ internal sealed class LabelSurfaceWindow : Window
             // Whole-label fade: multiplies uniformly across background chip, text, outline copies and
             // drop shadow since they all live under this one Container.
             Container.Opacity = Math.Clamp(opacity, 0, 100) / 100.0;
+        }
+
+        // The label backdrop (AppSettings.CornerOverlayLabelBackgroundStyle/Color/Color2/Opacity),
+        // applied to BOTH label styles: the Pill's name chip and IconText's portrait+name row alike.
+        // IconText defaults effectively look the same as before this existed ("None" leaves it plain
+        // text + portrait, relying on DropShadow/Outline for legibility) but Solid/Gradient now draw a
+        // real backdrop behind the icon+name row too. Colors come in as plain opaque RGB (the WinForms
+        // ColorDialog used to pick them has no alpha channel); `opacityPercent` supplies the backdrop's
+        // own alpha here, independent of the whole-label Opacity (Container.Opacity above, which fades
+        // text + backdrop together).
+        private void ApplyBackground(string style, string colorHex, string color2Hex, int opacityPercent)
+        {
+            var alpha = (byte)(Math.Clamp(opacityPercent, 0, 100) * 255 / 100);
+            switch (style)
+            {
+                case "None":
+                    _pill.Background = Brushes.Transparent;
+                    break;
+                case "Gradient":
+                    var c1 = BrushFromHex(colorHex, Color.FromRgb(0x0D, 0x11, 0x17)).Color;
+                    var c2 = BrushFromHex(color2Hex, Color.FromRgb(0x1F, 0x29, 0x37)).Color;
+                    _pill.Background = new LinearGradientBrush(
+                        Color.FromArgb(alpha, c1.R, c1.G, c1.B),
+                        Color.FromArgb(alpha, c2.R, c2.G, c2.B),
+                        90.0);
+                    break;
+                default: // "Solid"
+                    var c = BrushFromHex(colorHex, Color.FromRgb(0x0D, 0x11, 0x17)).Color;
+                    _pill.Background = new SolidColorBrush(Color.FromArgb(alpha, c.R, c.G, c.B));
+                    break;
+            }
         }
 
         // Positions the strip within the surface canvas (tile rect given relative to the surface

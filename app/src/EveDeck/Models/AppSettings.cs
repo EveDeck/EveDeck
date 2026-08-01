@@ -150,6 +150,19 @@ public sealed class AppSettings
     public int CornerOverlayLabelOpacity { get; set; } = 100;
     public int? CornerOverlayLabelOpacityMaster { get; set; } = null;
 
+    // The pill chip's own backdrop, independent of the whole-label opacity above (which fades text +
+    // chip together). "None" drops the chip entirely -- just text, relying on DropShadow/Outline for
+    // legibility over bright video. "Solid" is a single flat color (the historical hardcoded look).
+    // "Gradient" blends top-to-bottom between Color and Color2. Colors are plain opaque RGB (same
+    // WinForms ColorDialog convention as ActiveFrameColor -- no alpha channel in that picker); the
+    // separate Opacity below supplies the chip's own alpha, replacing the old hardcoded ~80% (0xCC).
+    // One global setting, not per-seat/master -- the chip is small chrome, not worth doubling every
+    // option for.
+    public string CornerOverlayLabelBackgroundStyle { get; set; } = "Solid";
+    public string CornerOverlayLabelBackgroundColor { get; set; } = "#0D1117";
+    public string CornerOverlayLabelBackgroundColor2 { get; set; } = "#1F2937";
+    public int CornerOverlayLabelBackgroundOpacity { get; set; } = 80;
+
     // Preview-tile opacity (0-100%, DWM thumbnail alpha) for every corner/master DWM preview. One
     // global slider applied uniformly -- no per-seat/master split like the label opacity above.
     public int CornerOverlayPreviewOpacity { get; set; } = 100;

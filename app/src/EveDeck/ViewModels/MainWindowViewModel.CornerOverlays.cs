@@ -573,7 +573,9 @@ public sealed partial class MainWindowViewModel
         if (_labelSurface is null || !_settings.CornerOverlayShowLabel) return;
         var (family, size, color) = ResolveLabelFont(seat, isMaster);
         var (bold, italic, dropShadow, outline, opacity) = ResolveLabelStyle(seat, isMaster);
-        _labelSurface.SetPill(key, rect, ResolveLabelAnchor(seat, isMaster), family, size, color, bold, italic, dropShadow, outline, opacity);
+        _labelSurface.SetPill(key, rect, ResolveLabelAnchor(seat, isMaster), family, size, color, bold, italic, dropShadow, outline,
+            _settings.CornerOverlayLabelBackgroundStyle, _settings.CornerOverlayLabelBackgroundColor,
+            _settings.CornerOverlayLabelBackgroundColor2, _settings.CornerOverlayLabelBackgroundOpacity, opacity);
         // Match RefreshPositionPill's system-suffix coloring so the initial paint doesn't show the
         // system name in default color until the first refresh tick recolors it.
         var live = FindSeatWindow(seat) is not null;
@@ -1206,7 +1208,9 @@ public sealed partial class MainWindowViewModel
         var isMasterPosition = IsGroupCenterPosition(position);
         var (family, size, color) = ResolveLabelFont(seat, isMasterPosition);
         var (bold, italic, dropShadow, outline, opacity) = ResolveLabelStyle(seat, isMasterPosition);
-        _labelSurface.SetPillAppearance(position, family, size, color, bold, italic, dropShadow, outline, opacity);
+        _labelSurface.SetPillAppearance(position, family, size, color, bold, italic, dropShadow, outline,
+            _settings.CornerOverlayLabelBackgroundStyle, _settings.CornerOverlayLabelBackgroundColor,
+            _settings.CornerOverlayLabelBackgroundColor2, _settings.CornerOverlayLabelBackgroundOpacity, opacity);
     }
 
     private void RefreshGroupCenterPill(SwapGroup group)
@@ -1219,7 +1223,9 @@ public sealed partial class MainWindowViewModel
             centerSys, SystemColorHex(centerSys));
         var (family, size, color) = ResolveLabelFont(centeredSeat, isMaster: true);
         var (bold, italic, dropShadow, outline, opacity) = ResolveLabelStyle(centeredSeat, isMaster: true);
-        _labelSurface.SetPillAppearance(groupCenter, family, size, color, bold, italic, dropShadow, outline, opacity);
+        _labelSurface.SetPillAppearance(groupCenter, family, size, color, bold, italic, dropShadow, outline,
+            _settings.CornerOverlayLabelBackgroundStyle, _settings.CornerOverlayLabelBackgroundColor,
+            _settings.CornerOverlayLabelBackgroundColor2, _settings.CornerOverlayLabelBackgroundOpacity, opacity);
     }
 
     internal void RefreshAllPills()

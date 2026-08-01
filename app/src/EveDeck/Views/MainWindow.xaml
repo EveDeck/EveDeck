@@ -1229,12 +1229,8 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                   <Grid>
                     <ListBox x:Name="OptionsMenu" SelectedIndex="0" BorderThickness="0" Background="Transparent">
                       <ListBoxItem Content="Character Names"/>
-                      <ListBoxItem Content="Visual Effects"/>
-                      <ListBoxItem Content="Startup"/>
-                      <ListBoxItem Content="Window Behavior"/>
-                      <ListBoxItem Content="System Integration"/>
+                      <ListBoxItem Content="Startup &amp; System"/>
                       <ListBoxItem Content="Interface Scale"/>
-                      <ListBoxItem Content="Setup"/>
                       <ListBoxItem Content="Previews"/>
                       <ListBoxItem Content="Settings Backup"/>
                       <ListBoxItem Content="Hotkey Behavior"/>
@@ -1299,11 +1295,79 @@ Auto-filled from the EVE window title when a client is assigned — "EVE - Name"
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
                   </StackPanel>
-                  <!-- section 1: Visual Effects -->
+                  <!-- section 1: Startup & System (merged Startup + Window Behavior + System Integration + Setup, 2026-07-31, each was a sparse one-or-two-control tab) -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=1}">
-                    <TextBlock Text="Visual Effects" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <TextBlock Text="Startup &amp; System" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+              <TextBlock Text="Startup" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+              <CheckBox Content="Apply a layout profile on startup"
+                        IsChecked="{Binding ApplyProfileOnStartup}"
+                        Margin="0,0,0,10"/>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Text="Profile" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}"/>
+                <ComboBox ItemsSource="{Binding Profiles}"
+                          SelectedValue="{Binding StartupProfileId}"
+                          SelectedValuePath="Id"
+                          DisplayMemberPath="Name"
+                          Width="340"/>
+              </StackPanel>
+              <CheckBox Content="Re-apply active profile when clients are (re)launched"
+                        IsChecked="{Binding AutoApplyOnClientLaunch}"
+                        Margin="0,0,0,4"/>
+              <TextBlock Text="Snaps clients back to their positions when relaunched (requires Auto-refresh enabled)."
+                         Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,16"/>
+
+              <TextBlock Text="Window Behavior" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+              <CheckBox Content="Minimize to system tray instead of taskbar"
+                        IsChecked="{Binding MinimizeToTray}"
+                        Margin="0,0,0,16"/>
+
+              <TextBlock Text="System Integration" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+              <CheckBox Content="Launch EveDeck with Windows"
+                        IsChecked="{Binding LaunchWithWindows}"
+                        Visibility="{Binding CanManageLaunchWithWindows, Converter={StaticResource BoolToVisibility}}"
+                        Margin="0,0,0,6"/>
+              <TextBlock Text="Starts EveDeck automatically when you sign in to Windows."
+                         Visibility="{Binding CanManageLaunchWithWindows, Converter={StaticResource BoolToVisibility}}"
+                         Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,16"
+                         Visibility="{Binding CanManageLaunchWithWindows, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                This is the Microsoft Store version, so Windows manages startup for you: open Settings &gt; Apps &gt; Startup and turn on EveDeck there.
+              </TextBlock>
+
+              <TextBlock Text="Setup" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,8">
+Re-run the first-time setup wizard.
+              </TextBlock>
+              <Button Content="Run setup wizard" Click="RunSetupWizard_Click"
+                      HorizontalAlignment="Left" MinWidth="150" Margin="0,0,0,4"/>
+                  </StackPanel>
+                  <!-- section 2: Interface Scale -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=2}">
+                    <TextBlock Text="Interface Scale" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14">
-Customize the active-client frame and preview labels (color, size, font, opacity). Per-seat overrides are on each slot card below.
+Scales the entire EveDeck interface up or down. Useful on 4K displays running at 100% Windows scaling where the UI would otherwise appear small.
+              </TextBlock>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,4" VerticalAlignment="Center">
+                <TextBlock Text="Scale" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}"/>
+                <ComboBox x:Name="UiScaleComboBox" Width="120" SelectionChanged="UiScaleComboBox_SelectionChanged">
+                  <ComboBoxItem Content="50%"  Tag="0.5"/>
+                  <ComboBoxItem Content="75%"  Tag="0.75"/>
+                  <ComboBoxItem Content="100%" Tag="1.0"/>
+                  <ComboBoxItem Content="125%" Tag="1.25"/>
+                  <ComboBoxItem Content="150%" Tag="1.5"/>
+                  <ComboBoxItem Content="175%" Tag="1.75"/>
+                  <ComboBoxItem Content="200%" Tag="2.0"/>
+                  <ComboBoxItem Content="250%" Tag="2.5"/>
+                  <ComboBoxItem Content="300%" Tag="3.0"/>
+                </ComboBox>
+              </StackPanel>
+                  </StackPanel>
+                  <!-- section 3: Previews (also hosts what used to be the separate Visual Effects tab, merged 2026-07-31) -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=3}">
+                    <TextBlock Text="Previews" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14">
+Shows live thumbnail previews of background clients in the screen corners while the master fills center. Switching is instant -- no window moves, just overlay visibility changes.
               </TextBlock>
 
               <TextBlock Text="Active frame" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
@@ -1366,6 +1430,56 @@ Customize the active-client frame and preview labels (color, size, font, opacity
                 <TextBlock Text="{Binding LabelOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
               </StackPanel>
 
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                <TextBlock Text="Background" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                <ComboBox Width="110" SelectedValuePath="Tag" FontSize="11" Margin="0,0,8,0"
+                          SelectedValue="{Binding LabelBackgroundStyle}"
+                          ToolTip="The label's own backdrop -- applies to both label styles above (Pill's name chip and Icon+name's portrait row alike), independent of the label opacity above.">
+                  <ComboBoxItem Tag="Solid" Content="Solid"/>
+                  <ComboBoxItem Tag="Gradient" Content="Gradient"/>
+                  <ComboBoxItem Tag="None" Content="None (text only)"/>
+                </ComboBox>
+                <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
+                        Background="{Binding LabelBackgroundBrush}"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                <Button Content="Pick Color..." Click="LabelBackgroundColorPick_Click" Padding="6,3" FontSize="11"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="80,0,0,16" VerticalAlignment="Center">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding LabelBackgroundStyle}" Value="Gradient">
+                        <Setter Property="Visibility" Value="Visible"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock Text="Gradient to" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,8,0"/>
+                <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
+                        Background="{Binding LabelBackgroundBrush2}"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                <Button Content="Pick Color..." Click="LabelBackgroundColor2Pick_Click" Padding="6,3" FontSize="11" Margin="0,0,8,0"/>
+                <TextBlock Text="Top-to-bottom blend" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding LabelBackgroundStyle}" Value="None">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock Text="Chip opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                <Slider Minimum="0" Maximum="100" Value="{Binding LabelBackgroundOpacity}" Width="150" VerticalAlignment="Center"
+                        IsSnapToTickEnabled="True" TickFrequency="5"
+                        ToolTip="Transparency of the chip backdrop only -- separate from the whole-label Opacity above, which fades text too."/>
+                <TextBlock Text="{Binding LabelBackgroundOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
+              </StackPanel>
+
               <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                 <TextBlock Text="Preview label — MASTER" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
                 <Button Content="&#8635; Reset to normal" Click="MasterLabelStyleAndFontReset_Click" Padding="5,1" Margin="10,0,0,0" MinHeight="0" FontSize="10"
@@ -1399,85 +1513,7 @@ Customize the active-client frame and preview labels (color, size, font, opacity
                         ToolTip="Transparency of every DWM preview thumbnail, corners and the master rect alike."/>
                 <TextBlock Text="{Binding PreviewOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
               </StackPanel>
-                  </StackPanel>
-                  <!-- section 2: Startup -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=2}">
-                    <TextBlock Text="Startup" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <CheckBox Content="Apply a layout profile on startup"
-                        IsChecked="{Binding ApplyProfileOnStartup}"
-                        Margin="0,0,0,10"/>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <TextBlock Text="Profile" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}"/>
-                <ComboBox ItemsSource="{Binding Profiles}"
-                          SelectedValue="{Binding StartupProfileId}"
-                          SelectedValuePath="Id"
-                          DisplayMemberPath="Name"
-                          Width="340"/>
-              </StackPanel>
-              <CheckBox Content="Re-apply active profile when clients are (re)launched"
-                        IsChecked="{Binding AutoApplyOnClientLaunch}"
-                        Margin="0,0,0,4"/>
-              <TextBlock Text="Snaps clients back to their positions when relaunched (requires Auto-refresh enabled)."
-                         Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/>
-                  </StackPanel>
-                  <!-- section 3: Window Behavior -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=3}">
-                    <TextBlock Text="Window Behavior" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <CheckBox Content="Minimize to system tray instead of taskbar"
-                        IsChecked="{Binding MinimizeToTray}"
-                        Margin="0,0,0,10"/>
-                  </StackPanel>
-                  <!-- section 4: System Integration -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=4}">
-                    <TextBlock Text="System Integration" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <CheckBox Content="Launch EveDeck with Windows"
-                        IsChecked="{Binding LaunchWithWindows}"
-                        Visibility="{Binding CanManageLaunchWithWindows, Converter={StaticResource BoolToVisibility}}"
-                        Margin="0,0,0,6"/>
-              <TextBlock Text="Starts EveDeck automatically when you sign in to Windows."
-                         Visibility="{Binding CanManageLaunchWithWindows, Converter={StaticResource BoolToVisibility}}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"
-                         Visibility="{Binding CanManageLaunchWithWindows, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
-                This is the Microsoft Store version, so Windows manages startup for you: open Settings &gt; Apps &gt; Startup and turn on EveDeck there.
-              </TextBlock>
-                  </StackPanel>
-                  <!-- section 5: Interface Scale -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=5}">
-                    <TextBlock Text="Interface Scale" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14">
-Scales the entire EveDeck interface up or down. Useful on 4K displays running at 100% Windows scaling where the UI would otherwise appear small.
-              </TextBlock>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,4" VerticalAlignment="Center">
-                <TextBlock Text="Scale" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}"/>
-                <ComboBox x:Name="UiScaleComboBox" Width="120" SelectionChanged="UiScaleComboBox_SelectionChanged">
-                  <ComboBoxItem Content="50%"  Tag="0.5"/>
-                  <ComboBoxItem Content="75%"  Tag="0.75"/>
-                  <ComboBoxItem Content="100%" Tag="1.0"/>
-                  <ComboBoxItem Content="125%" Tag="1.25"/>
-                  <ComboBoxItem Content="150%" Tag="1.5"/>
-                  <ComboBoxItem Content="175%" Tag="1.75"/>
-                  <ComboBoxItem Content="200%" Tag="2.0"/>
-                  <ComboBoxItem Content="250%" Tag="2.5"/>
-                  <ComboBoxItem Content="300%" Tag="3.0"/>
-                </ComboBox>
-              </StackPanel>
-                  </StackPanel>
-                  <!-- section 6: Setup -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=6}">
-                    <TextBlock Text="Setup" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,8">
-Re-run the first-time setup wizard.
-              </TextBlock>
-              <Button Content="Run setup wizard" Click="RunSetupWizard_Click"
-                      HorizontalAlignment="Left" MinWidth="150" Margin="0,0,0,4"/>
-                  </StackPanel>
-                  <!-- section 7: Previews -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=7}">
-                    <TextBlock Text="Previews" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14">
-Shows live thumbnail previews of background clients in the screen corners while the master fills center. Switching is instant -- no window moves, just overlay visibility changes.
-              </TextBlock>
+
               <CheckBox Content="Enable live previews"
                         IsChecked="{Binding CornerOverlaysEnabled}"
                         Margin="0,0,0,10"/>
@@ -1693,8 +1729,8 @@ Apps listed here also show up as detected/assignable windows (Clients tab) so on
               </ItemsControl>
               <Button Content="+ Add App" Command="{Binding AddPreviewableAppCommand}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
                   </StackPanel>
-                  <!-- section 8: Settings Backup -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=8}">
+                  <!-- section 4: Settings Backup -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=4}">
                     <TextBlock Text="Settings Backup" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
 EveDeck snapshots your settings on every launch, keeping 5 from today plus 1 per day for the past week. Select one to restore, or create a manual backup before big changes. Export/Import lets you save settings to a file.
@@ -1721,8 +1757,8 @@ EveDeck snapshots your settings on every launch, keeping 5 from today plus 1 per
                         ToolTip="Load settings from a JSON file and restart EveDeck"/>
               </StackPanel>
                   </StackPanel>
-                  <!-- section 9: Hotkey Behavior -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=9}">
+                  <!-- section 5: Hotkey Behavior -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=5}">
                     <TextBlock Text="Hotkey Behavior" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <CheckBox Content="Only fire hotkeys when an EVE client is the active window"
                         IsChecked="{Binding RequireEveFocusForHotkeys}"
@@ -1735,8 +1771,8 @@ EveDeck snapshots your settings on every launch, keeping 5 from today plus 1 per
 When enabled: swap/cycle/apply-layout hotkeys work only in EVE; other apps get the keystrokes. Focus and character-switch hotkeys stay global so you can always jump back to EVE.
               </TextBlock>
                   </StackPanel>
-                  <!-- section 10: Performance -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=10}">
+                  <!-- section 6: Performance -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=6}">
                     <TextBlock Text="Performance" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <CheckBox Content="Throttle background EVE clients to Below Normal CPU priority"
                         IsChecked="{Binding ThrottleBackgroundProcesses}"
@@ -1761,8 +1797,8 @@ Parks inactive clients on efficiency cores and clocks them down (deeper cut than
 Minimizes inactive clients to save GPU/CPU (flat layouts only; disabled while previews are live). Respects 'never minimize' checkboxes on slot cards.
               </TextBlock>
                   </StackPanel>
-                  <!-- section 11: EVE Launcher -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=11}">
+                  <!-- section 7: EVE Launcher -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=7}">
                     <TextBlock Text="EVE Launcher" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,8">
 Path to eveLauncher.exe. EveDeck finds it automatically; only set this if it's in a non-standard location.
@@ -1771,8 +1807,8 @@ Path to eveLauncher.exe. EveDeck finds it automatically; only set this if it's i
                        Padding="6,4" FontSize="12"
                        ToolTip="Custom path to eveLauncher.exe, e.g. D:\Games\EVE Online\eveLauncher.exe"/>
                   </StackPanel>
-                  <!-- section 12: Overlay Allow List -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=12}">
+                  <!-- section 8: Overlay Allow List -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=8}">
                     <TextBlock Text="Overlay Allow List" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
 Apps here stay above the overlay tiles so voice chat, intel, and tools can sit over the game. Matched by process name (case-insensitive, no ".exe").
@@ -1796,8 +1832,8 @@ Apps here stay above the overlay tiles so voice chat, intel, and tools can sit o
               <Button Content="+ Add App" Command="{Binding AddOverlayAllowedAppCommand}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
                   </StackPanel>
 
-                  <!-- section 13: Notifications -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=13}">
+                  <!-- section 9: Notifications -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=9}">
                     <TextBlock Text="Notifications" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14" MaxWidth="640">
 Control where toasts appear and whether they're also sent to Windows Notification Center (so they stay reviewable after fading).
@@ -1921,8 +1957,8 @@ ESI checks for common parked-alt failures: podding and disconnects. Requires cha
                     </Border>
                   </StackPanel>
 
-                  <!-- section 14: Comms -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=14}">
+                  <!-- section 10: Comms -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=10}">
                     <TextBlock Text="Comms" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
 Mumble who-is-talking panel that matches EveDeck's look. Uses a small plugin inside your Mumble client. Drag it around and lock it to prevent accidental moves.
@@ -1957,8 +1993,8 @@ Needs the EveDeck Talker Bridge plugin installed in Mumble (Configure > Plugins)
                     </Border>
                   </StackPanel>
 
-                  <!-- section 15: Config Profiles -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=15}">
+                  <!-- section 11: Config Profiles -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=11}">
                     <TextBlock Text="Config Profiles" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
 Named snapshots of your whole setup: layout, character set, and all overlay appearance settings. Switch between them from the tray icon. Layouts and character sets update all profiles that use them automatically.
