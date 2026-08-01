@@ -42,6 +42,10 @@ public static class ConfigProfileService
         nameof(AppSettings.CornerOverlayLabelDropShadow),
         nameof(AppSettings.CornerOverlayLabelOutline),
         nameof(AppSettings.CornerOverlayLabelOpacity),
+        nameof(AppSettings.CornerOverlayLabelBackgroundStyle),
+        nameof(AppSettings.CornerOverlayLabelBackgroundColor),
+        nameof(AppSettings.CornerOverlayLabelBackgroundColor2),
+        nameof(AppSettings.CornerOverlayLabelBackgroundOpacity),
 
         // Master-pill overrides
         nameof(AppSettings.CornerOverlayLabelFontFamilyMaster),

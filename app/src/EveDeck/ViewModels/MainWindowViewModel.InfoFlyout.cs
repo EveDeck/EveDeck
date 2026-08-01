@@ -133,7 +133,7 @@ public sealed partial class MainWindowViewModel
         // Anchor the card just below the badge's bottom edge.
         var chromeScale = Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0);
         var badge = OverlayInfoButton.RectFor(new System.Drawing.Rectangle(rect.X, rect.Y, rect.Width, rect.Height), chromeScale);
-        var flyout = new InfoFlyoutWindow(badge.X, badge.Bottom + 2, _overlayDpiScale, title, chromeScale);
+        var flyout = new InfoFlyoutWindow(badge.X, badge.Y, badge.Right, badge.Bottom, _overlayDpiScale, title, chromeScale);
         // Own it to the label surface (which sits above the tile surface) so the overlay's periodic
         // topmost re-assert can't bury the card. The badge only exists when the label surface does.
         flyout.SetOwner(_labelSurface?.Handle ?? (_tileSurface?.Handle ?? 0));

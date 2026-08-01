@@ -1399,6 +1399,65 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    // Pill chip backdrop: style (None/Solid/Gradient) + one or two colors + the chip's own opacity,
+    // independent of LabelOpacity above (which fades the whole label, chip and text together). One
+    // global setting, no per-seat/MASTER split -- see AppSettings.CornerOverlayLabelBackgroundStyle.
+    public string LabelBackgroundStyle
+    {
+        get => _settings.CornerOverlayLabelBackgroundStyle;
+        set
+        {
+            if (_settings.CornerOverlayLabelBackgroundStyle == value || string.IsNullOrEmpty(value)) return;
+            _settings.CornerOverlayLabelBackgroundStyle = value;
+            OnPropertyChanged();
+            SaveAndRefreshOverlays();
+        }
+    }
+
+    public string LabelBackgroundColor
+    {
+        get => _settings.CornerOverlayLabelBackgroundColor;
+        set
+        {
+            if (_settings.CornerOverlayLabelBackgroundColor == value || string.IsNullOrEmpty(value)) return;
+            _settings.CornerOverlayLabelBackgroundColor = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(LabelBackgroundBrush));
+            SaveAndRefreshOverlays();
+        }
+    }
+
+    // Gradient end color -- only visible/used when LabelBackgroundStyle is "Gradient".
+    public string LabelBackgroundColor2
+    {
+        get => _settings.CornerOverlayLabelBackgroundColor2;
+        set
+        {
+            if (_settings.CornerOverlayLabelBackgroundColor2 == value || string.IsNullOrEmpty(value)) return;
+            _settings.CornerOverlayLabelBackgroundColor2 = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(LabelBackgroundBrush2));
+            SaveAndRefreshOverlays();
+        }
+    }
+
+    // Swatch previews for the Options-tab color picker buttons -- same pattern as ActiveFrameBrush.
+    public Brush LabelBackgroundBrush => ParseFrameBrush(LabelBackgroundColor);
+    public Brush LabelBackgroundBrush2 => ParseFrameBrush(LabelBackgroundColor2);
+
+    public int LabelBackgroundOpacity
+    {
+        get => _settings.CornerOverlayLabelBackgroundOpacity;
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 100);
+            if (_settings.CornerOverlayLabelBackgroundOpacity == clamped) return;
+            _settings.CornerOverlayLabelBackgroundOpacity = clamped;
+            OnPropertyChanged();
+            SaveAndRefreshOverlays();
+        }
+    }
+
     // Preview-tile opacity: one global slider, applied to every DWM preview tile (corners AND the
     // master/center one) via TileSurfaceWindow.SetOpacity. Unlike LabelOpacity there's no per-seat
     // or MASTER split -- StartCornerOverlays re-applies it on rebuild via SaveAndRefreshOverlays.

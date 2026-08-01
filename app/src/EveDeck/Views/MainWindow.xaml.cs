@@ -683,6 +683,34 @@ public partial class MainWindow : Window
 
     private static string ColorToHex(System.Drawing.Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
 
+    private void LabelBackgroundColorPick_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true };
+        try
+        {
+            var current = (Color)System.Windows.Media.ColorConverter.ConvertFromString(_viewModel.LabelBackgroundColor);
+            dialog.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
+        }
+        catch { /* keep dialog's default color if the stored hex fails to parse */ }
+
+        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        _viewModel.LabelBackgroundColor = ColorToHex(dialog.Color);
+    }
+
+    private void LabelBackgroundColor2Pick_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true };
+        try
+        {
+            var current = (Color)System.Windows.Media.ColorConverter.ConvertFromString(_viewModel.LabelBackgroundColor2);
+            dialog.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
+        }
+        catch { /* keep dialog's default color if the stored hex fails to parse */ }
+
+        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        _viewModel.LabelBackgroundColor2 = ColorToHex(dialog.Color);
+    }
+
     // Shows a WinForms font+color dialog seeded from the given family / WPF-DIP size / hex colour.
     // Returns the picked font on OK. WPF FontSize is in DIPs (1/96in); the dialog works in points
     // (1/72in), so convert on the way in and out (dip = pt * 96/72).
