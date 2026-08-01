@@ -76,12 +76,20 @@ internal sealed class ToastNotificationWindow : Window
     private readonly bool _growUpward;
     private readonly double _dpiScale;
     private readonly double _toastWidthDip;
+    private readonly double _chromeScale;
 
     // `monitorWork*` should be the monitor's WORK AREA (excludes the taskbar), not its full bounds --
     // that's what makes BottomRight land just above the system clock instead of behind the taskbar.
-    public ToastNotificationWindow(int monitorWorkX, int monitorWorkY, int monitorWorkWidth, int monitorWorkHeight, double dpiScale, ToastAnchor anchor)
+    //
+    // `chromeScale` is AppSettings.CornerOverlayChromeScale -- the app's own legibility multiplier,
+    // independent of Windows' DPI scale (same treatment as InfoFlyoutWindow). It scales every font
+    // size and the card padding; the card WIDTH stays fixed, so bigger text simply wraps to more
+    // lines rather than growing a 380px card into a panel.
+    public ToastNotificationWindow(int monitorWorkX, int monitorWorkY, int monitorWorkWidth, int monitorWorkHeight, double dpiScale, ToastAnchor anchor,
+                                   double chromeScale = 1.0)
     {
         _dpiScale = dpiScale;
+        _chromeScale = chromeScale;
         _toastWidthDip = ToastWidthPhys / dpiScale;
         _physWidth = ToastWidthPhys;
         _physMaxHeight = (int)((monitorWorkHeight - MarginPhys * 2) * MaxStackFractionOfMonitor);
@@ -203,7 +211,7 @@ internal sealed class ToastNotificationWindow : Window
             : new TextBlock
             {
                 Text = message,
-                FontSize = 12.5,
+                FontSize = 12.5 * _chromeScale,
                 Foreground = new SolidColorBrush(BodyFg),
                 TextWrapping = TextWrapping.Wrap,
             };
@@ -235,7 +243,7 @@ internal sealed class ToastNotificationWindow : Window
             body.Children.Add(new TextBlock
             {
                 Text = group.Header,
-                FontSize = 12.5,
+                FontSize = 12.5 * _chromeScale,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(TitleFg),
                 TextWrapping = TextWrapping.Wrap,
@@ -255,7 +263,9 @@ internal sealed class ToastNotificationWindow : Window
     // `includeDot` suppresses the leading accent dot for callers that already draw their own leading
     // icon in an outer layout -- true everywhere else, unchanged from this method's original
     // single-purpose behavior.
-    private static FrameworkElement BuildRow(ToastLine line, SolidColorBrush accent, bool includeDot = true)
+    // Instance (not static) so it can pick up _chromeScale -- the accessibility multiplier has to
+    // reach every piece of toast text, not just the outermost card.
+    private FrameworkElement BuildRow(ToastLine line, SolidColorBrush accent, bool includeDot = true)
     {
         var row = new Grid { Margin = new Thickness(0, 5, 0, 0) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -279,7 +289,7 @@ internal sealed class ToastNotificationWindow : Window
         text.Children.Add(new TextBlock
         {
             Text = line.Primary,
-            FontSize = 12.5,
+            FontSize = 12.5 * _chromeScale,
             Foreground = new SolidColorBrush(TitleFg),
             TextWrapping = TextWrapping.Wrap,
         });
@@ -288,7 +298,7 @@ internal sealed class ToastNotificationWindow : Window
             text.Children.Add(new TextBlock
             {
                 Text = line.Secondary,
-                FontSize = 11,
+                FontSize = 11 * _chromeScale,
                 Margin = new Thickness(0, 1, 0, 0),
                 Foreground = new SolidColorBrush(BodyFg),
                 TextWrapping = TextWrapping.Wrap,
@@ -332,7 +342,7 @@ internal sealed class ToastNotificationWindow : Window
         {
             Text = title,
             FontWeight = FontWeights.SemiBold,
-            FontSize = 14,
+            FontSize = 14 * _chromeScale,
             Foreground = new SolidColorBrush(TitleFg),
             TextWrapping = TextWrapping.Wrap,
         });
@@ -362,8 +372,8 @@ internal sealed class ToastNotificationWindow : Window
             Background = new SolidColorBrush(CardBg),
             BorderBrush = new SolidColorBrush(CardBorder),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(12),
+            CornerRadius = new CornerRadius(OverlayChrome.RadiusLg),
+            Padding = new Thickness(OverlayChrome.PadCardUniform * _chromeScale),
             Margin = new Thickness(0, 0, 0, GapDip),
             Width = _toastWidthDip,
             Opacity = 0,
@@ -425,7 +435,10 @@ internal sealed class ToastNotificationWindow : Window
 
     // Round character portrait where we have one, else a filled accent circle with the title's first
     // letter -- PI/system alerts aren't tied to a single character's face.
-    private static FrameworkElement BuildAvatar(string title, SolidColorBrush accent, ImageSource? avatar)
+    // Instance (not static) for the same reason as BuildRow: the fallback initial is text and has to
+    // honour _chromeScale. The 40px circle itself is deliberately NOT scaled -- it is an image slot,
+    // not text, and growing it would push the card's text column past its fixed width.
+    private FrameworkElement BuildAvatar(string title, SolidColorBrush accent, ImageSource? avatar)
     {
         if (avatar is not null)
         {
@@ -452,7 +465,7 @@ internal sealed class ToastNotificationWindow : Window
                 new TextBlock
                 {
                     Text = initial,
-                    FontSize = 17,
+                    FontSize = 17 * _chromeScale,
                     FontWeight = FontWeights.Bold,
                     Foreground = new SolidColorBrush(Color.FromRgb(0x0F, 0x16, 0x20)),
                     HorizontalAlignment = System.Windows.HorizontalAlignment.Center,

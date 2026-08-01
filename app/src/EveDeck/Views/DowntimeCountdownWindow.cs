@@ -21,7 +21,10 @@ internal sealed class DowntimeCountdownWindow : Window
     private readonly double _dpiScale;
     private readonly ToastAnchor _anchor;
 
-    public DowntimeCountdownWindow(int workX, int workY, int workWidth, int workHeight, double dpiScale, ToastAnchor anchor)
+    // `chromeScale` is AppSettings.CornerOverlayChromeScale -- the app's own legibility multiplier,
+    // independent of Windows' DPI scale, so this readout grows with the rest of the overlay chrome.
+    public DowntimeCountdownWindow(int workX, int workY, int workWidth, int workHeight, double dpiScale, ToastAnchor anchor,
+                                   double chromeScale = 1.0)
     {
         _workX = workX;
         _workY = workY;
@@ -45,7 +48,7 @@ internal sealed class DowntimeCountdownWindow : Window
             Foreground = new SolidColorBrush(Color.FromRgb(0xFD, 0xE0, 0x68)), // amber -- reads as "heads up"
             FontFamily = new FontFamily("Segoe UI"),
             FontWeight = FontWeights.SemiBold,
-            FontSize = 13,
+            FontSize = 13 * chromeScale,
         };
 
         Content = new Border
@@ -53,8 +56,9 @@ internal sealed class DowntimeCountdownWindow : Window
             Background = new SolidColorBrush(Color.FromArgb(0xF2, 0x0D, 0x11, 0x17)),
             BorderBrush = new SolidColorBrush(Color.FromArgb(0x90, 0xFD, 0xE0, 0x68)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(OverlayChrome.RadiusMd),
+            Padding = new Thickness(OverlayChrome.PadCardH * chromeScale, OverlayChrome.PadCardV * chromeScale,
+                                    OverlayChrome.PadCardH * chromeScale, OverlayChrome.PadCardV * chromeScale),
             Child = _text,
         };
 

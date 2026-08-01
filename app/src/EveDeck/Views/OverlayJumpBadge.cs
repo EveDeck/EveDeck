@@ -7,9 +7,11 @@ namespace EveDeck.Views;
 // currently shown, so a lone badge never visually "jumps" position when its sibling appears.
 internal static class OverlayJumpBadge
 {
-    public const int SizePx = 18;
-    public const int InsetPx = 4;
-    public const int GapPx = 4;
+    // Shared overlay type scale -- these used to be 18px against the info button's 20px, so the two
+    // top corners of the same tile carried visibly different badge sizes.
+    public const int SizePx = OverlayChrome.BadgeSizePx;
+    public const int InsetPx = OverlayChrome.BadgeInsetPx;
+    public const int GapPx = OverlayChrome.BadgeGapPx;
 
     // `scale` is AppSettings.CornerOverlayChromeScale -- see OverlayInfoButton.RectFor for why it's
     // independent of Windows' own DPI scale. Every caller must pass the same value.

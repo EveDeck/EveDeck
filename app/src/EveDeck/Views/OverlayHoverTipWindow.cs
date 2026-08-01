@@ -16,10 +16,15 @@ namespace EveDeck.Views;
 // instance is reused across every badge/tile (only one can be hovered at a time).
 internal sealed class OverlayHoverTipWindow : Window
 {
+    // Gap between the badge and the tip, physical pixels.
+    private const int Gap = 4;
+
     private readonly TextBlock _text;
     private readonly double _dpiScale;
     private nint _ownerHwnd;
-    private int _physX, _physY;
+    // Full physical rect of the badge being hovered. Kept whole (rather than a pre-computed top-left)
+    // so PinPhysical can pick an open direction from which quadrant of the monitor the badge sits in.
+    private int _badgeLeft, _badgeTop, _badgeRight, _badgeBottom;
 
     public OverlayHoverTipWindow(double dpiScale, double chromeScale = 1.0)
     {
@@ -46,8 +51,9 @@ internal sealed class OverlayHoverTipWindow : Window
             Background = new SolidColorBrush(Color.FromArgb(0xF2, 0x0D, 0x11, 0x17)),
             BorderBrush = new SolidColorBrush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(6 * chromeScale, 3 * chromeScale, 6 * chromeScale, 3 * chromeScale),
+            CornerRadius = new CornerRadius(OverlayChrome.RadiusMd),
+            Padding = new Thickness(OverlayChrome.PadTightH * chromeScale, OverlayChrome.PadTightV * chromeScale,
+                                    OverlayChrome.PadTightH * chromeScale, OverlayChrome.PadTightV * chromeScale),
             Child = _text,
         };
 
@@ -69,26 +75,32 @@ internal sealed class OverlayHoverTipWindow : Window
             Win32Native.SetWindowLongPtr(hwnd, Win32Native.GwlpHwndParent, _ownerHwnd);
     }
 
-    // Shows (or moves/retexts, if already visible) the tip just below the given physical badge rect.
+    // Shows (or moves/retexts, if already visible) the tip next to the given physical badge rect.
     public void ShowAt(int badgePhysX, int badgePhysY, int badgePhysSize, string text)
     {
         _text.Text = text;
-        _physX = badgePhysX;
-        _physY = badgePhysY + badgePhysSize + 4;
+        _badgeLeft = badgePhysX;
+        _badgeTop = badgePhysY;
+        _badgeRight = badgePhysX + badgePhysSize;
+        _badgeBottom = badgePhysY + badgePhysSize;
         if (!IsVisible) { Show(); return; } // ContentRendered pins once loaded
         if (IsLoaded) Dispatcher.BeginInvoke(new Action(PinPhysical));
     }
 
-    // Pin the top-left to the physical anchor at the measured content size -- WPF's DIP Left/Top
-    // place a window through the PRIMARY monitor's scale, which misplaces it on a differently-scaled
-    // monitor; positioning in physical pixels keeps the tip glued to its badge.
+    // Pin to the physical anchor at the measured content size, opening away from whichever screen
+    // edge the badge is hugging and clamped inside that monitor's work area -- these badges live in a
+    // corner TILE, so the naive "always directly below, left-aligned" placement ran the tip off-screen
+    // for any tile near a monitor edge. WPF's DIP Left/Top would place the window through the PRIMARY
+    // monitor's scale, which misplaces it on a differently-scaled monitor; physical pixels keep the
+    // tip glued to its badge.
     private void PinPhysical()
     {
         var hwnd = new WindowInteropHelper(this).Handle;
         if (hwnd == 0) return;
         var w = (int)Math.Ceiling(ActualWidth * _dpiScale);
         var h = (int)Math.Ceiling(ActualHeight * _dpiScale);
-        Win32Native.SetWindowPos(hwnd, Win32Native.HwndTopmost, _physX, _physY, w, h,
+        var (x, y) = OverlayChrome.EdgeAwarePosition(_badgeLeft, _badgeTop, _badgeRight, _badgeBottom, w, h, Gap);
+        Win32Native.SetWindowPos(hwnd, Win32Native.HwndTopmost, x, y, w, h,
             Win32Native.SwpNoActivate);
     }
 }

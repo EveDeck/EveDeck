@@ -125,7 +125,8 @@
             <TextBlock Text="  Multibox toolkit for EVE Online"
                        Foreground="{StaticResource MutedBrush}"
                        Margin="8,0,0,0"
-                       VerticalAlignment="Center"/>
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"/>
           </StackPanel>
         </DockPanel>
       </Border>
@@ -163,7 +164,7 @@
       <!-- ═══ Config Reset Banner ═══ -->
       <Border DockPanel.Dock="Top"
               Background="#2A1608"
-              BorderBrush="#F59E0B"
+              BorderBrush="{StaticResource WarningBrush}"
               BorderThickness="0,0,0,1"
               Padding="14,5"
               Visibility="{Binding ShowConfigResetBanner, Converter={StaticResource BoolToVis}}">
@@ -176,7 +177,7 @@
                   ToolTip="Dismiss">&#x2715;</Button>
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
             <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                       Foreground="#F59E0B" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                       Foreground="{StaticResource WarningBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <TextBlock Text="Your settings file appeared to be corrupted and was reset to defaults. A backup was saved automatically — open Options → Backups to restore your previous settings."
                        Foreground="{StaticResource TextBrush}" FontSize="12" VerticalAlignment="Center"
                        TextWrapping="Wrap" MaxWidth="760"/>
@@ -187,7 +188,7 @@
       <!-- ═══ Hotkey Conflict Banner ═══ -->
       <Border DockPanel.Dock="Top"
               Background="#2A1608"
-              BorderBrush="#F59E0B"
+              BorderBrush="{StaticResource WarningBrush}"
               BorderThickness="0,0,0,1"
               Padding="14,5"
               Visibility="{Binding ShowHotkeyConflictBanner, Converter={StaticResource BoolToVis}}">
@@ -200,7 +201,7 @@
                   ToolTip="Dismiss">&#x2715;</Button>
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
             <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                       Foreground="#F59E0B" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                       Foreground="{StaticResource WarningBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <TextBlock Text="{Binding HotkeyConflictMessage}"
                        Foreground="{StaticResource TextBrush}" FontSize="12" VerticalAlignment="Center"
                        TextWrapping="Wrap" MaxWidth="760"/>
@@ -272,8 +273,10 @@
                 <Button Content="Refresh" Command="{Binding RefreshCommand}"/>
                 <Button Content="Refresh Portraits" Command="{Binding RefreshPortraitsCommand}"
                         ToolTip="Refresh all cached character portraits from the EVE servers."/>
-                <Button Content="Toggle Borderless" Command="{Binding ToggleSelectedBorderlessCommand}"/>
-                <Button Content="Restore Style" Command="{Binding RestoreSelectedStyleCommand}"/>
+                <Button Content="Toggle Borderless" Command="{Binding ToggleSelectedBorderlessCommand}"
+                        ToolTip="Add or remove the title bar and borders on the window selected in Detected Windows."/>
+                <Button Content="Restore Style" Command="{Binding RestoreSelectedStyleCommand}"
+                        ToolTip="Put the selected window back to its original Windows style, with its title bar and borders restored."/>
               </StackPanel>
               <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="Clients" FontSize="20" FontWeight="SemiBold"/>
@@ -476,7 +479,7 @@
                   <DockPanel Grid.Row="0" Margin="0,0,0,8">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                       <Button Content="+ Set" Command="{Binding AddCharacterSetCommand}" Padding="7,3" FontSize="11" ToolTip="Add a new character set with the same layout and hotkeys."/>
-                      <Button Content="Del" Command="{Binding DeleteCharacterSetCommand}" Padding="7,3" FontSize="11" Margin="4,0,0,0" Style="{StaticResource DangerButton}" ToolTip="Delete the active character set"/>
+                      <Button Content="Delete" Command="{Binding DeleteCharacterSetCommand}" Padding="7,3" FontSize="11" Margin="4,0,0,0" Style="{StaticResource DangerButton}" ToolTip="Delete the active character set"/>
                     </StackPanel>
                     <StackPanel VerticalAlignment="Center">
                       <TextBlock Text="Character Sets" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,3"/>
@@ -545,8 +548,11 @@
                                  Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
                       <TextBlock Text="You can also drag a window straight from Detected Windows onto a mini-map cell to assign it to whichever seat sits there."
                                  Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                      <!-- Reference material, not a third how-to line: monospace + tighter tracking so
+                           it reads as a legend rather than another instruction. -->
                       <TextBlock Text="Position codes:  ⌜⌝⌞⌟ = screen corners   ▲▼◀▶ = edges   ★ = Master (home seat)"
-                                 Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                 Foreground="{StaticResource MutedBrush}" FontFamily="Consolas, Courier New, monospace"
+                                 FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/>
                       <TextBlock Text="{Binding MasterSeatSummary}" FontSize="11" FontWeight="SemiBold"
                                  Foreground="{StaticResource MasterAccentBrush}" Margin="0,5,0,0" TextWrapping="Wrap"
                                  ToolTip="The Master seat is centred at rest and is the F-key home. Set it by dropping a seat on the mini-map's centre cell, or with that seat's ⭐ Master button. If the designated seat's client isn't running, EveDeck temporarily centres another logged-in seat instead — that stand-in is never saved and snaps back as soon as the real master is detected."/>
@@ -603,9 +609,11 @@
                                       <Setter Property="Background" Value="#132540"/>
                                       <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
                                     </DataTrigger>
+                                    <!-- Master cell follows MasterAccentBrush (violet) instead of the
+                                         old amber literals; amber now means "warning" only. -->
                                     <DataTrigger Binding="{Binding IsMaster}" Value="True">
-                                      <Setter Property="Background" Value="#2A1606"/>
-                                      <Setter Property="BorderBrush" Value="#F59E0B"/>
+                                      <Setter Property="Background" Value="#1F0F35"/>
+                                      <Setter Property="BorderBrush" Value="{StaticResource MasterAccentBrush}"/>
                                       <Setter Property="BorderThickness" Value="2"/>
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsDragOver}" Value="True">
@@ -646,7 +654,9 @@
                   <!-- Fills the leftover height (Row 3 = 2*) and scrolls internally with its own
                        virtualized scroll; MinHeight keeps a short/empty list a usable drag-drop target
                        when the window is small. -->
-                  <ListBox x:Name="SlotsListBox" Grid.Row="3" MinHeight="120"
+                  <!-- Slots list with empty state overlay (same pattern as Detected Windows above). -->
+                  <Grid Grid.Row="3">
+                  <ListBox x:Name="SlotsListBox" MinHeight="120"
                            PreviewKeyDown="SlotsListBox_PreviewKeyDown"
                            ItemsSource="{Binding AssignmentsView}"
                            SelectedItem="{Binding SelectedAssignment}"
@@ -656,6 +666,37 @@
                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                            ItemTemplate="{StaticResource SeatCardTemplate}">
                   </ListBox>
+
+                  <!-- Empty state overlay: a seatless list used to render as a bare blank panel. -->
+                  <Border CornerRadius="4" Background="{StaticResource PanelBrush}">
+                    <Border.Style>
+                      <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding Assignments.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Visible"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Border.Style>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                      <TextBlock Text="No slots yet"
+                                 FontSize="15" FontWeight="SemiBold"
+                                 HorizontalAlignment="Center"
+                                 Foreground="{StaticResource MutedBrush}"/>
+                      <TextBlock Text="Click Add Slot to create a seat for a character."
+                                 Foreground="{StaticResource MutedBrush}"
+                                 FontSize="12"
+                                 HorizontalAlignment="Center"
+                                 Margin="0,10,0,0"/>
+                      <TextBlock Text="Each slot is a fixed seat that an EVE window gets assigned to."
+                                 Foreground="{StaticResource MutedBrush}"
+                                 FontSize="11"
+                                 HorizontalAlignment="Center"
+                                 Margin="0,4,0,0"/>
+                    </StackPanel>
+                  </Border>
+                  </Grid>
                 </Grid>
               </Border>
             </Grid>
@@ -887,7 +928,7 @@
                                   <Setter Property="Foreground" Value="#22C55E"/>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding MasterResolutionStatusSeverity}" Value="warn">
-                                  <Setter Property="Foreground" Value="#F59E0B"/>
+                                  <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
                                 </DataTrigger>
                               </Style.Triggers>
                             </Style>
@@ -1188,7 +1229,7 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
             <StackPanel Grid.Row="0" Margin="0,0,0,12">
               <TextBlock Text="Options" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,2"/>
               <TextBlock Text="Visual and behavior settings. Changes apply immediately and are saved automatically."
-                         Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap"/>
+                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"/>
             </StackPanel>
 
             <Grid Grid.Row="1">
@@ -1253,7 +1294,7 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                   <!-- section 0: Character Names -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=0}">
                     <TextBlock Text="Character Names" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14">
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,14">
 Auto-filled from the EVE window title when a client is assigned — "EVE - Name" becomes "Name". Edit here to rename any slot.
               </TextBlock>
               <ItemsControl ItemsSource="{Binding Assignments}" Margin="0,0,0,4">
@@ -1267,20 +1308,20 @@ Auto-filled from the EVE window title when a client is assigned — "EVE - Name"
                             <Setter Property="Background" Value="#242D3E"/>
                             <Style.Triggers>
                               <DataTrigger Binding="{Binding IsAssigned}" Value="True">
-                                <Setter Property="Background" Value="#163527"/>
+                                <Setter Property="Background" Value="{StaticResource OnlineChipBrush}"/>
                               </DataTrigger>
                             </Style.Triggers>
                           </Style>
                         </Border.Style>
                         <TextBlock Text="{Binding SlotNumber}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   FontWeight="Bold" FontSize="11">
+                                   FontWeight="Bold" FontSize="12">
                           <TextBlock.Style>
                             <Style TargetType="TextBlock">
                               <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
                               <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsAssigned}" Value="True">
-                                  <Setter Property="Foreground" Value="#22C55E"/>
+                                  <Setter Property="Foreground" Value="{StaticResource OnlineBrush}"/>
                                 </DataTrigger>
                               </Style.Triggers>
                             </Style>
@@ -1315,7 +1356,7 @@ Auto-filled from the EVE window title when a client is assigned — "EVE - Name"
                         IsChecked="{Binding AutoApplyOnClientLaunch}"
                         Margin="0,0,0,4"/>
               <TextBlock Text="Snaps clients back to their positions when relaunched (requires Auto-refresh enabled)."
-                         Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,16"/>
+                         Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,16"/>
 
               <TextBlock Text="Window Behavior" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
               <CheckBox Content="Minimize to system tray instead of taskbar"
@@ -1329,14 +1370,14 @@ Auto-filled from the EVE window title when a client is assigned — "EVE - Name"
                         Margin="0,0,0,6"/>
               <TextBlock Text="Starts EveDeck automatically when you sign in to Windows."
                          Visibility="{Binding CanManageLaunchWithWindows, Converter={StaticResource BoolToVisibility}}"
-                         Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,16"
+                         Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,4"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,16"
                          Visibility="{Binding CanManageLaunchWithWindows, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
                 This is the Microsoft Store version, so Windows manages startup for you: open Settings &gt; Apps &gt; Startup and turn on EveDeck there.
               </TextBlock>
 
               <TextBlock Text="Setup" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,8">
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
 Re-run the first-time setup wizard.
               </TextBlock>
               <Button Content="Run setup wizard" Click="RunSetupWizard_Click"
@@ -1345,7 +1386,7 @@ Re-run the first-time setup wizard.
                   <!-- section 2: Interface Scale -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=2}">
                     <TextBlock Text="Interface Scale" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14">
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,14">
 Scales the entire EveDeck interface up or down. Useful on 4K displays running at 100% Windows scaling where the UI would otherwise appear small.
               </TextBlock>
               <StackPanel Orientation="Horizontal" Margin="0,0,0,4" VerticalAlignment="Center">
@@ -1366,482 +1407,515 @@ Scales the entire EveDeck interface up or down. Useful on 4K displays running at
                   <!-- section 3: Previews (also hosts what used to be the separate Visual Effects tab, merged 2026-07-31) -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=3}">
                     <TextBlock Text="Previews" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14">
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,14">
 Shows live thumbnail previews of background clients in the screen corners while the master fills center. Switching is instant -- no window moves, just overlay visibility changes.
               </TextBlock>
 
-              <TextBlock Text="Active frame" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
-              <CheckBox Content="Enable active client frame"
-                        IsChecked="{Binding ActiveFrameEnabled}"
-                        ToolTip="Draws a soft glowing, click-through outline around whichever EVE client you're currently using."
-                        Margin="0,0,0,10"/>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
-                <TextBlock Text="Thickness" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <Slider Minimum="1" Maximum="20" Value="{Binding ActiveFrameThickness}" Width="150" VerticalAlignment="Center"
-                        IsSnapToTickEnabled="True" TickFrequency="1"/>
-                <TextBlock Text="{Binding ActiveFrameThickness, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
-                <TextBlock Text="Glow radius" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <Slider Minimum="1" Maximum="40" Value="{Binding ActiveFrameGlowRadius}" Width="150" VerticalAlignment="Center"
-                        IsSnapToTickEnabled="True" TickFrequency="1"/>
-                <TextBlock Text="{Binding ActiveFrameGlowRadius, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
-                <TextBlock Text="Color" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <Border Width="24" Height="24" Margin="0,0,8,0" CornerRadius="4"
-                        Background="{Binding ActiveFrameBrush}"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
-                <Button Content="Pick Color..." Click="FrameColorPick_Click" Padding="6,3" Margin="0,0,8,0" FontSize="11"/>
-                <Button Content="Amber" Tag="#F59E0B" Click="FrameColorPreset_Click" Padding="6,3" FontSize="11" Margin="0,0,4,0"/>
-                <Button Content="Cyan"  Tag="#22D3EE" Click="FrameColorPreset_Click" Padding="6,3" FontSize="11" Margin="0,0,4,0"/>
-                <Button Content="Green" Tag="#22C55E" Click="FrameColorPreset_Click" Padding="6,3" FontSize="11" Margin="0,0,4,0"/>
-                <Button Content="Red"   Tag="#EF4444" Click="FrameColorPreset_Click" Padding="6,3" FontSize="11" Margin="0,0,4,0"/>
-                <Button Content="White" Tag="#FFFFFF"  Click="FrameColorPreset_Click" Padding="6,3" FontSize="11" Margin="0,0,4,0"/>
-                <Button Content="Blue"  Tag="#3B82F6" Click="FrameColorPreset_Click" Padding="6,3" FontSize="11"/>
-              </StackPanel>
+              <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,14">
+                <StackPanel>
+                  <TextBlock Text="Active frame" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+                  <CheckBox Content="Enable active client frame"
+                            IsChecked="{Binding ActiveFrameEnabled}"
+                            ToolTip="Draws a soft glowing, click-through outline around whichever EVE client you're currently using."
+                            Margin="0,0,0,10"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="Thickness" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <Slider Minimum="1" Maximum="20" Value="{Binding ActiveFrameThickness}" Width="150" VerticalAlignment="Center"
+                            IsSnapToTickEnabled="True" TickFrequency="1"/>
+                    <TextBlock Text="{Binding ActiveFrameThickness, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="Glow radius" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <Slider Minimum="1" Maximum="40" Value="{Binding ActiveFrameGlowRadius}" Width="150" VerticalAlignment="Center"
+                            IsSnapToTickEnabled="True" TickFrequency="1"/>
+                    <TextBlock Text="{Binding ActiveFrameGlowRadius, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="Color" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <Border Width="24" Height="24" Margin="0,0,8,0" CornerRadius="4"
+                            Background="{Binding ActiveFrameBrush}"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                    <Button Content="Pick Color..." Click="FrameColorPick_Click" Padding="6,3" Margin="0,0,8,0" FontSize="12"/>
+                    <Button Content="Amber" Tag="#F59E0B" Click="FrameColorPreset_Click" Padding="6,3" FontSize="12" Margin="0,0,4,0"/>
+                    <Button Content="Cyan"  Tag="#22D3EE" Click="FrameColorPreset_Click" Padding="6,3" FontSize="12" Margin="0,0,4,0"/>
+                    <Button Content="Green" Tag="#22C55E" Click="FrameColorPreset_Click" Padding="6,3" FontSize="12" Margin="0,0,4,0"/>
+                    <Button Content="Red"   Tag="#EF4444" Click="FrameColorPreset_Click" Padding="6,3" FontSize="12" Margin="0,0,4,0"/>
+                    <Button Content="White" Tag="#FFFFFF"  Click="FrameColorPreset_Click" Padding="6,3" FontSize="12" Margin="0,0,4,0"/>
+                    <Button Content="Blue"  Tag="#3B82F6" Click="FrameColorPreset_Click" Padding="6,3" FontSize="12"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
 
-              <TextBlock Text="Preview label — normal" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
-                <TextBlock Text="Style" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <ComboBox Width="170" SelectedValuePath="Tag" FontSize="11"
-                          SelectedValue="{Binding CornerOverlayLabelStyle}"
-                          ToolTip="Pill = a name chip over the tile. Icon+name = character portrait beside plain text.">
-                  <ComboBoxItem Tag="Pill" Content="Pill (name chip)"/>
-                  <ComboBoxItem Tag="IconText" Content="Character icon + name"/>
-                </ComboBox>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
-                <TextBlock Text="Font" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <Button Content="Choose font..." Click="LabelFontPick_Click" Padding="6,3" Margin="0,0,8,0" FontSize="11"/>
-                <TextBlock Text="{Binding LabelFontSummary}" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
-                <TextBlock Text="Style" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <CheckBox Content="Bold" IsChecked="{Binding LabelBold}" Margin="0,0,10,0" FontSize="11"/>
-                <CheckBox Content="Italic" IsChecked="{Binding LabelItalic}" Margin="0,0,10,0" FontSize="11"/>
-                <CheckBox Content="Drop shadow" IsChecked="{Binding LabelDropShadow}" Margin="0,0,10,0" FontSize="11"/>
-                <CheckBox Content="Outline" IsChecked="{Binding LabelOutline}" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
-                <TextBlock Text="Opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <Slider Minimum="20" Maximum="100" Value="{Binding LabelOpacity}" Width="150" VerticalAlignment="Center"
-                        IsSnapToTickEnabled="True" TickFrequency="5"/>
-                <TextBlock Text="{Binding LabelOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
-              </StackPanel>
+              <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                <StackPanel>
+                  <TextBlock Text="Preview label — normal" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="Style" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <ComboBox Width="170" SelectedValuePath="Tag" FontSize="12"
+                              SelectedValue="{Binding CornerOverlayLabelStyle}"
+                              ToolTip="Pill = a name chip over the tile. Icon+name = character portrait beside plain text.">
+                      <ComboBoxItem Tag="Pill" Content="Pill (name chip)"/>
+                      <ComboBoxItem Tag="IconText" Content="Character icon + name"/>
+                    </ComboBox>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="Font" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <Button Content="Choose font..." Click="LabelFontPick_Click" Padding="6,3" Margin="0,0,8,0" FontSize="12"/>
+                    <TextBlock Text="{Binding LabelFontSummary}" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="Style" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <CheckBox Content="Bold" IsChecked="{Binding LabelBold}" Margin="0,0,16,0" FontSize="12"/>
+                    <CheckBox Content="Italic" IsChecked="{Binding LabelItalic}" Margin="0,0,16,0" FontSize="12"/>
+                    <CheckBox Content="Drop shadow" IsChecked="{Binding LabelDropShadow}" Margin="0,0,16,0" FontSize="12"/>
+                    <CheckBox Content="Outline" IsChecked="{Binding LabelOutline}" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
+                    <TextBlock Text="Text opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <Slider Minimum="20" Maximum="100" Value="{Binding LabelOpacity}" Width="150" VerticalAlignment="Center"
+                            IsSnapToTickEnabled="True" TickFrequency="5"/>
+                    <TextBlock Text="{Binding LabelOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                  </StackPanel>
 
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
-                <TextBlock Text="Background" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <ComboBox Width="110" SelectedValuePath="Tag" FontSize="11" Margin="0,0,8,0"
-                          SelectedValue="{Binding LabelBackgroundStyle}"
-                          ToolTip="The label's own backdrop -- applies to both label styles above (Pill's name chip and Icon+name's portrait row alike), independent of the label opacity above.">
-                  <ComboBoxItem Tag="Solid" Content="Solid"/>
-                  <ComboBoxItem Tag="Gradient" Content="Gradient"/>
-                  <ComboBoxItem Tag="None" Content="None (text only)"/>
-                </ComboBox>
-                <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
-                        Background="{Binding LabelBackgroundBrush}"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
-                <Button Content="Pick Color..." Click="LabelBackgroundColorPick_Click" Padding="6,3" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="80,0,0,16" VerticalAlignment="Center">
-                <StackPanel.Style>
-                  <Style TargetType="StackPanel">
-                    <Setter Property="Visibility" Value="Collapsed"/>
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding LabelBackgroundStyle}" Value="Gradient">
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="Background" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <ComboBox Width="110" SelectedValuePath="Tag" FontSize="12" Margin="0,0,8,0"
+                              SelectedValue="{Binding LabelBackgroundStyle}"
+                              ToolTip="The label's own backdrop -- applies to both label styles above (Pill's name chip and Icon+name's portrait row alike), independent of the label opacity above.">
+                      <ComboBoxItem Tag="Solid" Content="Solid"/>
+                      <ComboBoxItem Tag="Gradient" Content="Gradient"/>
+                      <ComboBoxItem Tag="None" Content="None (text only)"/>
+                    </ComboBox>
+                    <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
+                            Background="{Binding LabelBackgroundBrush}"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                    <Button Content="Pick Color..." Click="LabelBackgroundColorPick_Click" Padding="6,3" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="80,0,0,16" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                      <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding LabelBackgroundStyle}" Value="Gradient">
+                            <Setter Property="Visibility" Value="Visible"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="Gradient to" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,8,0"/>
+                    <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
+                            Background="{Binding LabelBackgroundBrush2}"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                    <Button Content="Pick Color..." Click="LabelBackgroundColor2Pick_Click" Padding="6,3" FontSize="12" Margin="0,0,8,0"/>
+                    <TextBlock Text="Top-to-bottom blend" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                      <Style TargetType="StackPanel">
                         <Setter Property="Visibility" Value="Visible"/>
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </StackPanel.Style>
-                <TextBlock Text="Gradient to" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,8,0"/>
-                <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
-                        Background="{Binding LabelBackgroundBrush2}"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
-                <Button Content="Pick Color..." Click="LabelBackgroundColor2Pick_Click" Padding="6,3" FontSize="11" Margin="0,0,8,0"/>
-                <TextBlock Text="Top-to-bottom blend" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
-                <StackPanel.Style>
-                  <Style TargetType="StackPanel">
-                    <Setter Property="Visibility" Value="Visible"/>
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding LabelBackgroundStyle}" Value="None">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </StackPanel.Style>
-                <TextBlock Text="Chip opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <Slider Minimum="0" Maximum="100" Value="{Binding LabelBackgroundOpacity}" Width="150" VerticalAlignment="Center"
-                        IsSnapToTickEnabled="True" TickFrequency="5"
-                        ToolTip="Transparency of the chip backdrop only -- separate from the whole-label Opacity above, which fades text too."/>
-                <TextBlock Text="{Binding LabelBackgroundOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
-                <StackPanel.Style>
-                  <Style TargetType="StackPanel">
-                    <Setter Property="Visibility" Value="Visible"/>
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding LabelBackgroundStyle}" Value="None">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </StackPanel.Style>
-                <TextBlock Text="Texture" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <ComboBox Width="110" SelectedValuePath="Tag" FontSize="11"
-                          SelectedValue="{Binding LabelBackgroundTexture}"
-                          ToolTip="A subtle vector pattern drawn over the chip fill above.">
-                  <ComboBoxItem Tag="None" Content="None"/>
-                  <ComboBoxItem Tag="Diagonal" Content="Diagonal hatch"/>
-                  <ComboBoxItem Tag="Dots" Content="Dot grid"/>
-                  <ComboBoxItem Tag="Noise" Content="Noise / grain"/>
-                </ComboBox>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
-                <TextBlock Text="Roundness" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <Slider Minimum="0" Maximum="20" Value="{Binding LabelCornerRadius}" Width="150" VerticalAlignment="Center"
-                        IsSnapToTickEnabled="True" TickFrequency="1"
-                        ToolTip="Corner radius of the chip backdrop, in pixels."/>
-                <TextBlock Text="{Binding LabelCornerRadius, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
-                <TextBlock Text="Text inset" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <TextBlock Text="H" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,0,4,0"/>
-                <Slider Minimum="0" Maximum="30" Value="{Binding LabelPaddingH}" Width="90" VerticalAlignment="Center"
-                        IsSnapToTickEnabled="True" TickFrequency="1"
-                        ToolTip="Horizontal padding between the chip edge and the text/portrait inside it, in pixels."/>
-                <TextBlock Text="{Binding LabelPaddingH, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="4,0,10,0" FontSize="11"/>
-                <TextBlock Text="V" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,0,4,0"/>
-                <Slider Minimum="0" Maximum="20" Value="{Binding LabelPaddingV}" Width="90" VerticalAlignment="Center"
-                        IsSnapToTickEnabled="True" TickFrequency="1"
-                        ToolTip="Vertical padding between the chip edge and the text/portrait inside it, in pixels."/>
-                <TextBlock Text="{Binding LabelPaddingV, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="4,0,0,0" FontSize="11"/>
-              </StackPanel>
-
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                <TextBlock Text="Preview label — MASTER" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
-                <Button Content="&#8635; Reset to normal" Click="MasterLabelStyleAndFontReset_Click" Padding="5,1" Margin="10,0,0,0" MinHeight="0" FontSize="10"
-                        ToolTip="Reset the MASTER font, style and opacity overrides so they inherit the normal label settings above"/>
-              </StackPanel>
-              <TextBlock Text="Falls back to the normal label settings above until you customize it here." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,0,0,8"/>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
-                <TextBlock Text="Font" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <Button Content="Choose font..." Click="MasterLabelFontPick_Click" Padding="6,3" Margin="0,0,8,0" FontSize="11"/>
-                <TextBlock Text="{Binding MasterLabelFontSummary}" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
-                <TextBlock Text="Style" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <CheckBox Content="Bold" IsChecked="{Binding MasterLabelBold}" Margin="0,0,10,0" FontSize="11"/>
-                <CheckBox Content="Italic" IsChecked="{Binding MasterLabelItalic}" Margin="0,0,10,0" FontSize="11"/>
-                <CheckBox Content="Drop shadow" IsChecked="{Binding MasterLabelDropShadow}" Margin="0,0,10,0" FontSize="11"/>
-                <CheckBox Content="Outline" IsChecked="{Binding MasterLabelOutline}" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
-                <TextBlock Text="Opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <Slider Minimum="20" Maximum="100" Value="{Binding MasterLabelOpacity}" Width="150" VerticalAlignment="Center"
-                        IsSnapToTickEnabled="True" TickFrequency="5"/>
-                <TextBlock Text="{Binding MasterLabelOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
-                <TextBlock Text="Background" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <ComboBox Width="110" SelectedValuePath="Tag" FontSize="11" Margin="0,0,8,0"
-                          SelectedValue="{Binding MasterLabelBackgroundStyle}"
-                          ToolTip="Falls back to the normal chip backdrop above until you customize it here.">
-                  <ComboBoxItem Tag="Solid" Content="Solid"/>
-                  <ComboBoxItem Tag="Gradient" Content="Gradient"/>
-                  <ComboBoxItem Tag="None" Content="None (text only)"/>
-                </ComboBox>
-                <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
-                        Background="{Binding MasterLabelBackgroundBrush}"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
-                <Button Content="Pick Color..." Click="MasterLabelBackgroundColorPick_Click" Padding="6,3" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="80,0,0,10" VerticalAlignment="Center">
-                <StackPanel.Style>
-                  <Style TargetType="StackPanel">
-                    <Setter Property="Visibility" Value="Collapsed"/>
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding MasterLabelBackgroundStyle}" Value="Gradient">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding LabelBackgroundStyle}" Value="None">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="Chip opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <Slider Minimum="0" Maximum="100" Value="{Binding LabelBackgroundOpacity}" Width="150" VerticalAlignment="Center"
+                            IsSnapToTickEnabled="True" TickFrequency="5"
+                            ToolTip="Transparency of the chip backdrop only -- separate from the whole-label Text opacity above, which fades text too."/>
+                    <TextBlock Text="{Binding LabelBackgroundOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                      <Style TargetType="StackPanel">
                         <Setter Property="Visibility" Value="Visible"/>
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </StackPanel.Style>
-                <TextBlock Text="Gradient to" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,8,0"/>
-                <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
-                        Background="{Binding MasterLabelBackgroundBrush2}"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
-                <Button Content="Pick Color..." Click="MasterLabelBackgroundColor2Pick_Click" Padding="6,3" FontSize="11" Margin="0,0,8,0"/>
-                <TextBlock Text="Top-to-bottom blend" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
-                <StackPanel.Style>
-                  <Style TargetType="StackPanel">
-                    <Setter Property="Visibility" Value="Visible"/>
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding MasterLabelBackgroundStyle}" Value="None">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </StackPanel.Style>
-                <TextBlock Text="Chip opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <Slider Minimum="0" Maximum="100" Value="{Binding MasterLabelBackgroundOpacity}" Width="150" VerticalAlignment="Center"
-                        IsSnapToTickEnabled="True" TickFrequency="5"/>
-                <TextBlock Text="{Binding MasterLabelBackgroundOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
-                <StackPanel.Style>
-                  <Style TargetType="StackPanel">
-                    <Setter Property="Visibility" Value="Visible"/>
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding MasterLabelBackgroundStyle}" Value="None">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </StackPanel.Style>
-                <TextBlock Text="Texture" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <ComboBox Width="110" SelectedValuePath="Tag" FontSize="11"
-                          SelectedValue="{Binding MasterLabelBackgroundTexture}">
-                  <ComboBoxItem Tag="None" Content="None"/>
-                  <ComboBoxItem Tag="Diagonal" Content="Diagonal hatch"/>
-                  <ComboBoxItem Tag="Dots" Content="Dot grid"/>
-                  <ComboBoxItem Tag="Noise" Content="Noise / grain"/>
-                </ComboBox>
-              </StackPanel>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding LabelBackgroundStyle}" Value="None">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="Texture" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <ComboBox Width="110" SelectedValuePath="Tag" FontSize="12"
+                              SelectedValue="{Binding LabelBackgroundTexture}"
+                              ToolTip="A subtle vector pattern drawn over the chip fill above.">
+                      <ComboBoxItem Tag="None" Content="None"/>
+                      <ComboBoxItem Tag="Diagonal" Content="Diagonal hatch"/>
+                      <ComboBoxItem Tag="Dots" Content="Dot grid"/>
+                      <ComboBoxItem Tag="Noise" Content="Noise / grain"/>
+                    </ComboBox>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="Roundness" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <Slider Minimum="0" Maximum="20" Value="{Binding LabelCornerRadius}" Width="150" VerticalAlignment="Center"
+                            IsSnapToTickEnabled="True" TickFrequency="1"
+                            ToolTip="Corner radius of the chip backdrop, in pixels."/>
+                    <TextBlock Text="{Binding LabelCornerRadius, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="Text inset" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <TextBlock Text="H" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,4,0"/>
+                    <Slider Minimum="0" Maximum="30" Value="{Binding LabelPaddingH}" Width="90" VerticalAlignment="Center"
+                            IsSnapToTickEnabled="True" TickFrequency="1"
+                            ToolTip="Horizontal padding between the chip edge and the text/portrait inside it, in pixels."/>
+                    <TextBlock Text="{Binding LabelPaddingH, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="4,0,10,0" FontSize="12"/>
+                    <TextBlock Text="V" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,4,0"/>
+                    <Slider Minimum="0" Maximum="20" Value="{Binding LabelPaddingV}" Width="90" VerticalAlignment="Center"
+                            IsSnapToTickEnabled="True" TickFrequency="1"
+                            ToolTip="Vertical padding between the chip edge and the text/portrait inside it, in pixels."/>
+                    <TextBlock Text="{Binding LabelPaddingV, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="4,0,0,0" FontSize="12"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
 
-              <TextBlock Text="Preview tiles" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
-                <TextBlock Text="Opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <Slider Minimum="10" Maximum="100" Value="{Binding PreviewOpacity}" Width="150" VerticalAlignment="Center"
-                        IsSnapToTickEnabled="True" TickFrequency="5"
-                        ToolTip="Transparency of every DWM preview thumbnail, corners and the master rect alike."/>
-                <TextBlock Text="{Binding PreviewOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
-              </StackPanel>
+              <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                <StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Preview label — MASTER" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                    <Button Content="&#8635; Reset to normal" Click="MasterLabelStyleAndFontReset_Click" Padding="5,1" Margin="10,0,0,0" MinHeight="0" FontSize="11"
+                            ToolTip="Reset the MASTER font, style and opacity overrides so they inherit the normal label settings above"/>
+                  </StackPanel>
+                  <TextBlock Text="Falls back to the normal label settings above until you customize it here." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,8"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="Font" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <Button Content="Choose font..." Click="MasterLabelFontPick_Click" Padding="6,3" Margin="0,0,8,0" FontSize="12"/>
+                    <TextBlock Text="{Binding MasterLabelFontSummary}" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="Style" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <CheckBox Content="Bold" IsChecked="{Binding MasterLabelBold}" Margin="0,0,16,0" FontSize="12"/>
+                    <CheckBox Content="Italic" IsChecked="{Binding MasterLabelItalic}" Margin="0,0,16,0" FontSize="12"/>
+                    <CheckBox Content="Drop shadow" IsChecked="{Binding MasterLabelDropShadow}" Margin="0,0,16,0" FontSize="12"/>
+                    <CheckBox Content="Outline" IsChecked="{Binding MasterLabelOutline}" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+                    <TextBlock Text="Opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <Slider Minimum="20" Maximum="100" Value="{Binding MasterLabelOpacity}" Width="150" VerticalAlignment="Center"
+                            IsSnapToTickEnabled="True" TickFrequency="5"/>
+                    <TextBlock Text="{Binding MasterLabelOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="Background" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <ComboBox Width="110" SelectedValuePath="Tag" FontSize="12" Margin="0,0,8,0"
+                              SelectedValue="{Binding MasterLabelBackgroundStyle}"
+                              ToolTip="Falls back to the normal chip backdrop above until you customize it here.">
+                      <ComboBoxItem Tag="Solid" Content="Solid"/>
+                      <ComboBoxItem Tag="Gradient" Content="Gradient"/>
+                      <ComboBoxItem Tag="None" Content="None (text only)"/>
+                    </ComboBox>
+                    <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
+                            Background="{Binding MasterLabelBackgroundBrush}"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                    <Button Content="Pick Color..." Click="MasterLabelBackgroundColorPick_Click" Padding="6,3" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="80,0,0,10" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                      <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding MasterLabelBackgroundStyle}" Value="Gradient">
+                            <Setter Property="Visibility" Value="Visible"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="Gradient to" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,8,0"/>
+                    <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
+                            Background="{Binding MasterLabelBackgroundBrush2}"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                    <Button Content="Pick Color..." Click="MasterLabelBackgroundColor2Pick_Click" Padding="6,3" FontSize="12" Margin="0,0,8,0"/>
+                    <TextBlock Text="Top-to-bottom blend" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                      <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding MasterLabelBackgroundStyle}" Value="None">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="Chip opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <Slider Minimum="0" Maximum="100" Value="{Binding MasterLabelBackgroundOpacity}" Width="150" VerticalAlignment="Center"
+                            IsSnapToTickEnabled="True" TickFrequency="5"/>
+                    <TextBlock Text="{Binding MasterLabelBackgroundOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,0" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                      <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding MasterLabelBackgroundStyle}" Value="None">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="Texture" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <ComboBox Width="110" SelectedValuePath="Tag" FontSize="12"
+                              SelectedValue="{Binding MasterLabelBackgroundTexture}">
+                      <ComboBoxItem Tag="None" Content="None"/>
+                      <ComboBoxItem Tag="Diagonal" Content="Diagonal hatch"/>
+                      <ComboBoxItem Tag="Dots" Content="Dot grid"/>
+                      <ComboBoxItem Tag="Noise" Content="Noise / grain"/>
+                    </ComboBox>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
 
-              <CheckBox Content="Enable live previews"
-                        IsChecked="{Binding CornerOverlaysEnabled}"
-                        Margin="0,0,0,10"/>
-              <CheckBox Content="Click a preview to bring that client to the center"
-                        IsChecked="{Binding FocusPreviewOnClick}"
-                        Margin="0,0,0,2"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
+              <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+                <StackPanel>
+                  <TextBlock Text="Preview tiles" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
+                    <TextBlock Text="Opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <Slider Minimum="10" Maximum="100" Value="{Binding PreviewOpacity}" Width="150" VerticalAlignment="Center"
+                            IsSnapToTickEnabled="True" TickFrequency="5"
+                            ToolTip="Transparency of every DWM preview thumbnail, corners and the master rect alike."/>
+                    <TextBlock Text="{Binding PreviewOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                  </StackPanel>
+
+                  <CheckBox Content="Enable live previews"
+                            IsChecked="{Binding CornerOverlaysEnabled}"
+                            Margin="0,0,0,10"/>
+                  <CheckBox Content="Click a preview to bring that client to the center"
+                            IsChecked="{Binding FocusPreviewOnClick}"
+                            Margin="0,0,0,2"/>
+                  <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
 Preview tiles shrink the whole client window. To read them better: raise UI Scaling in EVE (Esc > Display &amp; Graphics), enlarge the tile, or raise the hover zoom below. EveDeck will not crop to just the HUD -- that would violate the EULA.
-              </TextBlock>
-              <TextBlock Text="Clicking a preview switches focus to that client (same as a hotkey). The click is never sent into EVE."
-                         TextWrapping="Wrap" FontSize="11" Margin="20,0,0,10"
-                         Foreground="{StaticResource MutedBrush}"/>
-              <CheckBox Content="Hover a preview to peek at that client over the master"
-                        IsChecked="{Binding HoverPreviewEnabled}"
-                        Margin="0,0,0,2"/>
-              <TextBlock Text="Hover over a preview to peek at that client. It returns to its corner when you move away."
-                         TextWrapping="Wrap" FontSize="11" Margin="20,0,0,6"
-                         Foreground="{StaticResource MutedBrush}"/>
-              <StackPanel Orientation="Horizontal" Margin="20,0,0,4" VerticalAlignment="Center"
-                          IsEnabled="{Binding HoverPreviewEnabled}">
-                <TextBlock Text="Hover style" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <ComboBox Width="220" SelectedValuePath="Tag" FontSize="11"
-                          SelectedValue="{Binding HoverPreviewStyle}">
-                  <ComboBoxItem Tag="Peek" Content="Peek (raise the real client over the master)"/>
-                  <ComboBoxItem Tag="Zoom" Content="Zoom (magnify just the preview in place)"/>
-                </ComboBox>
-                <TextBlock Text="Zoom" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="10,0,4,0"/>
-                <TextBox Width="36"
-                         Text="{Binding HoverZoomFactor, UpdateSourceTrigger=PropertyChanged}"
-                         HorizontalContentAlignment="Center" FontSize="11"
-                         ToolTip="Preview magnification for the Zoom style (1.5-8). Individual seats can override this on their slot card in the Clients tab."/>
-                <TextBlock Text="x" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="2,0,0,0"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="20,0,0,10" VerticalAlignment="Center"
-                          IsEnabled="{Binding HoverPreviewEnabled}">
-                <TextBlock Text="Peek delay" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <TextBox Width="48"
-                         Text="{Binding HoverPreviewDelayMs, UpdateSourceTrigger=PropertyChanged}"
-                         HorizontalContentAlignment="Center" FontSize="11"/>
-                <TextBlock Text="ms  (0 = instant, default 250)" VerticalAlignment="Center"
-                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="6,0,0,0"/>
-              </StackPanel>
-              <CheckBox Content="Show an info button on each preview"
-                        IsChecked="{Binding CornerOverlayInfoButtonEnabled}"
-                        Margin="0,0,0,2"/>
-              <TextBlock Text="Adds a button to each preview showing live character status (wallet, ship, location, skills). Requires ESI scopes: re-link the character to grant them."
-                         TextWrapping="Wrap" FontSize="11" Margin="20,0,0,6"
-                         Foreground="{StaticResource MutedBrush}"/>
-              <WrapPanel Margin="20,0,0,10" IsEnabled="{Binding CornerOverlayInfoButtonEnabled}">
-                <TextBlock Text="Show:" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,8,0"/>
-                <CheckBox Content="Wallet" IsChecked="{Binding InfoFlyoutShowWallet}" Margin="0,0,14,0"/>
-                <CheckBox Content="Ship" IsChecked="{Binding InfoFlyoutShowShip}" Margin="0,0,14,0"/>
-                <CheckBox Content="System" IsChecked="{Binding InfoFlyoutShowLocation}" Margin="0,0,14,0"/>
-                <CheckBox Content="System kills" IsChecked="{Binding InfoFlyoutShowDanger}" Margin="0,0,14,0"/>
-                <CheckBox Content="Training" IsChecked="{Binding InfoFlyoutShowSkill}" Margin="0,0,14,0"/>
-                <CheckBox Content="SP" IsChecked="{Binding InfoFlyoutShowSp}" Margin="0,0,14,0"/>
-                <CheckBox Content="Jump fatigue" IsChecked="{Binding InfoFlyoutShowFatigue}"/>
-              </WrapPanel>
-              <CheckBox Content="Show jump fatigue / reactivation-timer badges on each preview"
-                        IsChecked="{Binding CornerOverlayShowJumpBadges}"
-                        Margin="0,0,0,2"/>
-              <TextBlock Text="Shows jump fatigue and reactivation cooldown badges on each preview. Requires the same ESI scopes as the info button above."
-                         TextWrapping="Wrap" FontSize="11" Margin="20,0,0,6"
-                         Foreground="{StaticResource MutedBrush}"/>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,2" VerticalAlignment="Center">
-                <TextBlock Text="Badge/popup text scale" VerticalAlignment="Center" Width="140"/>
-                <TextBox Width="48"
-                         Text="{Binding CornerOverlayChromeScale, UpdateSourceTrigger=PropertyChanged}"
-                         HorizontalContentAlignment="Center" FontSize="11"/>
-                <TextBlock Text="x  (1.0-4.0, default 1.0)" VerticalAlignment="Center"
-                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="6,0,0,0"/>
-              </StackPanel>
-              <TextBlock Text="Grows the info badge, jump badges, and their popup text on-screen -- independent of Windows' own display scaling, so a small/high-DPI monitor (e.g. a tablet used as a display) can stay legible without scaling the whole desktop up."
-                         TextWrapping="Wrap" FontSize="11" Margin="0,0,0,10"
-                         Foreground="{StaticResource MutedBrush}"/>
-              <CheckBox Content="Stream-safe mode (hide names, systems, and ISK on the overlay)"
-                        IsChecked="{Binding StreamSafeMode}"
-                        Margin="0,4,0,2"/>
-              <TextBlock Text="For streaming: hides character names, systems, and ISK on the overlay only. Bind 'Toggle stream-safe overlay' in Hotkeys to toggle mid-stream."
-                         TextWrapping="Wrap" FontSize="11" Margin="20,0,0,10"
-                         Foreground="{StaticResource MutedBrush}"/>
-              <CheckBox Content="Show character name pills"
-                        IsChecked="{Binding CornerOverlayShowLabel}"
-                        Margin="0,0,0,6"/>
-              <CheckBox Content="Prefix pills with position code (e.g. TL · Name)"
-                        IsChecked="{Binding CornerOverlayShowSlotNumber}"
-                        Margin="0,0,0,6"/>
-              <CheckBox Content="Show current solar system on pills (from Local chat logs)"
-                        IsChecked="{Binding CornerOverlayShowSystem}"
-                        Margin="0,0,0,6"/>
-              <CheckBox Content="Hide a preview tile while that client is the active window"
-                        IsChecked="{Binding HideActiveSeatTile}"
-                        ToolTip="The active client is already on screen full-size; hiding its own tile reduces clutter"
-                        Margin="0,0,0,6"/>
-              <TextBlock Text="To hide a single seat's preview permanently, use its 'Hide preview' checkbox on the Clients tab."
-                         Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                  </TextBlock>
+                  <TextBlock Text="Clicking a preview switches focus to that client (same as a hotkey). The click is never sent into EVE."
+                             TextWrapping="Wrap" FontSize="12" Margin="20,0,0,10"
+                             Foreground="{StaticResource MutedBrush}"/>
+                  <CheckBox Content="Hover a preview to peek at that client over the master"
+                            IsChecked="{Binding HoverPreviewEnabled}"
+                            Margin="0,0,0,2"/>
+                  <TextBlock Text="Hover over a preview to peek at that client. It returns to its corner when you move away."
+                             TextWrapping="Wrap" FontSize="12" Margin="20,0,0,6"
+                             Foreground="{StaticResource MutedBrush}"/>
+                  <StackPanel Orientation="Horizontal" Margin="20,0,0,4" VerticalAlignment="Center"
+                              IsEnabled="{Binding HoverPreviewEnabled}">
+                    <TextBlock Text="Hover style" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <ComboBox Width="220" SelectedValuePath="Tag" FontSize="12"
+                              SelectedValue="{Binding HoverPreviewStyle}">
+                      <ComboBoxItem Tag="Peek" Content="Peek (raise the real client over the master)"/>
+                      <ComboBoxItem Tag="Zoom" Content="Zoom (magnify just the preview in place)"/>
+                    </ComboBox>
+                    <TextBlock Text="Zoom" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="10,0,4,0"/>
+                    <TextBox Width="36"
+                             Text="{Binding HoverZoomFactor, UpdateSourceTrigger=PropertyChanged}"
+                             HorizontalContentAlignment="Center" FontSize="12"
+                             ToolTip="Preview magnification for the Zoom style (1.5-8). Individual seats can override this on their slot card in the Clients tab."/>
+                    <TextBlock Text="x" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="2,0,0,0"/>
+                    <TextBlock Text="(1.5-8)" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="4,0,0,0"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="20,0,0,10" VerticalAlignment="Center"
+                              IsEnabled="{Binding HoverPreviewEnabled}">
+                    <TextBlock Text="Peek delay" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <TextBox Width="48"
+                             Text="{Binding HoverPreviewDelayMs, UpdateSourceTrigger=PropertyChanged}"
+                             HorizontalContentAlignment="Center" FontSize="12"/>
+                    <TextBlock Text="ms" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="4,0,0,0"/>
+                    <TextBlock Text="(0 = instant, default 250)" VerticalAlignment="Center"
+                               Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="6,0,0,0"/>
+                  </StackPanel>
+                  <CheckBox Content="Show an info button on each preview"
+                            IsChecked="{Binding CornerOverlayInfoButtonEnabled}"
+                            Margin="0,0,0,2"/>
+                  <TextBlock Text="Adds a button to each preview showing live character status (wallet, ship, location, skills). Requires ESI scopes: re-link the character to grant them."
+                             TextWrapping="Wrap" FontSize="12" Margin="20,0,0,6"
+                             Foreground="{StaticResource MutedBrush}"/>
+                  <WrapPanel Margin="20,0,0,10" IsEnabled="{Binding CornerOverlayInfoButtonEnabled}">
+                    <TextBlock Text="Show:" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,8,0"/>
+                    <CheckBox Content="Wallet" IsChecked="{Binding InfoFlyoutShowWallet}" Margin="0,0,14,0" ToolTip="Current ISK balance"/>
+                    <CheckBox Content="Ship" IsChecked="{Binding InfoFlyoutShowShip}" Margin="0,0,14,0" ToolTip="Ship type currently flown"/>
+                    <CheckBox Content="System" IsChecked="{Binding InfoFlyoutShowLocation}" Margin="0,0,14,0" ToolTip="Current solar system"/>
+                    <CheckBox Content="System kills" IsChecked="{Binding InfoFlyoutShowDanger}" Margin="0,0,14,0" ToolTip="Recent kills reported in the current system, as a danger indicator"/>
+                    <CheckBox Content="Training" IsChecked="{Binding InfoFlyoutShowSkill}" Margin="0,0,14,0" ToolTip="Skill currently in training and time remaining"/>
+                    <CheckBox Content="SP" IsChecked="{Binding InfoFlyoutShowSp}" Margin="0,0,14,0" ToolTip="Total skill points"/>
+                    <CheckBox Content="Jump fatigue" IsChecked="{Binding InfoFlyoutShowFatigue}" ToolTip="Current jump fatigue / reactivation timer"/>
+                  </WrapPanel>
+                  <CheckBox Content="Show jump fatigue / reactivation-timer badges on each preview"
+                            IsChecked="{Binding CornerOverlayShowJumpBadges}"
+                            Margin="0,0,0,2"/>
+                  <TextBlock Text="Shows jump fatigue and reactivation cooldown badges on each preview. Requires the same ESI scopes as the info button above."
+                             TextWrapping="Wrap" FontSize="12" Margin="20,0,0,6"
+                             Foreground="{StaticResource MutedBrush}"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,2" VerticalAlignment="Center">
+                    <TextBlock Text="Badge/popup text scale" VerticalAlignment="Center" Width="140"/>
+                    <TextBox Width="48"
+                             Text="{Binding CornerOverlayChromeScale, UpdateSourceTrigger=PropertyChanged}"
+                             HorizontalContentAlignment="Center" FontSize="12"/>
+                    <TextBlock Text="x" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="4,0,0,0"/>
+                    <TextBlock Text="(1.0-4.0, default 1.0)" VerticalAlignment="Center"
+                               Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="6,0,0,0"/>
+                  </StackPanel>
+                  <TextBlock Text="Grows the info badge, jump badges, and their popup text on-screen -- independent of Windows' own display scaling, so a small/high-DPI monitor (e.g. a tablet used as a display) can stay legible without scaling the whole desktop up."
+                             TextWrapping="Wrap" FontSize="12" Margin="0,0,0,10"
+                             Foreground="{StaticResource MutedBrush}"/>
+                  <CheckBox Content="Stream-safe mode (hide names, systems, and ISK on the overlay)"
+                            IsChecked="{Binding StreamSafeMode}"
+                            Margin="0,4,0,2"/>
+                  <TextBlock Text="For streaming: hides character names, systems, and ISK on the overlay only. Bind 'Toggle stream-safe overlay' in Hotkeys to toggle mid-stream."
+                             TextWrapping="Wrap" FontSize="12" Margin="20,0,0,10"
+                             Foreground="{StaticResource MutedBrush}"/>
+                  <CheckBox Content="Show character name pills"
+                            IsChecked="{Binding CornerOverlayShowLabel}"
+                            Margin="0,0,0,6"/>
+                  <CheckBox Content="Prefix pills with position code (e.g. Top-Left - Name)"
+                            IsChecked="{Binding CornerOverlayShowSlotNumber}"
+                            Margin="0,0,0,6"/>
+                  <CheckBox Content="Show current solar system on pills (from Local chat logs)"
+                            IsChecked="{Binding CornerOverlayShowSystem}"
+                            Margin="0,0,0,6"/>
+                  <CheckBox Content="Hide a preview tile while that client is the active window"
+                            IsChecked="{Binding HideActiveSeatTile}"
+                            ToolTip="The active client is already on screen full-size; hiding its own tile reduces clutter"
+                            Margin="0,0,0,6"/>
+                  <TextBlock Text="To hide a single seat's preview permanently, use its 'Hide preview' checkbox on the Clients tab."
+                             Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10"/>
 
-              <CheckBox Content="Hide preview tiles while clients are at the login screen"
-                        IsChecked="{Binding HidePreviewsAtLoginScreen}"
-                        ToolTip="A client at login shows nothing useful in its preview."
-                        Margin="0,0,0,6"/>
+                  <CheckBox Content="Hide preview tiles while clients are at the login screen"
+                            IsChecked="{Binding HidePreviewsAtLoginScreen}"
+                            ToolTip="A client at login shows nothing useful in its preview."
+                            Margin="0,0,0,6"/>
 
-              <CheckBox Content="Hide all previews while EVE is not in focus"
-                        IsChecked="{Binding HidePreviewsOnFocusLoss}"
-                        ToolTip="Alt-tab to another app and previews hide; switch back to EVE and they return instantly."
-                        Margin="0,0,0,6"/>
-              <StackPanel Orientation="Horizontal" Margin="16,0,0,10" VerticalAlignment="Center">
-                <TextBlock Text="after" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <TextBox Width="48" Margin="6,0,0,0"
-                         Text="{Binding HidePreviewsOnFocusLossDelaySeconds, UpdateSourceTrigger=PropertyChanged}"
-                         HorizontalContentAlignment="Center" FontSize="11"/>
-                <TextBlock Text="sec (0 = instant; short delay prevents flicker when swapping seats)"
-                           VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="6,0,0,0"/>
-              </StackPanel>
+                  <CheckBox Content="Hide all previews while EVE is not in focus"
+                            IsChecked="{Binding HidePreviewsOnFocusLoss}"
+                            ToolTip="Alt-tab to another app and previews hide; switch back to EVE and they return instantly."
+                            Margin="0,0,0,6"/>
+                  <StackPanel Orientation="Horizontal" Margin="16,0,0,10" VerticalAlignment="Center">
+                    <TextBlock Text="after" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <TextBox Width="48" Margin="6,0,0,0"
+                             Text="{Binding HidePreviewsOnFocusLossDelaySeconds, UpdateSourceTrigger=PropertyChanged}"
+                             HorizontalContentAlignment="Center" FontSize="12"/>
+                    <TextBlock Text="sec" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="4,0,0,0"/>
+                    <TextBlock Text="(0 = instant; short delay prevents flicker when swapping seats)"
+                               VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="6,0,0,0"/>
+                  </StackPanel>
 
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
-                <TextBlock Text="Label position" VerticalAlignment="Center" Width="120" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <ComboBox Width="150" FontSize="11"
-                          SelectedValue="{Binding CornerOverlayLabelAnchor}" SelectedValuePath="Tag"
-                          ToolTip="Where the character name sits inside its preview tile.">
-                  <ComboBoxItem Tag="TopLeft" Content="Top left"/>
-                  <ComboBoxItem Tag="TopCenter" Content="Top center"/>
-                  <ComboBoxItem Tag="TopRight" Content="Top right"/>
-                  <ComboBoxItem Tag="MiddleLeft" Content="Middle left"/>
-                  <ComboBoxItem Tag="Center" Content="Center"/>
-                  <ComboBoxItem Tag="MiddleRight" Content="Middle right"/>
-                  <ComboBoxItem Tag="BottomLeft" Content="Bottom left"/>
-                  <ComboBoxItem Tag="BottomCenter" Content="Bottom center"/>
-                  <ComboBoxItem Tag="BottomRight" Content="Bottom right"/>
-                </ComboBox>
-                <TextBlock Text="master" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="12,0,0,0"/>
-                <ComboBox Width="130" FontSize="11" Margin="6,0,0,0"
-                          SelectedValue="{Binding CornerOverlayLabelAnchorMaster}" SelectedValuePath="Tag"
-                          ToolTip="Where the label sits on the big center/master rect. That is the client you are actually looking at, so a label parked in the middle of it covers your ship - top usually reads better there while the small tiles stay centered.">
-                  <ComboBoxItem Tag="TopLeft" Content="Top left"/>
-                  <ComboBoxItem Tag="TopCenter" Content="Top center"/>
-                  <ComboBoxItem Tag="TopRight" Content="Top right"/>
-                  <ComboBoxItem Tag="MiddleLeft" Content="Middle left"/>
-                  <ComboBoxItem Tag="Center" Content="Center"/>
-                  <ComboBoxItem Tag="MiddleRight" Content="Middle right"/>
-                  <ComboBoxItem Tag="BottomLeft" Content="Bottom left"/>
-                  <ComboBoxItem Tag="BottomCenter" Content="Bottom center"/>
-                  <ComboBoxItem Tag="BottomRight" Content="Bottom right"/>
-                </ComboBox>
-                <TextBlock Text="edge inset" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="12,0,0,0"/>
-                <TextBox Width="40" Margin="6,0,0,0"
-                         Text="{Binding CornerOverlayLabelInset, UpdateSourceTrigger=PropertyChanged}"
-                         HorizontalContentAlignment="Center" FontSize="11"
-                         ToolTip="Gap in pixels between the label and the tile edge it hugs. Ignored on a centered axis."/>
-                <TextBlock Text="px" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="4,0,0,0"/>
-              </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
+                    <TextBlock Text="Label position" VerticalAlignment="Center" Width="120" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <ComboBox Width="150" FontSize="12"
+                              SelectedValue="{Binding CornerOverlayLabelAnchor}" SelectedValuePath="Tag"
+                              ToolTip="Where the character name sits inside its preview tile.">
+                      <ComboBoxItem Tag="TopLeft" Content="Top left"/>
+                      <ComboBoxItem Tag="TopCenter" Content="Top center"/>
+                      <ComboBoxItem Tag="TopRight" Content="Top right"/>
+                      <ComboBoxItem Tag="MiddleLeft" Content="Middle left"/>
+                      <ComboBoxItem Tag="Center" Content="Center"/>
+                      <ComboBoxItem Tag="MiddleRight" Content="Middle right"/>
+                      <ComboBoxItem Tag="BottomLeft" Content="Bottom left"/>
+                      <ComboBoxItem Tag="BottomCenter" Content="Bottom center"/>
+                      <ComboBoxItem Tag="BottomRight" Content="Bottom right"/>
+                    </ComboBox>
+                    <TextBlock Text="master" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="12,0,0,0"/>
+                    <ComboBox Width="130" FontSize="12" Margin="6,0,0,0"
+                              SelectedValue="{Binding CornerOverlayLabelAnchorMaster}" SelectedValuePath="Tag"
+                              ToolTip="Where the label sits on the big center/master rect. That is the client you are actually looking at, so a label parked in the middle of it covers your ship - top usually reads better there while the small tiles stay centered.">
+                      <ComboBoxItem Tag="TopLeft" Content="Top left"/>
+                      <ComboBoxItem Tag="TopCenter" Content="Top center"/>
+                      <ComboBoxItem Tag="TopRight" Content="Top right"/>
+                      <ComboBoxItem Tag="MiddleLeft" Content="Middle left"/>
+                      <ComboBoxItem Tag="Center" Content="Center"/>
+                      <ComboBoxItem Tag="MiddleRight" Content="Middle right"/>
+                      <ComboBoxItem Tag="BottomLeft" Content="Bottom left"/>
+                      <ComboBoxItem Tag="BottomCenter" Content="Bottom center"/>
+                      <ComboBoxItem Tag="BottomRight" Content="Bottom right"/>
+                    </ComboBox>
+                    <TextBlock Text="edge inset" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="12,0,0,0"/>
+                    <TextBox Width="40" Margin="6,0,0,0"
+                             Text="{Binding CornerOverlayLabelInset, UpdateSourceTrigger=PropertyChanged}"
+                             HorizontalContentAlignment="Center" FontSize="12"
+                             ToolTip="Gap in pixels between the label and the tile edge it hugs. Ignored on a centered axis."/>
+                    <TextBlock Text="px" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="4,0,0,0"/>
+                  </StackPanel>
 
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
-                <TextBlock Text="Zoom grows from" VerticalAlignment="Center" Width="120" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <ComboBox Width="130" FontSize="11"
-                          SelectedValue="{Binding HoverZoomAnchor}" SelectedValuePath="Tag"
-                          ToolTip="Which point a hover-zoomed tile expands from. Center grows evenly; an edge or corner pins that side so a tile against a screen edge grows inward instead of being clamped. Per-seat overrides live on each slot card in the Clients tab.">
-                  <ComboBoxItem Tag="TopLeft" Content="Top left"/>
-                  <ComboBoxItem Tag="TopCenter" Content="Top center"/>
-                  <ComboBoxItem Tag="TopRight" Content="Top right"/>
-                  <ComboBoxItem Tag="MiddleLeft" Content="Middle left"/>
-                  <ComboBoxItem Tag="Center" Content="Center"/>
-                  <ComboBoxItem Tag="MiddleRight" Content="Middle right"/>
-                  <ComboBoxItem Tag="BottomLeft" Content="Bottom left"/>
-                  <ComboBoxItem Tag="BottomCenter" Content="Bottom center"/>
-                  <ComboBoxItem Tag="BottomRight" Content="Bottom right"/>
-                </ComboBox>
-              </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+                    <TextBlock Text="Zoom grows from" VerticalAlignment="Center" Width="120" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <ComboBox Width="130" FontSize="12"
+                              SelectedValue="{Binding HoverZoomAnchor}" SelectedValuePath="Tag"
+                              ToolTip="Which point a hover-zoomed tile expands from. Center grows evenly; an edge or corner pins that side so a tile against a screen edge grows inward instead of being clamped. Per-seat overrides live on each slot card in the Clients tab.">
+                      <ComboBoxItem Tag="TopLeft" Content="Top left"/>
+                      <ComboBoxItem Tag="TopCenter" Content="Top center"/>
+                      <ComboBoxItem Tag="TopRight" Content="Top right"/>
+                      <ComboBoxItem Tag="MiddleLeft" Content="Middle left"/>
+                      <ComboBoxItem Tag="Center" Content="Center"/>
+                      <ComboBoxItem Tag="MiddleRight" Content="Middle right"/>
+                      <ComboBoxItem Tag="BottomLeft" Content="Bottom left"/>
+                      <ComboBoxItem Tag="BottomCenter" Content="Bottom center"/>
+                      <ComboBoxItem Tag="BottomRight" Content="Bottom right"/>
+                    </ComboBox>
+                  </StackPanel>
 
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
-                <TextBlock Text="Snap tiles to grid" VerticalAlignment="Center" Width="120" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <TextBox Width="48"
-                         Text="{Binding CornerOverlaySnapGridPx, UpdateSourceTrigger=PropertyChanged}"
-                         HorizontalContentAlignment="Center" FontSize="11"/>
-                <TextBlock Text="px when dragging/resizing previews on the overlay (0 = free)"
-                           VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="6,0,0,0"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
-                <TextBlock Text="Auto-close overlay after" VerticalAlignment="Center" Width="120" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <TextBox Width="48"
-                         Text="{Binding OfflineOverlayTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}"
-                         HorizontalContentAlignment="Center" FontSize="11"/>
-                <TextBlock Text="sec of every seat offline (0 = never auto-close, default 60)" VerticalAlignment="Center"
-                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="6,0,0,0"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
-                <TextBlock Text="Hide offline pill after" VerticalAlignment="Center" Width="120" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-                <TextBox Width="48"
-                         Text="{Binding OfflinePillTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}"
-                         HorizontalContentAlignment="Center" FontSize="11"/>
-                <TextBlock Text="sec offline (0 = hide immediately, -1 = never hide, default)" VerticalAlignment="Center"
-                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="6,0,0,0"/>
-              </StackPanel>
-              <TextBlock Text="Preview non-EVE apps" FontSize="13" FontWeight="SemiBold" Margin="0,14,0,6"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,8">
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+                    <TextBlock Text="Snap tiles to grid" VerticalAlignment="Center" Width="120" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                    <TextBox Width="48"
+                             Text="{Binding CornerOverlaySnapGridPx, UpdateSourceTrigger=PropertyChanged}"
+                             HorizontalContentAlignment="Center" FontSize="12"/>
+                    <TextBlock Text="px" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="4,0,0,0"/>
+                    <TextBlock Text="when dragging/resizing previews on the overlay (0 = free)"
+                               VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="6,0,0,0"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+                    <TextBlock Text="Auto-close overlay after" VerticalAlignment="Center" Width="120" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                    <TextBox Width="48"
+                             Text="{Binding OfflineOverlayTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}"
+                             HorizontalContentAlignment="Center" FontSize="12"/>
+                    <TextBlock Text="sec" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="4,0,0,0"/>
+                    <TextBlock Text="of every seat offline (0 = never auto-close, default 60)" VerticalAlignment="Center"
+                               Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="6,0,0,0"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="Hide offline pill after" VerticalAlignment="Center" Width="120" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                    <TextBox Width="48"
+                             Text="{Binding OfflinePillTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}"
+                             HorizontalContentAlignment="Center" FontSize="12"/>
+                    <TextBlock Text="sec" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="4,0,0,0"/>
+                    <TextBlock Text="offline (0 = hide immediately, -1 = never hide, default)" VerticalAlignment="Center"
+                               Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="6,0,0,0"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,4">
+                <StackPanel>
+                  <TextBlock Text="Preview non-EVE apps" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                  <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
 Apps listed here also show up as detected/assignable windows (Clients tab) so one can be assigned to a slot and previewed in a corner tile alongside your EVE clients -- e.g. Discord or a spreadsheet. Matched by process name (case-insensitive, partial match, no ".exe").
-              </TextBlock>
-              <ItemsControl ItemsSource="{Binding PreviewableApps}" Margin="0,0,0,6">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <DockPanel Margin="0,3">
-                      <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"
-                                VerticalAlignment="Center" Margin="0,0,8,0"/>
-                      <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="11" Margin="6,0,0,0"
-                              Command="{Binding DataContext.RemovePreviewableAppCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                              CommandParameter="{Binding}"/>
-                      <TextBox Text="{Binding ProcessName, UpdateSourceTrigger=PropertyChanged}"
-                               Width="180" Padding="6,4" FontSize="12"
-                               ToolTip="Process name substring, case-insensitive (e.g. discord, excel)"/>
-                    </DockPanel>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-              <Button Content="+ Add App" Command="{Binding AddPreviewableAppCommand}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
+                  </TextBlock>
+                  <ItemsControl ItemsSource="{Binding PreviewableApps}" Margin="0,0,0,6">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <DockPanel Margin="0,3">
+                          <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"
+                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="12" Margin="6,0,0,0"
+                                  Command="{Binding DataContext.RemovePreviewableAppCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  CommandParameter="{Binding}"/>
+                          <TextBox Text="{Binding ProcessName, UpdateSourceTrigger=PropertyChanged}"
+                                   Width="180" Padding="6,4" FontSize="12"
+                                   ToolTip="Process name substring, case-insensitive (e.g. discord, excel)"/>
+                        </DockPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Button Content="+ Add App" Command="{Binding AddPreviewableAppCommand}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
+                </StackPanel>
+              </Border>
                   </StackPanel>
                   <!-- section 4: Settings Backup -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=4}">
                     <TextBlock Text="Settings Backup" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
 EveDeck snapshots your settings on every launch, keeping 5 from today plus 1 per day for the past week. Select one to restore, or create a manual backup before big changes. Export/Import lets you save settings to a file.
               </TextBlock>
 
@@ -1876,7 +1950,7 @@ EveDeck snapshots your settings on every launch, keeping 5 from today plus 1 per
                         IsChecked="{Binding HotkeysSuspended}"
                         Margin="0,0,0,6"
                         ToolTip="Temporarily disables every EveDeck hotkey. Bind 'Suspend / resume all hotkeys' in the Hotkeys tab to toggle this from the keyboard — that one binding keeps working while suspended."/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4">
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,4">
 When enabled: swap/cycle/apply-layout hotkeys work only in EVE; other apps get the keystrokes. Focus and character-switch hotkeys stay global so you can always jump back to EVE.
               </TextBlock>
                   </StackPanel>
@@ -1886,7 +1960,7 @@ When enabled: swap/cycle/apply-layout hotkeys work only in EVE; other apps get t
               <CheckBox Content="Throttle background EVE clients to Below Normal CPU priority"
                         IsChecked="{Binding ThrottleBackgroundProcesses}"
                         Margin="0,0,0,4"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
 Gives the active EVE client priority over inactive ones. Combine with EVE's own 'Limit background framerate' setting for best results.
               </TextBlock>
               <CheckBox Content="Power-throttle background EVE clients (EcoQoS)"
@@ -1896,20 +1970,20 @@ Gives the active EVE client priority over inactive ones. Combine with EVE's own 
                         IsChecked="{Binding EcoQosExemptNextInCycle}"
                         IsEnabled="{Binding EcoQosBackgroundClients}"
                         Margin="16,0,0,4"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
 Parks inactive clients on efficiency cores and clocks them down (deeper cut than priority above, and they stack). Spares the next cycled client so it's ready when you switch. EcoQoS is pure OS scheduling -- no DLL injection, no memory reads/writes. Requires Windows 10 1809+.
               </TextBlock>
               <CheckBox Content="Auto-minimize EVE clients that are not the active window"
                         IsChecked="{Binding AutoMinimizeInactiveClients}"
                         Margin="0,0,0,4"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
 Minimizes inactive clients to save GPU/CPU (flat layouts only; disabled while previews are live). Respects 'never minimize' checkboxes on slot cards.
               </TextBlock>
                   </StackPanel>
                   <!-- section 7: EVE Launcher -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=7}">
                     <TextBlock Text="EVE Launcher" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,8">
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
 Path to eveLauncher.exe. EveDeck finds it automatically; only set this if it's in a non-standard location.
               </TextBlock>
               <TextBox Text="{Binding EveLauncherPathOverride, UpdateSourceTrigger=PropertyChanged}"
@@ -1919,7 +1993,7 @@ Path to eveLauncher.exe. EveDeck finds it automatically; only set this if it's i
                   <!-- section 8: Overlay Allow List -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=8}">
                     <TextBlock Text="Overlay Allow List" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
 Apps here stay above the overlay tiles so voice chat, intel, and tools can sit over the game. Matched by process name (case-insensitive, no ".exe").
               </TextBlock>
               <ItemsControl ItemsSource="{Binding OverlayAllowedApps}" Margin="0,0,0,6">
@@ -1928,7 +2002,7 @@ Apps here stay above the overlay tiles so voice chat, intel, and tools can sit o
                     <DockPanel Margin="0,3">
                       <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"
                                 VerticalAlignment="Center" Margin="0,0,8,0"/>
-                      <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="11" Margin="6,0,0,0"
+                      <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="12" Margin="6,0,0,0"
                               Command="{Binding DataContext.RemoveOverlayAllowedAppCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                               CommandParameter="{Binding}"/>
                       <TextBox Text="{Binding ProcessName, UpdateSourceTrigger=PropertyChanged}"
@@ -1944,7 +2018,7 @@ Apps here stay above the overlay tiles so voice chat, intel, and tools can sit o
                   <!-- section 9: Notifications -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=9}">
                     <TextBlock Text="Notifications" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                    <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,14" MaxWidth="640">
+                    <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,14" MaxWidth="640">
 Control where toasts appear and whether they're also sent to Windows Notification Center (so they stay reviewable after fading).
                     </TextBlock>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
@@ -1959,12 +2033,12 @@ Control where toasts appear and whether they're also sent to Windows Notificatio
                         <ComboBoxItem Tag="BottomRight" Content="Bottom right (above system clock)"/>
                       </ComboBox>
                     </StackPanel>
-                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10" MaxWidth="500">
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10" MaxWidth="500">
 Takes effect the next time a toast is shown (or after restarting EveDeck).
                     </TextBlock>
                     <CheckBox Content="Mirror alerts into the Windows Notification Center" FontSize="12"
                               IsChecked="{Binding NativeNotificationCenterEnabled, UpdateSourceTrigger=PropertyChanged}"/>
-                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,6,0,0" MaxWidth="500">
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,6,0,0" MaxWidth="500">
 Sends alerts to Windows Notification Center (no second popup). Requires notifications enabled for EveDeck in Settings > System > Notifications.
                     </TextBlock>
 
@@ -1975,13 +2049,14 @@ Sends alerts to Windows Notification Center (no second popup). Requires notifica
                           <CheckBox DockPanel.Dock="Right" Content="Enabled" IsChecked="{Binding DowntimeCountdownEnabled}" VerticalAlignment="Center"/>
                           <TextBlock Text="Downtime countdown" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
                         </DockPanel>
-                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,10" MaxWidth="600">
+                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,10" MaxWidth="600">
 Displays a countdown to EVE's daily downtime and a "dock up" toast when the downtime window opens.
                         </TextBlock>
                         <WrapPanel VerticalAlignment="Center" IsEnabled="{Binding DowntimeCountdownEnabled}">
                           <TextBlock Text="Downtime at" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                           <TextBox Text="{Binding DowntimeUtcTime, UpdateSourceTrigger=PropertyChanged}" Width="56" Margin="6,0" VerticalAlignment="Center"
                                    ToolTip="EVE downtime in UTC, HH:mm (default 11:00)."/>
+                          <TextBlock Text="(HH:mm)" Foreground="{StaticResource MutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
                           <TextBlock Text="UTC · show it" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                           <TextBox Text="{Binding DowntimeLeadMinutes, UpdateSourceTrigger=PropertyChanged}" Width="48" Margin="6,0" VerticalAlignment="Center"/>
                           <TextBlock Text="min before" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
@@ -2005,7 +2080,7 @@ Displays a countdown to EVE's daily downtime and a "dock up" toast when the down
                             BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0" MaxWidth="640">
                       <StackPanel>
                         <TextBlock Text="Game Event Alerts" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,10"/>
-                        <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10" MaxWidth="600">
+                        <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10" MaxWidth="600">
 Reads gamelogs (Documents\EVE\logs\Gamelogs) for combat, warp scrambles, fleet invites, etc. on parked clients. Toast shows an alert; Glow pulses the tile (better for spam like constant combat). Passive log reading only -- never sends input to EVE. "Focused" skips the alert if that client is already active.
                         </TextBlock>
                         <ItemsControl ItemsSource="{Binding GameEventRules}" Margin="0,0,0,6">
@@ -2014,18 +2089,18 @@ Reads gamelogs (Documents\EVE\logs\Gamelogs) for combat, warp scrambles, fleet i
                               <DockPanel Margin="0,3">
                                 <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"
                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="11" Margin="6,0,0,0"
+                                <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="12" Margin="6,0,0,0"
                                         Command="{Binding DataContext.RemoveGameEventRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                         CommandParameter="{Binding}"/>
-                                <CheckBox DockPanel.Dock="Right" Content="Focused" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"
+                                <CheckBox DockPanel.Dock="Right" Content="Focused" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"
                                           IsChecked="{Binding SuppressWhenFocused, UpdateSourceTrigger=PropertyChanged}"
                                           ToolTip="Skip the alert when this character's window is already in the foreground"/>
-                                <CheckBox DockPanel.Dock="Right" Content="Sound" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"
+                                <CheckBox DockPanel.Dock="Right" Content="Sound" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"
                                           IsChecked="{Binding PlaySound, UpdateSourceTrigger=PropertyChanged}"/>
-                                <CheckBox DockPanel.Dock="Right" Content="Glow" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"
+                                <CheckBox DockPanel.Dock="Right" Content="Glow" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"
                                           IsChecked="{Binding FlashOnTile, UpdateSourceTrigger=PropertyChanged}"
                                           ToolTip="Pulse the seat's tile/master rect on the overlay instead of a toast notification"/>
-                                <CheckBox DockPanel.Dock="Right" Content="Silence in Abyss" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"
+                                <CheckBox DockPanel.Dock="Right" Content="Silence in Abyss" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"
                                           IsChecked="{Binding SuppressSoundInAbyss, UpdateSourceTrigger=PropertyChanged}"
                                           ToolTip="When Abyss Mode is on, skip this rule's sound (glow stays). Uncheck for rare, high-stakes events -- e.g. Warp scramble -- worth hearing even mid-run."/>
                                 <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
@@ -2053,7 +2128,7 @@ Reads gamelogs (Documents\EVE\logs\Gamelogs) for combat, warp scrambles, fleet i
                             BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0" MaxWidth="640">
                       <StackPanel>
                         <TextBlock Text="Seat health alerts" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,10"/>
-                        <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10" MaxWidth="600">
+                        <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10" MaxWidth="600">
 ESI checks for common parked-alt failures: podding and disconnects. Requires character links with location/ship/online scopes (re-link if needed).
                         </TextBlock>
                         <CheckBox IsChecked="{Binding SeatHealthAlertPodded, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6">
@@ -2069,7 +2144,7 @@ ESI checks for common parked-alt failures: podding and disconnects. Requires cha
                   <!-- section 10: Comms -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=10}">
                     <TextBlock Text="Comms" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                    <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
+                    <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
 Mumble who-is-talking panel that matches EveDeck's look. Uses a small plugin inside your Mumble client. Drag it around and lock it to prevent accidental moves.
                     </TextBlock>
 
@@ -2080,10 +2155,10 @@ Mumble who-is-talking panel that matches EveDeck's look. Uses a small plugin ins
                           <CheckBox DockPanel.Dock="Right" Content="Enabled" IsChecked="{Binding TalkerOverlayEnabled}"/>
                           <TextBlock Text="Talker Overlay (Mumble plugin)" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
                         </DockPanel>
-                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0">
+                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0">
 Needs the EveDeck Talker Bridge plugin installed in Mumble (Configure > Plugins). Shows names and talking state only -- no audio or messages sent anywhere.
                         </TextBlock>
-                        <TextBlock Text="{Binding TalkerOverlayStatus}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding TalkerOverlayStatus}" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"/>
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
                           <TextBlock Text="Opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}"/>
                           <Slider Minimum="20" Maximum="100"
@@ -2097,7 +2172,7 @@ Needs the EveDeck Talker Bridge plugin installed in Mumble (Configure > Plugins)
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                           <Button Content="Install plugin into Mumble" Command="{Binding InstallMumblePluginCommand}" Padding="10,4"/>
                         </StackPanel>
-                        <TextBlock Text="{Binding MumblePluginInstallStatus}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding MumblePluginInstallStatus}" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"/>
                       </StackPanel>
                     </Border>
                   </StackPanel>
@@ -2105,7 +2180,7 @@ Needs the EveDeck Talker Bridge plugin installed in Mumble (Configure > Plugins)
                   <!-- section 11: Config Profiles -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=11}">
                     <TextBlock Text="Config Profiles" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                    <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,10">
+                    <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
 Named snapshots of your whole setup: layout, character set, and all overlay appearance settings. Switch between them from the tray icon. Layouts and character sets update all profiles that use them automatically.
                     </TextBlock>
 
@@ -2115,14 +2190,14 @@ Named snapshots of your whole setup: layout, character set, and all overlay appe
                           <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
                                   BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,0,6">
                             <DockPanel>
-                              <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="11" Margin="6,0,0,0"
+                              <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="12" Margin="6,0,0,0"
                                       Command="{Binding DataContext.RemoveConfigProfileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                       CommandParameter="{Binding}"/>
-                              <Button DockPanel.Dock="Right" Content="Save current" Padding="7,3" FontSize="11" Margin="6,0,0,0"
+                              <Button DockPanel.Dock="Right" Content="Save current" Padding="7,3" FontSize="12" Margin="6,0,0,0"
                                       ToolTip="Re-capture the current layout, character set and overlay appearance into this profile."
                                       Command="{Binding DataContext.SaveCurrentToConfigProfileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                       CommandParameter="{Binding}"/>
-                              <Button DockPanel.Dock="Right" Content="Apply" Padding="7,3" FontSize="11" Margin="6,0,0,0"
+                              <Button DockPanel.Dock="Right" Content="Apply" Padding="7,3" FontSize="12" Margin="6,0,0,0"
                                       Command="{Binding DataContext.ApplyConfigProfileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                       CommandParameter="{Binding}"/>
                               <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"

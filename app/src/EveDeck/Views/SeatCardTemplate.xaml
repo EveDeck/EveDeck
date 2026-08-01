@@ -59,7 +59,10 @@
             <TextBlock Text="⠿" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center">
               <TextBlock.Style>
                 <Style TargetType="TextBlock">
-                  <Setter Property="Foreground" Value="#3A4A65"/>
+                  <!-- Resting colour was #3A4A65, which was all but invisible on the card: users
+                       had no way to know the list was reorderable until they happened to hover.
+                       Lightened so the affordance reads at a glance; hover still goes accent. -->
+                  <Setter Property="Foreground" Value="#6E88AC"/>
                   <Style.Triggers>
                     <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
                       <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
@@ -73,13 +76,20 @@
           <!-- Position-code pill -->
           <Border Grid.Column="1" MinWidth="26" Height="26" CornerRadius="13" Padding="7,0"
                   VerticalAlignment="Center" HorizontalAlignment="Left"
-                  ToolTip="Screen position in the active layout (&#x2196; top-left, &#x2197; top-right, &#x2199; bottom-left, &#x2198; bottom-right, Master = main client).">
+                  ToolTip="Screen position in the active layout (&#x2196; top-left, &#x2197; top-right, &#x2199; bottom-left, &#x2198; bottom-right, Master = main client). Green = client running, amber = assigned but not running.">
             <Border.Style>
               <Style TargetType="Border">
                 <Setter Property="Background" Value="#1E2A3D"/>
                 <Style.Triggers>
                   <DataTrigger Binding="{Binding IsAssigned}" Value="True">
                     <Setter Property="Background" Value="{StaticResource OnlineChipBrush}"/>
+                  </DataTrigger>
+                  <!-- Assigned but its client is gone (crashed / logged off). Amber chip so it is
+                       obviously neither the green healthy state nor the violet Master state.
+                       Ordered AFTER IsAssigned (which is also true here) and BEFORE IsMaster, so
+                       an offline master still reads as Master: later triggers win in WPF. -->
+                  <DataTrigger Binding="{Binding IsAssignedButOffline}" Value="True">
+                    <Setter Property="Background" Value="#3A2408"/>
                   </DataTrigger>
                   <DataTrigger Binding="{Binding IsMaster}" Value="True">
                     <Setter Property="Background" Value="{StaticResource MasterChipBrush}"/>
@@ -95,6 +105,11 @@
                   <Style.Triggers>
                     <DataTrigger Binding="{Binding IsAssigned}" Value="True">
                       <Setter Property="Foreground" Value="{StaticResource OnlineBrush}"/>
+                    </DataTrigger>
+                    <!-- Same ordering rule as the chip above: offline overrides healthy-assigned,
+                         Master overrides both. -->
+                    <DataTrigger Binding="{Binding IsAssignedButOffline}" Value="True">
+                      <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
                     </DataTrigger>
                     <DataTrigger Binding="{Binding IsMaster}" Value="True">
                       <Setter Property="Foreground" Value="{StaticResource MasterAccentBrush}"/>
@@ -129,7 +144,7 @@
                             Command="{Binding DataContext.ToggleTopmostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                             CommandParameter="{Binding}"
                             Content="&#x1F4CC;" FontSize="12"
-                            Padding="7,1" Margin="4,0,0,0" MinWidth="0" MinHeight="0"
+                            Padding="7,1" Margin="4,0,0,0" MinWidth="24" MinHeight="24"
                             ToolTip="Keep this seat above other windows while EVE is focused. When you switch to a non-EVE app (browser, Discord) it drops back to normal so it doesn't cover them.">
                 <ToggleButton.Style>
                   <Style TargetType="ToggleButton">
@@ -191,7 +206,7 @@
                       <TextBlock Text="Opacity" Margin="0,0,4,0" FontSize="11" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                       <Slider Tag="Opacity" Loaded="SlotOpacitySlider_Loaded" ValueChanged="SlotOpacitySlider_ValueChanged"
                               Minimum="20" Maximum="100" Width="100" VerticalAlignment="Center"/>
-                      <Button Content="&#8635;" Click="SlotLabelStyleReset_Click" Padding="5,1" Margin="8,0,0,0" MinWidth="0" MinHeight="0" FontSize="10"
+                      <Button Content="&#8635;" Click="SlotLabelStyleReset_Click" Padding="5,1" Margin="8,0,0,0" MinWidth="24" MinHeight="24" FontSize="10"
                               ToolTip="Reset this label to the global default."/>
                     </StackPanel>
 
@@ -210,7 +225,7 @@
                       <TextBlock Text="Opacity" Margin="0,0,4,0" FontSize="11" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                       <Slider Tag="OpacityMaster" Loaded="SlotOpacitySlider_Loaded" ValueChanged="SlotOpacitySlider_ValueChanged"
                               Minimum="20" Maximum="100" Width="100" VerticalAlignment="Center"/>
-                      <Button Content="&#8635;" Click="SlotMasterLabelStyleReset_Click" Padding="5,1" Margin="8,0,0,0" MinWidth="0" MinHeight="0" FontSize="10"
+                      <Button Content="&#8635;" Click="SlotMasterLabelStyleReset_Click" Padding="5,1" Margin="8,0,0,0" MinWidth="24" MinHeight="24" FontSize="10"
                               ToolTip="Reset this Master label to the global default."/>
                     </StackPanel>
 
@@ -220,7 +235,7 @@
                     <StackPanel Orientation="Horizontal">
                       <Button Content="Color..." Click="SlotFrameColorPick_Click" Padding="6,2" FontSize="10" Margin="0,0,4,0"
                               ToolTip="Set the frame color shown when this seat is focused."/>
-                      <Button Content="&#8635;" Click="SlotFrameColorReset_Click" Padding="5,1" MinWidth="0" MinHeight="0" FontSize="10" Margin="0,0,10,0"
+                      <Button Content="&#8635;" Click="SlotFrameColorReset_Click" Padding="5,1" MinWidth="24" MinHeight="24" FontSize="10" Margin="0,0,10,0"
                               ToolTip="Reset this frame color to the global default."/>
                       <Button Content="Paste Theme" Click="SlotPasteTheme_Click" Padding="6,2" FontSize="10"
                               ToolTip="Paste an EVE theme color to set the frame and label colors (Primary becomes frame, Accent becomes label)."/>
@@ -358,7 +373,7 @@
                       <Button Content="&#x2606;"
                               Command="{Binding DataContext.SetMainCharacterCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                               CommandParameter="{Binding}"
-                              Padding="4,0" Margin="0,0,4,0" MinWidth="0" MinHeight="0" FontSize="11"
+                              Padding="4,0" Margin="0,0,4,0" MinWidth="24" MinHeight="24" FontSize="11"
                               ToolTip="Make this the main character for this seat.">
                         <Button.Style>
                           <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -373,12 +388,13 @@
                       <Button Content="↻"
                               Command="{Binding DataContext.ReauthEsiCharacterCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                               CommandParameter="{Binding}"
-                              Padding="4,0" Margin="0" MinWidth="0" MinHeight="0" FontSize="11"
+                              Padding="4,0" Margin="0" MinWidth="24" MinHeight="24" FontSize="11"
                               ToolTip="Re-authenticate this character (e.g., to grant new permissions)."/>
                       <Button Content="×"
                               Command="{Binding DataContext.RemoveEsiCharacterCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                               CommandParameter="{Binding}"
-                              Padding="4,0" Margin="4,0,0,0" MinWidth="0" MinHeight="0" FontSize="11"/>
+                              Padding="4,0" Margin="4,0,0,0" MinWidth="24" MinHeight="24" FontSize="11"
+                              ToolTip="Unlink this character from this seat."/>
                     </StackPanel>
                   </Grid>
                 </DataTemplate>
@@ -415,7 +431,8 @@
                         <Button DockPanel.Dock="Right" Content="×"
                                 Command="{Binding DataContext.RemoveWindowFromSlotCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 CommandParameter="{Binding}"
-                                Padding="3,0" Margin="3,0,0,0" MinWidth="0" MinHeight="0" FontSize="10"/>
+                                Padding="3,0" Margin="3,0,0,0" MinWidth="24" MinHeight="24" FontSize="10"
+                                ToolTip="Unassign this window from the seat."/>
                         <TextBlock Text="{Binding Title}" FontSize="10"
                                    TextTrimming="CharacterEllipsis" MaxWidth="140"
                                    Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
@@ -464,13 +481,13 @@
                       CommandParameter="{Binding}" Padding="6,3" Margin="4,2" FontSize="11"
                       ToolTip="Designate this slot as master for the swap-focused hotkey"/>
             </StackPanel>
-            <CheckBox Content="Never minimize" FontSize="10" Margin="4,2"
+            <CheckBox Content="Never minimize" FontSize="11" Margin="4,2"
                       IsChecked="{Binding NeverMinimize, UpdateSourceTrigger=PropertyChanged}"
                       ToolTip="Keep this seat visible (skip Minimize-all hotkey)."/>
-            <CheckBox Content="Focus only (no swap to center)" FontSize="10" Margin="4,2"
+            <CheckBox Content="Focus only (no swap to center)" FontSize="11" Margin="4,2"
                       IsChecked="{Binding FocusOnlyNoSwap, UpdateSourceTrigger=PropertyChanged}"
                       ToolTip="Clicking or hotkeying this seat just brings it to the front; don't swap it to center. Also disables hover-zoom."/>
-            <CheckBox Content="Hide preview" FontSize="10" Margin="4,2"
+            <CheckBox Content="Hide preview" FontSize="11" Margin="4,2"
                       IsChecked="{Binding PreventPreview, UpdateSourceTrigger=PropertyChanged}"
                       ToolTip="Show a plain color instead of a live preview (e.g., for cloaked or hidden alts)."/>
             <StackPanel Orientation="Horizontal" Margin="4,4,4,2">
