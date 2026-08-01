@@ -163,6 +163,27 @@ public sealed class AppSettings
     public string CornerOverlayLabelBackgroundColor2 { get; set; } = "#1F2937";
     public int CornerOverlayLabelBackgroundOpacity { get; set; } = 80;
 
+    // A subtle vector pattern drawn over the chip fill above (None/Diagonal/Dots/Noise) -- purely
+    // decorative texture, independent of the Style/Color/Opacity that determine the underlying fill.
+    // No-op when Style is "None" (nothing to texture).
+    public string CornerOverlayLabelBackgroundTexture { get; set; } = "None";
+
+    // Global MASTER-pill overrides for the background block above -- same ""/null = inherit fallback
+    // pattern as CornerOverlayLabelBoldMaster etc., so the MASTER (home) pill's chip can look
+    // different from the corner pills' shared normal settings without disturbing them.
+    public string CornerOverlayLabelBackgroundStyleMaster { get; set; } = "";
+    public string CornerOverlayLabelBackgroundColorMaster { get; set; } = "";
+    public string CornerOverlayLabelBackgroundColor2Master { get; set; } = "";
+    public int? CornerOverlayLabelBackgroundOpacityMaster { get; set; } = null;
+    public string CornerOverlayLabelBackgroundTextureMaster { get; set; } = "";
+
+    // Chip corner roundness (px) and text inset/padding (px, horizontal/vertical) -- shape of the
+    // chip itself, global only (like CornerOverlayPreviewOpacity, no per-seat/master split; the chip
+    // shape isn't worth doubling every option for).
+    public int CornerOverlayLabelCornerRadius { get; set; } = 6;
+    public int CornerOverlayLabelPaddingH { get; set; } = 12;
+    public int CornerOverlayLabelPaddingV { get; set; } = 4;
+
     // Preview-tile opacity (0-100%, DWM thumbnail alpha) for every corner/master DWM preview. One
     // global slider applied uniformly -- no per-seat/master split like the label opacity above.
     public int CornerOverlayPreviewOpacity { get; set; } = 100;
