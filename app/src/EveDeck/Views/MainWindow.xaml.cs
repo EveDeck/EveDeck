@@ -711,6 +711,34 @@ public partial class MainWindow : Window
         _viewModel.LabelBackgroundColor2 = ColorToHex(dialog.Color);
     }
 
+    private void MasterLabelBackgroundColorPick_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true };
+        try
+        {
+            var current = (Color)System.Windows.Media.ColorConverter.ConvertFromString(_viewModel.MasterLabelBackgroundColor);
+            dialog.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
+        }
+        catch { /* keep dialog's default color if the stored hex fails to parse */ }
+
+        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        _viewModel.MasterLabelBackgroundColor = ColorToHex(dialog.Color);
+    }
+
+    private void MasterLabelBackgroundColor2Pick_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true };
+        try
+        {
+            var current = (Color)System.Windows.Media.ColorConverter.ConvertFromString(_viewModel.MasterLabelBackgroundColor2);
+            dialog.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
+        }
+        catch { /* keep dialog's default color if the stored hex fails to parse */ }
+
+        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        _viewModel.MasterLabelBackgroundColor2 = ColorToHex(dialog.Color);
+    }
+
     // Shows a WinForms font+color dialog seeded from the given family / WPF-DIP size / hex colour.
     // Returns the picked font on OK. WPF FontSize is in DIPs (1/96in); the dialog works in points
     // (1/72in), so convert on the way in and out (dip = pt * 96/72).

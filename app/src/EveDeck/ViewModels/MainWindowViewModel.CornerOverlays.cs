@@ -556,6 +556,29 @@ public sealed partial class MainWindowViewModel
         return (bold, italic, shadow, outline, opacity);
     }
 
+    // Effective label backdrop (style/color/gradient-end/opacity/texture) for a seat. Global-only,
+    // no per-seat split -- just the normal setting -> MASTER override fallback chain, mirroring
+    // ResolveLabelStyle's global branch. Roundness/padding aren't included here: they're global-only
+    // with no MASTER split at all (see AppSettings.CornerOverlayLabelCornerRadius/PaddingH/V).
+    private (string style, string color, string color2, int opacity, string texture) ResolveLabelBackground(bool isMaster)
+    {
+        if (!isMaster)
+            return (_settings.CornerOverlayLabelBackgroundStyle, _settings.CornerOverlayLabelBackgroundColor,
+                _settings.CornerOverlayLabelBackgroundColor2, _settings.CornerOverlayLabelBackgroundOpacity,
+                _settings.CornerOverlayLabelBackgroundTexture);
+
+        var style = string.IsNullOrWhiteSpace(_settings.CornerOverlayLabelBackgroundStyleMaster)
+            ? _settings.CornerOverlayLabelBackgroundStyle : _settings.CornerOverlayLabelBackgroundStyleMaster;
+        var color = string.IsNullOrWhiteSpace(_settings.CornerOverlayLabelBackgroundColorMaster)
+            ? _settings.CornerOverlayLabelBackgroundColor : _settings.CornerOverlayLabelBackgroundColorMaster;
+        var color2 = string.IsNullOrWhiteSpace(_settings.CornerOverlayLabelBackgroundColor2Master)
+            ? _settings.CornerOverlayLabelBackgroundColor2 : _settings.CornerOverlayLabelBackgroundColor2Master;
+        var opacity = _settings.CornerOverlayLabelBackgroundOpacityMaster ?? _settings.CornerOverlayLabelBackgroundOpacity;
+        var texture = string.IsNullOrWhiteSpace(_settings.CornerOverlayLabelBackgroundTextureMaster)
+            ? _settings.CornerOverlayLabelBackgroundTexture : _settings.CornerOverlayLabelBackgroundTextureMaster;
+        return (style, color, color2, opacity, texture);
+    }
+
     // True when `position` is any swap group's center/master slot. Needed because for layouts with
     // no dominant master area (the Grid family), the center slot is ALSO registered as a plain
     // corner tile and can be refreshed by the generic per-tick corner loop — without this check
@@ -573,9 +596,11 @@ public sealed partial class MainWindowViewModel
         if (_labelSurface is null || !_settings.CornerOverlayShowLabel) return;
         var (family, size, color) = ResolveLabelFont(seat, isMaster);
         var (bold, italic, dropShadow, outline, opacity) = ResolveLabelStyle(seat, isMaster);
+        var (bgStyle, bgColor, bgColor2, bgOpacity, bgTexture) = ResolveLabelBackground(isMaster);
         _labelSurface.SetPill(key, rect, ResolveLabelAnchor(seat, isMaster), family, size, color, bold, italic, dropShadow, outline,
-            _settings.CornerOverlayLabelBackgroundStyle, _settings.CornerOverlayLabelBackgroundColor,
-            _settings.CornerOverlayLabelBackgroundColor2, _settings.CornerOverlayLabelBackgroundOpacity, opacity);
+            bgStyle, bgColor, bgColor2, bgOpacity,
+            bgTexture, _settings.CornerOverlayLabelCornerRadius, _settings.CornerOverlayLabelPaddingH, _settings.CornerOverlayLabelPaddingV,
+            opacity);
         // Match RefreshPositionPill's system-suffix coloring so the initial paint doesn't show the
         // system name in default color until the first refresh tick recolors it.
         var live = FindSeatWindow(seat) is not null;
@@ -1208,9 +1233,11 @@ public sealed partial class MainWindowViewModel
         var isMasterPosition = IsGroupCenterPosition(position);
         var (family, size, color) = ResolveLabelFont(seat, isMasterPosition);
         var (bold, italic, dropShadow, outline, opacity) = ResolveLabelStyle(seat, isMasterPosition);
+        var (bgStyle, bgColor, bgColor2, bgOpacity, bgTexture) = ResolveLabelBackground(isMasterPosition);
         _labelSurface.SetPillAppearance(position, family, size, color, bold, italic, dropShadow, outline,
-            _settings.CornerOverlayLabelBackgroundStyle, _settings.CornerOverlayLabelBackgroundColor,
-            _settings.CornerOverlayLabelBackgroundColor2, _settings.CornerOverlayLabelBackgroundOpacity, opacity);
+            bgStyle, bgColor, bgColor2, bgOpacity,
+            bgTexture, _settings.CornerOverlayLabelCornerRadius, _settings.CornerOverlayLabelPaddingH, _settings.CornerOverlayLabelPaddingV,
+            opacity);
     }
 
     private void RefreshGroupCenterPill(SwapGroup group)
@@ -1223,9 +1250,11 @@ public sealed partial class MainWindowViewModel
             centerSys, SystemColorHex(centerSys));
         var (family, size, color) = ResolveLabelFont(centeredSeat, isMaster: true);
         var (bold, italic, dropShadow, outline, opacity) = ResolveLabelStyle(centeredSeat, isMaster: true);
+        var (bgStyle, bgColor, bgColor2, bgOpacity, bgTexture) = ResolveLabelBackground(isMaster: true);
         _labelSurface.SetPillAppearance(groupCenter, family, size, color, bold, italic, dropShadow, outline,
-            _settings.CornerOverlayLabelBackgroundStyle, _settings.CornerOverlayLabelBackgroundColor,
-            _settings.CornerOverlayLabelBackgroundColor2, _settings.CornerOverlayLabelBackgroundOpacity, opacity);
+            bgStyle, bgColor, bgColor2, bgOpacity,
+            bgTexture, _settings.CornerOverlayLabelCornerRadius, _settings.CornerOverlayLabelPaddingH, _settings.CornerOverlayLabelPaddingV,
+            opacity);
     }
 
     internal void RefreshAllPills()

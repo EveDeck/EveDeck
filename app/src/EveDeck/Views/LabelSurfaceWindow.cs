@@ -12,6 +12,9 @@ using ColorConverter = System.Windows.Media.ColorConverter;
 using FontFamily = System.Windows.Media.FontFamily;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
 using Orientation = System.Windows.Controls.Orientation;
+using Pen = System.Windows.Media.Pen;
+using Point = System.Windows.Point;
+using Rectangle = System.Windows.Shapes.Rectangle;
 using VerticalAlignment = System.Windows.VerticalAlignment;
 
 namespace EveDeck.Views;
@@ -145,6 +148,7 @@ internal sealed class LabelSurfaceWindow : Window
                         string fontFamily, double fontSize, string colorHex,
                         bool bold, bool italic, bool dropShadow, bool outline,
                         string backgroundStyle, string backgroundColorHex, string backgroundColor2Hex, int backgroundOpacity,
+                        string backgroundTexture, int cornerRadius, int paddingH, int paddingV,
                         int opacity = 100)
     {
         var anchor = string.IsNullOrWhiteSpace(anchorName) ? _anchor : ParseAnchor(anchorName);
@@ -156,7 +160,8 @@ internal sealed class LabelSurfaceWindow : Window
         }
         pill.ApplyAnchor(anchor, _inset);
         pill.ApplyAppearance(fontFamily, fontSize, colorHex, bold, italic, dropShadow, outline,
-            backgroundStyle, backgroundColorHex, backgroundColor2Hex, backgroundOpacity, opacity);
+            backgroundStyle, backgroundColorHex, backgroundColor2Hex, backgroundOpacity,
+            backgroundTexture, cornerRadius, paddingH, paddingV, opacity);
         pill.Place(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height);
     }
 
@@ -344,12 +349,14 @@ internal sealed class LabelSurfaceWindow : Window
     public void SetPillAppearance(int key, string fontFamily, double fontSize, string colorHex,
                                   bool bold, bool italic, bool dropShadow, bool outline,
                                   string backgroundStyle, string backgroundColorHex, string backgroundColor2Hex, int backgroundOpacity,
+                                  string backgroundTexture, int cornerRadius, int paddingH, int paddingV,
                                   int opacity = 100)
     {
         if (_pills.TryGetValue(key, out var pill))
         {
             pill.ApplyAppearance(fontFamily, fontSize, colorHex, bold, italic, dropShadow, outline,
-                backgroundStyle, backgroundColorHex, backgroundColor2Hex, backgroundOpacity, opacity);
+                backgroundStyle, backgroundColorHex, backgroundColor2Hex, backgroundOpacity,
+                backgroundTexture, cornerRadius, paddingH, paddingV, opacity);
             pill.RePlace();
         }
     }
@@ -384,6 +391,10 @@ internal sealed class LabelSurfaceWindow : Window
     {
         public readonly Grid Container = new();
         private readonly Border _pill = new();
+        // Sits behind the portrait+text stack inside the pill, spanning the full backdrop (including
+        // the Border's own Padding, via the negative-margin trick in ApplyBackground) so a texture
+        // pattern reads as part of the chip's fill rather than being clipped to the text's own bounds.
+        private readonly Rectangle _textureLayer = new() { IsHitTestVisible = false, Visibility = Visibility.Collapsed };
         private readonly Ellipse _portraitDot;
         private readonly TextBlock _text = new() { VerticalAlignment = VerticalAlignment.Center };
         private readonly Grid _textLayer = new();
@@ -446,7 +457,11 @@ internal sealed class LabelSurfaceWindow : Window
             var stack = new StackPanel { Orientation = Orientation.Horizontal };
             stack.Children.Add(_portraitDot);
             stack.Children.Add(_textLayer);
-            _pill.Child = stack;
+            // Grid, not the stack directly, so the texture layer can sit behind it in the same cell.
+            var content = new Grid();
+            content.Children.Add(_textureLayer);
+            content.Children.Add(stack);
+            _pill.Child = content;
             _pill.VerticalAlignment = VerticalAlignment.Center;
             ApplyAnchor(anchor, inset);
 
@@ -455,8 +470,8 @@ internal sealed class LabelSurfaceWindow : Window
             // (AppSettings.CornerOverlayLabelBackgroundStyle), which looks identical to the old
             // always-transparent IconText look, but Solid/Gradient now draw a real chip behind the
             // portrait+name row instead of only ever being available to the Pill style.
-            // Placeholder background; ApplyBackground (called right after construction, from
-            // SetPill's ApplyAppearance) applies the real style/color, so this is never actually seen.
+            // Placeholder background/padding/radius; ApplyAppearance (called right after construction,
+            // from SetPill) applies the real style/color/roundness/inset, so this is never actually seen.
             _pill.Background = new SolidColorBrush(Color.FromArgb(0xCC, 0x0D, 0x11, 0x17));
             _pill.Padding = new Thickness(12, 4, 12, 4);
             // The chip sits INSIDE the tile rather than butting against its edge as a full-width
@@ -493,9 +508,12 @@ internal sealed class LabelSurfaceWindow : Window
         public void ApplyAppearance(string family, double fontSize, string colorHex,
                                     bool bold, bool italic, bool dropShadow, bool outline,
                                     string backgroundStyle, string backgroundColorHex, string backgroundColor2Hex, int backgroundOpacity,
+                                    string backgroundTexture, int cornerRadius, int paddingH, int paddingV,
                                     int opacity = 100)
         {
-            ApplyBackground(backgroundStyle, backgroundColorHex, backgroundColor2Hex, backgroundOpacity);
+            _pill.Padding = new Thickness(paddingH, paddingV, paddingH, paddingV);
+            ApplyBackground(backgroundStyle, backgroundColorHex, backgroundColor2Hex, backgroundOpacity,
+                backgroundTexture, cornerRadius, paddingH, paddingV);
             var fontFamily = ResolveFontFamily(family);
             var weight = bold ? FontWeights.Bold : FontWeights.SemiBold;
             var style = italic ? FontStyles.Italic : FontStyles.Normal;
@@ -546,7 +564,8 @@ internal sealed class LabelSurfaceWindow : Window
         // ColorDialog used to pick them has no alpha channel); `opacityPercent` supplies the backdrop's
         // own alpha here, independent of the whole-label Opacity (Container.Opacity above, which fades
         // text + backdrop together).
-        private void ApplyBackground(string style, string colorHex, string color2Hex, int opacityPercent)
+        private void ApplyBackground(string style, string colorHex, string color2Hex, int opacityPercent,
+                                     string texture, int cornerRadius, int paddingH, int paddingV)
         {
             var alpha = (byte)(Math.Clamp(opacityPercent, 0, 100) * 255 / 100);
             switch (style)
@@ -567,6 +586,85 @@ internal sealed class LabelSurfaceWindow : Window
                     _pill.Background = new SolidColorBrush(Color.FromArgb(alpha, c.R, c.G, c.B));
                     break;
             }
+
+            var radius = Math.Max(0, cornerRadius);
+            _pill.CornerRadius = new CornerRadius(radius);
+
+            // No chip fill to texture, or texture off -- hide the overlay rather than build a brush.
+            var textureBrush = style == "None" ? null : BuildTextureBrush(texture);
+            if (textureBrush is null)
+            {
+                _textureLayer.Visibility = Visibility.Collapsed;
+                _textureLayer.Fill = null;
+                return;
+            }
+            // Negative margin bleeds the layer out past the Grid cell (which is only as big as the
+            // text content, inset by the Border's Padding) so it spans the full chip -- the same
+            // extent as _pill.Background, padding included. See the _textureLayer field comment.
+            _textureLayer.Margin = new Thickness(-paddingH, -paddingV, -paddingH, -paddingV);
+            _textureLayer.RadiusX = radius;
+            _textureLayer.RadiusY = radius;
+            _textureLayer.Fill = textureBrush;
+            _textureLayer.Visibility = Visibility.Visible;
+        }
+
+        // Cached, frozen (thread-safe, immutable) vector patterns -- built once and reused by every
+        // pill regardless of key/instance, since none of these depend on anything but the texture
+        // name itself (color/opacity/radius/padding are applied elsewhere).
+        private static readonly Dictionary<string, DrawingBrush?> TextureBrushCache = new();
+
+        private static DrawingBrush? BuildTextureBrush(string texture)
+        {
+            if (string.IsNullOrEmpty(texture) || texture == "None") return null;
+            if (TextureBrushCache.TryGetValue(texture, out var cached)) return cached;
+            DrawingBrush? brush = texture switch
+            {
+                "Diagonal" => BuildDiagonalTexture(),
+                "Dots" => BuildDotsTexture(),
+                "Noise" => BuildNoiseTexture(),
+                _ => null,
+            };
+            brush?.Freeze();
+            TextureBrushCache[texture] = brush;
+            return brush;
+        }
+
+        // Thin white diagonal hatch lines, tiled -- a subtle "carbon fiber" look over the chip fill.
+        private static DrawingBrush BuildDiagonalTexture()
+        {
+            var pen = new Pen(new SolidColorBrush(Color.FromArgb(34, 255, 255, 255)), 1.0);
+            var geometry = new GeometryGroup();
+            geometry.Children.Add(new LineGeometry(new Point(0, 8), new Point(8, 0)));
+            geometry.Children.Add(new LineGeometry(new Point(-2, 2), new Point(2, -2)));
+            geometry.Children.Add(new LineGeometry(new Point(6, 10), new Point(10, 6)));
+            var drawing = new GeometryDrawing(null, pen, geometry);
+            return new DrawingBrush(drawing) { TileMode = TileMode.Tile, Viewport = new Rect(0, 0, 8, 8), ViewportUnits = BrushMappingMode.Absolute };
+        }
+
+        // A fine grid of small white dots, tiled -- a subtle halftone/mesh look over the chip fill.
+        private static DrawingBrush BuildDotsTexture()
+        {
+            var fill = new SolidColorBrush(Color.FromArgb(46, 255, 255, 255));
+            var drawing = new GeometryDrawing(fill, null, new EllipseGeometry(new Point(3, 3), 1.1, 1.1));
+            return new DrawingBrush(drawing) { TileMode = TileMode.Tile, Viewport = new Rect(0, 0, 6, 6), ViewportUnits = BrushMappingMode.Absolute };
+        }
+
+        // Scattered white dots of varying size/opacity, tiled -- a fixed-seed pseudo-random pattern
+        // (not re-rolled per pill/frame) for a subtle film-grain look over the chip fill.
+        private static DrawingBrush BuildNoiseTexture()
+        {
+            var group = new DrawingGroup();
+            var rnd = new Random(20260801);
+            for (var i = 0; i < 40; i++)
+            {
+                var x = rnd.NextDouble() * 16;
+                var y = rnd.NextDouble() * 16;
+                var a = (byte)rnd.Next(10, 50);
+                var r = rnd.NextDouble() < 0.5 ? 0.4 : 0.7;
+                group.Children.Add(new GeometryDrawing(new SolidColorBrush(Color.FromArgb(a, 255, 255, 255)), null,
+                    new EllipseGeometry(new Point(x, y), r, r)));
+            }
+            return new DrawingBrush(group) { TileMode = TileMode.Tile, Viewport = new Rect(0, 0, 16, 16), ViewportUnits = BrushMappingMode.Absolute };
         }
 
         // Positions the strip within the surface canvas (tile rect given relative to the surface

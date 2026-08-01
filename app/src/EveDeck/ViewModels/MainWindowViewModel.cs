@@ -1354,6 +1354,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(MasterLabelDropShadow));
         OnPropertyChanged(nameof(MasterLabelOutline));
         OnPropertyChanged(nameof(MasterLabelOpacity));
+        OnPropertyChanged(nameof(MasterLabelBackgroundStyle));
+        OnPropertyChanged(nameof(MasterLabelBackgroundColor));
+        OnPropertyChanged(nameof(MasterLabelBackgroundColor2));
+        OnPropertyChanged(nameof(MasterLabelBackgroundBrush));
+        OnPropertyChanged(nameof(MasterLabelBackgroundBrush2));
+        OnPropertyChanged(nameof(MasterLabelBackgroundOpacity));
+        OnPropertyChanged(nameof(MasterLabelBackgroundTexture));
     }
 
     private void SaveAndRefreshOverlays()
@@ -1458,6 +1465,61 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    // Vector pattern drawn over the chip fill (None/Diagonal/Dots/Noise) -- see
+    // AppSettings.CornerOverlayLabelBackgroundTexture.
+    public string LabelBackgroundTexture
+    {
+        get => _settings.CornerOverlayLabelBackgroundTexture;
+        set
+        {
+            if (_settings.CornerOverlayLabelBackgroundTexture == value || string.IsNullOrEmpty(value)) return;
+            _settings.CornerOverlayLabelBackgroundTexture = value;
+            OnPropertyChanged();
+            SaveAndRefreshOverlays();
+        }
+    }
+
+    // Chip corner roundness and text inset (horizontal/vertical padding) -- global only, no
+    // per-seat/MASTER split (see AppSettings.CornerOverlayLabelCornerRadius/PaddingH/PaddingV).
+    public int LabelCornerRadius
+    {
+        get => _settings.CornerOverlayLabelCornerRadius;
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 20);
+            if (_settings.CornerOverlayLabelCornerRadius == clamped) return;
+            _settings.CornerOverlayLabelCornerRadius = clamped;
+            OnPropertyChanged();
+            SaveAndRefreshOverlays();
+        }
+    }
+
+    public int LabelPaddingH
+    {
+        get => _settings.CornerOverlayLabelPaddingH;
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 30);
+            if (_settings.CornerOverlayLabelPaddingH == clamped) return;
+            _settings.CornerOverlayLabelPaddingH = clamped;
+            OnPropertyChanged();
+            SaveAndRefreshOverlays();
+        }
+    }
+
+    public int LabelPaddingV
+    {
+        get => _settings.CornerOverlayLabelPaddingV;
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 20);
+            if (_settings.CornerOverlayLabelPaddingV == clamped) return;
+            _settings.CornerOverlayLabelPaddingV = clamped;
+            OnPropertyChanged();
+            SaveAndRefreshOverlays();
+        }
+    }
+
     // Preview-tile opacity: one global slider, applied to every DWM preview tile (corners AND the
     // master/center one) via TileSurfaceWindow.SetOpacity. Unlike LabelOpacity there's no per-seat
     // or MASTER split -- StartCornerOverlays re-applies it on rebuild via SaveAndRefreshOverlays.
@@ -1508,6 +1570,60 @@ public sealed partial class MainWindowViewModel : ObservableObject
         set { _settings.CornerOverlayLabelOpacityMaster = Math.Clamp(value, 20, 100); OnPropertyChanged(); SaveAndRefreshOverlays(); }
     }
 
+    // MASTER-pill background overrides: same "always shows/sets the effective value" pattern as the
+    // style toggles above. Setting any of these always writes an explicit master override;
+    // ResetGlobalMasterLabelStyle clears them all back to inheriting the normal background.
+    public string MasterLabelBackgroundStyle
+    {
+        get => string.IsNullOrWhiteSpace(_settings.CornerOverlayLabelBackgroundStyleMaster)
+            ? _settings.CornerOverlayLabelBackgroundStyle : _settings.CornerOverlayLabelBackgroundStyleMaster;
+        set { if (string.IsNullOrEmpty(value)) return; _settings.CornerOverlayLabelBackgroundStyleMaster = value; OnPropertyChanged(); SaveAndRefreshOverlays(); }
+    }
+
+    public string MasterLabelBackgroundColor
+    {
+        get => string.IsNullOrWhiteSpace(_settings.CornerOverlayLabelBackgroundColorMaster)
+            ? _settings.CornerOverlayLabelBackgroundColor : _settings.CornerOverlayLabelBackgroundColorMaster;
+        set
+        {
+            if (string.IsNullOrEmpty(value)) return;
+            _settings.CornerOverlayLabelBackgroundColorMaster = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(MasterLabelBackgroundBrush));
+            SaveAndRefreshOverlays();
+        }
+    }
+
+    public string MasterLabelBackgroundColor2
+    {
+        get => string.IsNullOrWhiteSpace(_settings.CornerOverlayLabelBackgroundColor2Master)
+            ? _settings.CornerOverlayLabelBackgroundColor2 : _settings.CornerOverlayLabelBackgroundColor2Master;
+        set
+        {
+            if (string.IsNullOrEmpty(value)) return;
+            _settings.CornerOverlayLabelBackgroundColor2Master = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(MasterLabelBackgroundBrush2));
+            SaveAndRefreshOverlays();
+        }
+    }
+
+    public Brush MasterLabelBackgroundBrush => ParseFrameBrush(MasterLabelBackgroundColor);
+    public Brush MasterLabelBackgroundBrush2 => ParseFrameBrush(MasterLabelBackgroundColor2);
+
+    public int MasterLabelBackgroundOpacity
+    {
+        get => _settings.CornerOverlayLabelBackgroundOpacityMaster ?? _settings.CornerOverlayLabelBackgroundOpacity;
+        set { _settings.CornerOverlayLabelBackgroundOpacityMaster = Math.Clamp(value, 0, 100); OnPropertyChanged(); SaveAndRefreshOverlays(); }
+    }
+
+    public string MasterLabelBackgroundTexture
+    {
+        get => string.IsNullOrWhiteSpace(_settings.CornerOverlayLabelBackgroundTextureMaster)
+            ? _settings.CornerOverlayLabelBackgroundTexture : _settings.CornerOverlayLabelBackgroundTextureMaster;
+        set { if (string.IsNullOrEmpty(value)) return; _settings.CornerOverlayLabelBackgroundTextureMaster = value; OnPropertyChanged(); SaveAndRefreshOverlays(); }
+    }
+
     // Clears the global MASTER style overrides so all four (plus opacity) inherit the normal
     // toggles again.
     public void ResetGlobalMasterLabelStyle()
@@ -1517,6 +1633,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _settings.CornerOverlayLabelDropShadowMaster = null;
         _settings.CornerOverlayLabelOutlineMaster = null;
         _settings.CornerOverlayLabelOpacityMaster = null;
+        _settings.CornerOverlayLabelBackgroundStyleMaster = "";
+        _settings.CornerOverlayLabelBackgroundColorMaster = "";
+        _settings.CornerOverlayLabelBackgroundColor2Master = "";
+        _settings.CornerOverlayLabelBackgroundOpacityMaster = null;
+        _settings.CornerOverlayLabelBackgroundTextureMaster = "";
         RaiseLabelStyleChanged();
         SaveAndRefreshOverlays();
     }

@@ -1479,6 +1479,47 @@ Shows live thumbnail previews of background clients in the screen corners while 
                         ToolTip="Transparency of the chip backdrop only -- separate from the whole-label Opacity above, which fades text too."/>
                 <TextBlock Text="{Binding LabelBackgroundOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
               </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding LabelBackgroundStyle}" Value="None">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock Text="Texture" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                <ComboBox Width="110" SelectedValuePath="Tag" FontSize="11"
+                          SelectedValue="{Binding LabelBackgroundTexture}"
+                          ToolTip="A subtle vector pattern drawn over the chip fill above.">
+                  <ComboBoxItem Tag="None" Content="None"/>
+                  <ComboBoxItem Tag="Diagonal" Content="Diagonal hatch"/>
+                  <ComboBoxItem Tag="Dots" Content="Dot grid"/>
+                  <ComboBoxItem Tag="Noise" Content="Noise / grain"/>
+                </ComboBox>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                <TextBlock Text="Roundness" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                <Slider Minimum="0" Maximum="20" Value="{Binding LabelCornerRadius}" Width="150" VerticalAlignment="Center"
+                        IsSnapToTickEnabled="True" TickFrequency="1"
+                        ToolTip="Corner radius of the chip backdrop, in pixels."/>
+                <TextBlock Text="{Binding LabelCornerRadius, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
+                <TextBlock Text="Text inset" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                <TextBlock Text="H" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,0,4,0"/>
+                <Slider Minimum="0" Maximum="30" Value="{Binding LabelPaddingH}" Width="90" VerticalAlignment="Center"
+                        IsSnapToTickEnabled="True" TickFrequency="1"
+                        ToolTip="Horizontal padding between the chip edge and the text/portrait inside it, in pixels."/>
+                <TextBlock Text="{Binding LabelPaddingH, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="4,0,10,0" FontSize="11"/>
+                <TextBlock Text="V" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,0,4,0"/>
+                <Slider Minimum="0" Maximum="20" Value="{Binding LabelPaddingV}" Width="90" VerticalAlignment="Center"
+                        IsSnapToTickEnabled="True" TickFrequency="1"
+                        ToolTip="Vertical padding between the chip edge and the text/portrait inside it, in pixels."/>
+                <TextBlock Text="{Binding LabelPaddingV, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="4,0,0,0" FontSize="11"/>
+              </StackPanel>
 
               <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                 <TextBlock Text="Preview label — MASTER" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
@@ -1503,6 +1544,74 @@ Shows live thumbnail previews of background clients in the screen corners while 
                 <Slider Minimum="20" Maximum="100" Value="{Binding MasterLabelOpacity}" Width="150" VerticalAlignment="Center"
                         IsSnapToTickEnabled="True" TickFrequency="5"/>
                 <TextBlock Text="{Binding MasterLabelOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                <TextBlock Text="Background" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                <ComboBox Width="110" SelectedValuePath="Tag" FontSize="11" Margin="0,0,8,0"
+                          SelectedValue="{Binding MasterLabelBackgroundStyle}"
+                          ToolTip="Falls back to the normal chip backdrop above until you customize it here.">
+                  <ComboBoxItem Tag="Solid" Content="Solid"/>
+                  <ComboBoxItem Tag="Gradient" Content="Gradient"/>
+                  <ComboBoxItem Tag="None" Content="None (text only)"/>
+                </ComboBox>
+                <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
+                        Background="{Binding MasterLabelBackgroundBrush}"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                <Button Content="Pick Color..." Click="MasterLabelBackgroundColorPick_Click" Padding="6,3" FontSize="11"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="80,0,0,10" VerticalAlignment="Center">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding MasterLabelBackgroundStyle}" Value="Gradient">
+                        <Setter Property="Visibility" Value="Visible"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock Text="Gradient to" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,8,0"/>
+                <Border Width="24" Height="24" Margin="0,0,6,0" CornerRadius="4"
+                        Background="{Binding MasterLabelBackgroundBrush2}"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                <Button Content="Pick Color..." Click="MasterLabelBackgroundColor2Pick_Click" Padding="6,3" FontSize="11" Margin="0,0,8,0"/>
+                <TextBlock Text="Top-to-bottom blend" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding MasterLabelBackgroundStyle}" Value="None">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock Text="Chip opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                <Slider Minimum="0" Maximum="100" Value="{Binding MasterLabelBackgroundOpacity}" Width="150" VerticalAlignment="Center"
+                        IsSnapToTickEnabled="True" TickFrequency="5"/>
+                <TextBlock Text="{Binding MasterLabelBackgroundOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding MasterLabelBackgroundStyle}" Value="None">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock Text="Texture" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                <ComboBox Width="110" SelectedValuePath="Tag" FontSize="11"
+                          SelectedValue="{Binding MasterLabelBackgroundTexture}">
+                  <ComboBoxItem Tag="None" Content="None"/>
+                  <ComboBoxItem Tag="Diagonal" Content="Diagonal hatch"/>
+                  <ComboBoxItem Tag="Dots" Content="Dot grid"/>
+                  <ComboBoxItem Tag="Noise" Content="Noise / grain"/>
+                </ComboBox>
               </StackPanel>
 
               <TextBlock Text="Preview tiles" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>

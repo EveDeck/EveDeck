@@ -46,6 +46,10 @@ public static class ConfigProfileService
         nameof(AppSettings.CornerOverlayLabelBackgroundColor),
         nameof(AppSettings.CornerOverlayLabelBackgroundColor2),
         nameof(AppSettings.CornerOverlayLabelBackgroundOpacity),
+        nameof(AppSettings.CornerOverlayLabelBackgroundTexture),
+        nameof(AppSettings.CornerOverlayLabelCornerRadius),
+        nameof(AppSettings.CornerOverlayLabelPaddingH),
+        nameof(AppSettings.CornerOverlayLabelPaddingV),
 
         // Master-pill overrides
         nameof(AppSettings.CornerOverlayLabelFontFamilyMaster),
@@ -56,6 +60,11 @@ public static class ConfigProfileService
         nameof(AppSettings.CornerOverlayLabelDropShadowMaster),
         nameof(AppSettings.CornerOverlayLabelOutlineMaster),
         nameof(AppSettings.CornerOverlayLabelOpacityMaster),
+        nameof(AppSettings.CornerOverlayLabelBackgroundStyleMaster),
+        nameof(AppSettings.CornerOverlayLabelBackgroundColorMaster),
+        nameof(AppSettings.CornerOverlayLabelBackgroundColor2Master),
+        nameof(AppSettings.CornerOverlayLabelBackgroundOpacityMaster),
+        nameof(AppSettings.CornerOverlayLabelBackgroundTextureMaster),
 
         // Preview tiles
         nameof(AppSettings.CornerOverlayPreviewOpacity),
