@@ -149,9 +149,9 @@ Click "+ Add via ESI" on a slot to link a character via EVE SSO — each slot ho
                         <StackPanel>
                           <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <TextBlock Text="{Binding Label}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
-                            <Border Background="#6B2F08" CornerRadius="3" Padding="5,1" Margin="8,0,0,0" VerticalAlignment="Center"
+                            <Border Background="{StaticResource MasterChipBrush}" CornerRadius="3" Padding="5,1" Margin="8,0,0,0" VerticalAlignment="Center"
                                     Visibility="{Binding IsMaster, Converter={StaticResource BoolToVis}}">
-                              <TextBlock Text="MASTER" Foreground="#F59E0B" FontSize="9" FontWeight="Bold"/>
+                              <TextBlock Text="MASTER" Foreground="{StaticResource MasterAccentBrush}" FontSize="9" FontWeight="Bold"/>
                             </Border>
                           </StackPanel>
                           <ItemsControl ItemsSource="{Binding EsiCharacters}">

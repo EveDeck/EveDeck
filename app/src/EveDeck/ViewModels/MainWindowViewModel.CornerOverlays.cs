@@ -1387,7 +1387,8 @@ public sealed partial class MainWindowViewModel
         // WORK area, not full Bounds -- Bounds includes the strip behind the taskbar, which is
         // exactly the strip a Bottom* anchor needs to clear to land "above the system clock".
         _toastWindow = new Views.ToastNotificationWindow(
-            monitor.WorkArea.X, monitor.WorkArea.Y, monitor.WorkArea.Width, monitor.WorkArea.Height, dpiScale, anchor);
+            monitor.WorkArea.X, monitor.WorkArea.Y, monitor.WorkArea.Width, monitor.WorkArea.Height, dpiScale, anchor,
+            Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0));
         _toastWindow.Show();
         _toastHwnd = _toastWindow.Handle;
         return _toastWindow;

@@ -231,7 +231,7 @@ internal sealed class LabelSurfaceWindow : Window
             Foreground = new SolidColorBrush(Color.FromRgb(0xE5, 0xE7, 0xEB)),
             FontFamily = new FontFamily("Segoe UI"),
             FontWeight = FontWeights.Bold,
-            FontSize = 12 * chromeScale,
+            FontSize = OverlayChrome.BadgeGlyphSize * chromeScale,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             IsHitTestVisible = false,
@@ -241,7 +241,7 @@ internal sealed class LabelSurfaceWindow : Window
             Background = new SolidColorBrush(Color.FromArgb(0xB0, 0x0D, 0x11, 0x17)),
             BorderBrush = new SolidColorBrush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(999),
+            CornerRadius = new CornerRadius(OverlayChrome.RadiusPill),
             Child = glyph,
             // The whole surface is input-transparent (WS_EX_TRANSPARENT); the click is hit-tested on
             // the tile surface underneath. This is purely a visual affordance.
@@ -314,7 +314,7 @@ internal sealed class LabelSurfaceWindow : Window
             Foreground = new SolidColorBrush(color),
             FontFamily = new FontFamily("Segoe UI"),
             FontWeight = FontWeights.Bold,
-            FontSize = 10 * chromeScale,
+            FontSize = OverlayChrome.BadgeGlyphSize * chromeScale,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             IsHitTestVisible = false,
@@ -324,7 +324,7 @@ internal sealed class LabelSurfaceWindow : Window
             Background = new SolidColorBrush(Color.FromArgb(0xB0, 0x0D, 0x11, 0x17)),
             BorderBrush = new SolidColorBrush(color),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(999),
+            CornerRadius = new CornerRadius(OverlayChrome.RadiusPill),
             Child = text,
             IsHitTestVisible = false,
         };
@@ -396,7 +396,14 @@ internal sealed class LabelSurfaceWindow : Window
         // pattern reads as part of the chip's fill rather than being clipped to the text's own bounds.
         private readonly Rectangle _textureLayer = new() { IsHitTestVisible = false, Visibility = Visibility.Collapsed };
         private readonly Ellipse _portraitDot;
-        private readonly TextBlock _text = new() { VerticalAlignment = VerticalAlignment.Center };
+        // CharacterEllipsis + the MaxWidth budget set in UpdateTextWidthCap are what keep a long
+        // character/system name inside its own tile: this element lives on a Canvas, which does NOT
+        // clip its children, so an unbounded TextBlock renders straight over the neighbouring tile.
+        private readonly TextBlock _text = new()
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        };
         private readonly Grid _textLayer = new();
         private readonly TextBlock[] _outlineCopies = new TextBlock[8];
 
@@ -410,6 +417,14 @@ internal sealed class LabelSurfaceWindow : Window
             (-1,  1), (0,  1), (1,  1),
         };
 
+        // Gap between the portrait dot and the name in the IconText style; also the allowance
+        // UpdateTextWidthCap subtracts for that column.
+        private const double PortraitGapDip = 7;
+
+        // Never let the truncation budget collapse to nothing on a very small tile -- an ellipsis
+        // plus a character or two still says "there is a name here", a zero-width text block does not.
+        private const double MinTextWidthDip = 16;
+
         private readonly bool _iconStyle;
         private readonly int _baseHeight;
         private readonly double _dpiScale;
@@ -417,6 +432,7 @@ internal sealed class LabelSurfaceWindow : Window
         private double _inset;
         private double _pillHeightDip;
         private double _portraitDip;
+        private double _paddingHDip;
         private CharacterPortrait? _portrait;
         private double _tileXDip, _tileYDip, _tileWDip, _tileHDip;
 
@@ -432,7 +448,7 @@ internal sealed class LabelSurfaceWindow : Window
             {
                 Width = 0,
                 Height = 0,
-                Margin = new Thickness(0, 0, 7, 0),
+                Margin = new Thickness(0, 0, PortraitGapDip, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 Visibility = Visibility.Collapsed
             };
@@ -448,6 +464,7 @@ internal sealed class LabelSurfaceWindow : Window
                     Foreground = Brushes.Black,
                     Visibility = Visibility.Collapsed,
                     IsHitTestVisible = false,
+                    TextTrimming = TextTrimming.CharacterEllipsis, // must trim identically to _text
                 };
                 _textLayer.Children.Add(copy);
             }
@@ -477,7 +494,7 @@ internal sealed class LabelSurfaceWindow : Window
             // The chip sits INSIDE the tile rather than butting against its edge as a full-width
             // strip, so every corner is rounded regardless of anchor -- there is no longer an edge
             // "facing into" the tile to leave square.
-            _pill.CornerRadius = new CornerRadius(6);
+            _pill.CornerRadius = new CornerRadius(OverlayChrome.RadiusMd);
 
             Container.Children.Add(_pill);
         }
@@ -512,6 +529,7 @@ internal sealed class LabelSurfaceWindow : Window
                                     int opacity = 100)
         {
             _pill.Padding = new Thickness(paddingH, paddingV, paddingH, paddingV);
+            _paddingHDip = paddingH; // remembered for the truncation budget in UpdateTextWidthCap
             ApplyBackground(backgroundStyle, backgroundColorHex, backgroundColor2Hex, backgroundOpacity,
                 backgroundTexture, cornerRadius, paddingH, paddingV);
             var fontFamily = ResolveFontFamily(family);
@@ -694,6 +712,21 @@ internal sealed class LabelSurfaceWindow : Window
                 _                   => _tileYDip + _tileHDip / 2.0 - _pillHeightDip / 2.0,
             };
             Canvas.SetTop(Container, Math.Max(_tileYDip, top));
+            UpdateTextWidthCap();
+        }
+
+        // Caps the name to the width it actually owns, so CharacterEllipsis has something to trim
+        // against. Budget = the tile's own width, less the chip's horizontal padding on both sides,
+        // less the anchor inset it is pushed off the edge by, less the portrait column when the
+        // IconText style is showing one. Without this the label overruns onto the next tile (the
+        // Canvas host does not clip). Skipped until the tile rect is known (Place has run).
+        private void UpdateTextWidthCap()
+        {
+            if (_tileWDip <= 0) return;
+            var portrait = _portraitDip > 0 ? _portraitDip + PortraitGapDip : 0;
+            var cap = Math.Max(MinTextWidthDip, _tileWDip - _paddingHDip * 2 - _inset - portrait);
+            _text.MaxWidth = cap;
+            foreach (var copy in _outlineCopies) copy.MaxWidth = cap;
         }
 
         // Label plus an optional rounded character portrait (empty text hides the whole label). The

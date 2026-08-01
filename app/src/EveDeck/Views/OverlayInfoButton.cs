@@ -9,9 +9,11 @@ namespace EveDeck.Views;
 // same rect -- so both derive it from this one helper rather than each hard-coding the corner maths.
 internal static class OverlayInfoButton
 {
-    // Physical-pixel size + edge inset of the badge, drawn in the tile's top-right corner.
-    public const int SizePx = 20;
-    public const int InsetPx = 4;
+    // Physical-pixel size + edge inset of the badge, drawn in the tile's top-right corner. Both come
+    // from the shared overlay type scale so this badge and the jump badges in the opposite corner of
+    // the same tile are exactly the same size.
+    public const int SizePx = OverlayChrome.BadgeSizePx;
+    public const int InsetPx = OverlayChrome.BadgeInsetPx;
 
     // The button's rect for a given tile rect. Pure geometry, coordinate-space-agnostic: the tile
     // surface passes its surface-relative tile rect, the label surface its own surface-relative rect,

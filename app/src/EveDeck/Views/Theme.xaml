@@ -25,9 +25,13 @@
   <SolidColorBrush x:Key="WarningBrush" Color="#F0A93B"/>
 
   <!-- Semantic accents (promoted from scattered literals) ───────────────────── -->
-  <!-- Master seat (the centered account): warm amber on a deep ember chip. -->
-  <SolidColorBrush x:Key="MasterAccentBrush" Color="#F59E0B"/>
-  <SolidColorBrush x:Key="MasterChipBrush"   Color="#6B2F08"/>
+  <!-- Master seat (the centered account): bright violet on a deep indigo chip. Deliberately NOT
+       amber - WarningBrush above is amber, and the two used to sit side by side in the same seat
+       card meaning opposite things ("this is your home seat" vs "something is wrong"). Violet is
+       ~80 degrees off the cyan AccentBrush and ~120 off green/amber, so Master now reads as its
+       own semantic colour against the dark navy palette. -->
+  <SolidColorBrush x:Key="MasterAccentBrush" Color="#C084FC"/>
+  <SolidColorBrush x:Key="MasterChipBrush"   Color="#3B1D63"/>
   <!-- ESI-verified identity: cyan badge on a deep ocean chip. -->
   <SolidColorBrush x:Key="EsiChipBrush"      Color="#0E2A47"/>
   <!-- Assigned/online state: holo green. -->

@@ -2371,7 +2371,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     // Apply the choices collected by the setup wizard: target monitor, an appropriately-sized
-    // built-in profile for the client count, and (for 5-client) the corner-master configuration.
+    // built-in profile for the client count, and (whenever that profile is a Center Master ring)
+    // the corner-master configuration.
     public void RunInitialSetup(int clientCount, string monitorId, bool focusPreviewOnClick = true)
     {
         Refresh(); // make sure the monitor list is current before we resolve the selection
@@ -2387,12 +2388,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         var profile = ResolveAndApplyBestProfile(clientCount, width, height);
 
-        if (clientCount == 5)
+        // Gate on the profile that was actually applied, not on the raw client count. The wizard
+        // promises "a ring with a master client centered" for anything IsCenterMaster (4..15) and
+        // ResolveAndApplyBestProfile hands back the Center Master family for that whole range, so
+        // keying overlays off clientCount == 5 left every other ring user with the layout applied
+        // and no preview tiles at all. TemplateCount is the count the family snapped to (the
+        // dropdown offers 4,5,6,7,8,9,10,12,15), and PopulateCenterMasterSlots always makes the
+        // last slot the largest, centered master -- so the master seat is TemplateCount, not 5.
+        if (profile is not null && profile.Category == "Center Master" && profile.TemplateCount >= 4)
         {
-            // Flagship corner-master layout: full-screen, master = center slot 5, overlays on.
+            // Corner-master layout: full-screen, master = the centered slot, overlays on.
             UseMonitorWorkArea = false;
             FocusPreviewOnClick = focusPreviewOnClick;
-            ActiveMasterSeat = 5;
+            ActiveMasterSeat = profile.TemplateCount;
             SyncMasterSlot();
             CornerOverlaysEnabled = true;
         }

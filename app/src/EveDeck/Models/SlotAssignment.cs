@@ -59,6 +59,7 @@ public sealed class SlotAssignment : ObservableObject
         OnPropertyChanged(nameof(RunningCharacterName));
         OnPropertyChanged(nameof(DisplayLabel));
         OnPropertyChanged(nameof(RunningPortrait));
+        OnPropertyChanged(nameof(IsAssignedButOffline));
     }
 
     private void RaiseCharacterDependents()
@@ -388,6 +389,13 @@ public sealed class SlotAssignment : ObservableObject
 
     public bool IsAssigned => AssignedWindows.Count > 0;
 
+    // Seat has a window assigned (persisted) but nothing is actually running in it right now --
+    // the client crashed, was closed, or the character logged off. RunningCharacterName is cleared
+    // by the ViewModel on every refresh when the seat has no live detected window, so this is the
+    // "assigned but dead" state the seat card marks in amber. Not persisted.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsAssignedButOffline => IsAssigned && string.IsNullOrEmpty(RunningCharacterName);
+
     // The character actually logged into this seat's live window right now. Set by the ViewModel on
     // every refresh from the seat's first DETECTED window (resolved across ALL assigned candidate
     // windows, not just AssignedWindows[0]), so a seat holding several character-set clients shows
@@ -401,7 +409,13 @@ public sealed class SlotAssignment : ObservableObject
         set
         {
             if (SetProperty(ref _runningCharacterName, value))
+            {
                 OnPropertyChanged(nameof(DisplayLabel));
+                // This setter is the path that actually flips a seat between live and dead, so it
+                // must raise the offline flag itself -- it does not route through
+                // RaiseRunningNameDependents.
+                OnPropertyChanged(nameof(IsAssignedButOffline));
+            }
         }
     }
 

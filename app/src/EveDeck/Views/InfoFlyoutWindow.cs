@@ -78,8 +78,9 @@ internal sealed class InfoFlyoutWindow : Window
             Background = new SolidColorBrush(Color.FromArgb(0xF2, 0x0D, 0x11, 0x17)),
             BorderBrush = new SolidColorBrush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(10 * chromeScale, 8 * chromeScale, 10 * chromeScale, 8 * chromeScale),
+            CornerRadius = new CornerRadius(OverlayChrome.RadiusMd),
+            Padding = new Thickness(OverlayChrome.PadSnugH * chromeScale, OverlayChrome.PadSnugV * chromeScale,
+                                    OverlayChrome.PadSnugH * chromeScale, OverlayChrome.PadSnugV * chromeScale),
             Child = panel,
         };
 
@@ -145,21 +146,8 @@ internal sealed class InfoFlyoutWindow : Window
     // Quadrant-first: if the badge sits in the right half of its monitor, open leftward (anchor the
     // card's right edge to the badge's right edge) instead of waiting to see if the default left-aligned
     // placement would overflow. Same for vertical: bottom-half badge opens upward. Finally clamp fully
-    // inside the work area regardless, as a hard backstop.
-    private (int x, int y) ComputeEdgeAwarePosition(int w, int h)
-    {
-        var wa = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(_badgeLeft, _badgeTop)).WorkingArea;
-        var midX = wa.Left + wa.Width / 2;
-        var midY = wa.Top + wa.Height / 2;
-
-        var x = _badgeRight > midX ? _badgeRight - w : _badgeLeft;
-        var y = _badgeTop > midY ? _badgeTop - Gap - h : _badgeBottom + Gap;
-
-        if (x + w > wa.Right) x = wa.Right - w;
-        if (x < wa.Left) x = wa.Left;
-        if (y + h > wa.Bottom) y = wa.Bottom - h;
-        if (y < wa.Top) y = wa.Top;
-
-        return (x, y);
-    }
+    // inside the work area regardless, as a hard backstop. The maths now lives in OverlayChrome so the
+    // hover tip can share it verbatim -- behaviour here is unchanged.
+    private (int x, int y) ComputeEdgeAwarePosition(int w, int h) =>
+        OverlayChrome.EdgeAwarePosition(_badgeLeft, _badgeTop, _badgeRight, _badgeBottom, w, h, Gap);
 }
