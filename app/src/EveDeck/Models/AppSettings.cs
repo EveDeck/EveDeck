@@ -232,6 +232,14 @@ public sealed class AppSettings
     // First-run setup wizard has been completed (controls whether it auto-shows on launch).
     public bool SetupCompleted { get; set; } = false;
 
+    // The app version the "What's New" changelog window was last shown for. Empty on a genuinely
+    // fresh install (the Setup Wizard owns first-run, not this) -- MainWindowViewModel seeds it to
+    // the current version right after setup completes, so the changelog only pops on a REAL future
+    // update, not on the user's very first run. An existing settings.json from before this field
+    // existed deserializes it as empty too, which is what makes the changelog show once for
+    // upgrading users (SetupCompleted is already true for them) instead of just fresh installs.
+    public string LastSeenChangelogVersion { get; set; } = "";
+
     // Last main-window position (screen coordinates). Null until the window has been shown once;
     // restored on launch when still within the visible virtual screen.
     public double? WindowLeft { get; set; }

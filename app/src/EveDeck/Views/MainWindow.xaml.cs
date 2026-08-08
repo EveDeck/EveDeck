@@ -60,6 +60,7 @@ public partial class MainWindow : Window
         };
         _viewModel.HotkeysChanged += ViewModel_HotkeysChanged;
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        _viewModel.UpdateBecameAvailable += version => ShowChangelogWindow(version);
         PreviewKeyDown += MainWindow_PreviewKeyDown;
         // A pending hotkey capture keeps ALL global hotkeys unregistered; abandon it if the user
         // clicks away to another app so the hotkeys come back (re-registered via IsCapturingHotkey).
@@ -77,10 +78,42 @@ public partial class MainWindow : Window
     {
         MeasureTabStrip();
 
-        // Show the first-run setup wizard once, after the main window is visible so it can own it.
-        if (_setupShown || !_viewModel.NeedsSetup) return;
+        if (_setupShown) return;
         _setupShown = true;
-        ShowSetupWizard();
+
+        // Show the first-run setup wizard once, after the main window is visible so it can own it.
+        if (_viewModel.NeedsSetup)
+        {
+            ShowSetupWizard();
+            return;
+        }
+
+        // Returning user on a version they haven't seen the changelog for yet (i.e. just updated).
+        if (_viewModel.NeedsChangelogCheck)
+            ShowChangelogWindow();
+    }
+
+    private ChangelogWindow? _changelogWindow;
+
+    // Shared by both changelog triggers: post-update (availableUpdateVersion is null) and
+    // update-available (availableUpdateVersion set, adds an inline "Update to vX" button). Shown
+    // non-modally so it never blocks the main window or the rest of startup.
+    private void ShowChangelogWindow(string? availableUpdateVersion = null)
+    {
+        if (_changelogWindow is not null) { _changelogWindow.Activate(); return; }
+        _viewModel.Log.Info(availableUpdateVersion is null
+            ? "Changelog: showing post-update What's New window."
+            : $"Changelog: showing What's New window for available update v{availableUpdateVersion}.");
+        _changelogWindow = new ChangelogWindow(availableUpdateVersion, () => _viewModel.InstallUpdateCommand.Execute(null), _viewModel.Log)
+        {
+            Owner = this
+        };
+        _changelogWindow.Closed += (_, _) =>
+        {
+            _changelogWindow = null;
+            _viewModel.MarkChangelogSeen();
+        };
+        _changelogWindow.Show();
     }
 
     // Natural (unscaled) width of the whole tab strip, measured once the tabs are realized.
@@ -192,6 +225,11 @@ public partial class MainWindow : Window
 
             var monitorName = _viewModel.Monitors.FirstOrDefault(m => m.Id == wizard.ResultMonitorId)?.DeviceName ?? "your monitor";
             _viewModel.ShowToast("Setup complete", $"Layout applied to {monitorName}. Assign clients from the Clients tab, then Apply.", "#22C55E");
+
+            // Seed the changelog baseline to "I've seen everything up to my install version" so a
+            // fresh install doesn't get shown its own changelog on the very next launch -- only a
+            // REAL future update should trigger it (see MainWindowViewModel.NeedsChangelogCheck).
+            _viewModel.MarkChangelogSeen();
         }
         else
             _viewModel.DismissSetup();
