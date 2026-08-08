@@ -338,6 +338,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             OnPropertyChanged(nameof(ShowUpdateBanner));
             OnPropertyChanged(nameof(UpdateVersionText));
+
+            // Only the automatic startup check offers the changelog (a manual "Check for updates"
+            // click from Options shouldn't pop a window on top of the user), and only once per run
+            // so it doesn't re-trigger if the user re-checks later in the same session.
+            if (!manual && info is not null && !_updateChangelogOfferedThisSession)
+            {
+                _updateChangelogOfferedThisSession = true;
+                UpdateBecameAvailable?.Invoke(info.Version);
+            }
+
             if (!manual) return;
             _isCheckingForUpdate = false;
             UpdateCheckStatusText = info is not null ? $"EveDeck {info.Version} is available" : "You're up to date.";
@@ -659,6 +669,47 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public ICommand CheckForUpdateCommand { get; }
     public string UpdateCheckStatusText { get; private set; } = "";
     public bool IsCheckingForUpdate => _isCheckingForUpdate;
+
+    // ── "What's New" changelog window ───────────────────────────────────────────
+
+    // Raised (once per app run) the first time the automatic startup update check finds a newer
+    // version -- MainWindow uses this to pop the changelog window alongside the normal update
+    // banner so the user can see what's actually in it before deciding to update.
+    public event Action<string>? UpdateBecameAvailable;
+    private bool _updateChangelogOfferedThisSession;
+
+    public string CurrentVersionString
+    {
+        get
+        {
+            var v = Assembly.GetExecutingAssembly().GetName().Version;
+            return v is null ? "" : $"{v.Major}.{v.Minor}.{v.Build}";
+        }
+    }
+
+    // True when the changelog hasn't been shown for the version currently running. Gated on
+    // SetupCompleted so a genuinely fresh install (where the wizard owns first-run) never pops
+    // this before the user has done anything -- MarkChangelogSeen() seeds the baseline right after
+    // setup finishes. An existing settings.json from before this field existed also deserializes
+    // LastSeenChangelogVersion as empty, which is exactly what makes this fire once for upgrading
+    // users (SetupCompleted is already true for them), not just fresh installs.
+    public bool NeedsChangelogCheck
+    {
+        get
+        {
+            if (!_settings.SetupCompleted) return false;
+            var current = CurrentVersionString;
+            return !string.IsNullOrEmpty(current) && _settings.LastSeenChangelogVersion != current;
+        }
+    }
+
+    public void MarkChangelogSeen()
+    {
+        var current = CurrentVersionString;
+        if (string.IsNullOrEmpty(current)) return;
+        _settings.LastSeenChangelogVersion = current;
+        Save();
+    }
 
     public bool ShowConfigResetBanner => _configService.WasResetFromCorruption && !_configResetBannerDismissed;
     public ICommand DismissConfigResetBannerCommand { get; }
