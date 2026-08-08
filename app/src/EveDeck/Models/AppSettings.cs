@@ -7,7 +7,7 @@ public sealed class AppSettings
     public bool UsePhysicalPixels { get; set; } = true;
     public string LayoutTargetMonitorId { get; set; } = "";
     public bool UseMonitorWorkArea { get; set; }
-    public bool IncludeNotepadTestWindows { get; set; } = true;
+    public bool IncludeNotepadTestWindows { get; set; } = false;
     public bool AutoRefresh { get; set; } = true;
     public string ActiveProfileId { get; set; } = "";
     public ObservableCollection<SlotAssignment> Assignments { get; set; } = new();
@@ -25,9 +25,9 @@ public sealed class AppSettings
     public Dictionary<string, StyleSnapshot> StyleSnapshotsByTitle { get; set; } = new();
 
     public bool ActiveFrameEnabled { get; set; } = true;
-    public int ActiveFrameThickness { get; set; } = 4;
-    public int ActiveFrameGlowRadius { get; set; } = 8;
-    public string ActiveFrameColor { get; set; } = "#F59E0B";
+    public int ActiveFrameThickness { get; set; } = 3;
+    public int ActiveFrameGlowRadius { get; set; } = 3;
+    public string ActiveFrameColor { get; set; } = "#FFFFFF";
 
     // 2g — Startup profile auto-apply
     public bool ApplyProfileOnStartup { get; set; }
@@ -53,8 +53,8 @@ public sealed class AppSettings
     public bool CornerOverlaysEnabled { get; set; } = true;
     public bool CornerOverlayShowLabel { get; set; } = true;
     public bool CornerOverlayShowSlotNumber { get; set; } = false;
-    public double CornerOverlayLabelFontSize { get; set; } = 21.0;
-    public string CornerOverlayLabelStyle { get; set; } = "Pill";
+    public double CornerOverlayLabelFontSize { get; set; } = 27.0;
+    public string CornerOverlayLabelStyle { get; set; } = "IconText";
     public string CornerOverlayLabelFontFamily { get; set; } = "Acens"; // bundled font, see Assets\Fonts\Acens-LICENSE.txt
     public string CornerOverlayLabelColor { get; set; } = "#E5E7EB"; // global default label text color
     public int CornerOverlayLabelHeight { get; set; } = 28; // WPF DIPs
@@ -71,7 +71,7 @@ public sealed class AppSettings
     // Inset in WPF DIPs between the label and the tile edge it is anchored to. Ignored on whichever
     // axis the anchor is centered. EVE-O Preview uses a fixed 8px inset; this is the same idea, made
     // adjustable because EveDeck's labels can be far larger than its 8.25pt one.
-    public int CornerOverlayLabelInset { get; set; } = 8;
+    public int CornerOverlayLabelInset { get; set; } = 5;
 
     // MASTER-pill override for the anchor above. Empty = inherit CornerOverlayLabelAnchor. Defaults
     // to TopCenter because the master rect is the client you are actually looking at: a label parked
@@ -95,7 +95,7 @@ public sealed class AppSettings
     // CornerOverlayLabelAnchor. "Center" grows evenly in all directions (the original behavior);
     // an edge/corner anchor pins that edge so a tile near a screen edge expands inward instead of
     // being clamped. Per-seat SlotAssignment.ZoomAnchor overrides this.
-    public string HoverZoomAnchor { get; set; } = "Center";
+    public string HoverZoomAnchor { get; set; } = "TopCenter";
 
     // Ask Windows to power-throttle (EcoQoS) EVE clients that are not the foreground window, on top
     // of the existing ThrottleBackgroundProcesses priority drop. EcoQoS parks those processes on
@@ -105,7 +105,7 @@ public sealed class AppSettings
     // Deliberately NOT a frame-rate limiter: capping another process's FPS means hooking its D3D
     // present chain via DLL injection, which AGENTS.md forbids outright. EcoQoS is pure OS-level
     // scheduling -- nothing is injected, read, or written in the EVE client. See COMPLIANCE.md.
-    public bool EcoQosBackgroundClients { get; set; } = false;
+    public bool EcoQosBackgroundClients { get; set; } = true;
 
     // Keep the next seat in the cycle order OUT of EcoQoS, so the client you are about to switch to
     // is already running at full speed when you get there. EVE-O Plus's "predictive" limiting idea,
@@ -116,15 +116,15 @@ public sealed class AppSettings
     // where the thumbnail shows nothing useful. Mirrors EVE-O Preview's HidePreviewAtLoginScreen.
     // Detection is by window title only (EVE titles the window "EVE" with no character name until a
     // character is selected) -- no memory reading, no injection.
-    public bool HidePreviewsAtLoginScreen { get; set; } = false;
+    public bool HidePreviewsAtLoginScreen { get; set; } = true;
 
     // Global default label font/size/color for the MASTER (centered, near-full-size) seat's pill.
     // Empty/null = inherit the normal CornerOverlayLabelFontFamily/FontSize/LabelColor above, so
     // this is a no-op until explicitly customized. Per-seat overrides on SlotAssignment
     // (LabelFontFamilyMaster etc.) take precedence over these when set.
-    public string CornerOverlayLabelFontFamilyMaster { get; set; } = "";
-    public double? CornerOverlayLabelFontSizeMaster { get; set; } = null;
-    public string CornerOverlayLabelColorMaster { get; set; } = "";
+    public string CornerOverlayLabelFontFamilyMaster { get; set; } = "Acens";
+    public double? CornerOverlayLabelFontSizeMaster { get; set; } = 27.0;
+    public string CornerOverlayLabelColorMaster { get; set; } = "#E5E7EB";
 
     // Text style toggles for corner-overlay preview labels. Bold/Italic are plain font-weight/style
     // switches. DropShadow defaults true because the "IconText" label style has always rendered a
@@ -132,10 +132,10 @@ public sealed class AppSettings
     // hardcoded); true preserves that exact look with no action needed, and additionally lets "Pill"
     // style labels opt in too (harmless there since Pill text already sits on an opaque dark chip).
     // Outline draws a black stroke around the glyphs; off by default (a new, purely additive look).
-    public bool CornerOverlayLabelBold { get; set; } = false;
+    public bool CornerOverlayLabelBold { get; set; } = true;
     public bool CornerOverlayLabelItalic { get; set; } = false;
     public bool CornerOverlayLabelDropShadow { get; set; } = true;
-    public bool CornerOverlayLabelOutline { get; set; } = false;
+    public bool CornerOverlayLabelOutline { get; set; } = true;
 
     // Global MASTER-pill overrides for the style toggles above. null = inherit the normal toggle
     // (same fallback pattern as CornerOverlayLabelFontFamilyMaster etc.); per-seat overrides on
@@ -158,35 +158,35 @@ public sealed class AppSettings
     // separate Opacity below supplies the chip's own alpha, replacing the old hardcoded ~80% (0xCC).
     // One global setting, not per-seat/master -- the chip is small chrome, not worth doubling every
     // option for.
-    public string CornerOverlayLabelBackgroundStyle { get; set; } = "Solid";
-    public string CornerOverlayLabelBackgroundColor { get; set; } = "#0D1117";
-    public string CornerOverlayLabelBackgroundColor2 { get; set; } = "#1F2937";
-    public int CornerOverlayLabelBackgroundOpacity { get; set; } = 80;
+    public string CornerOverlayLabelBackgroundStyle { get; set; } = "None";
+    public string CornerOverlayLabelBackgroundColor { get; set; } = "#0000A0";
+    public string CornerOverlayLabelBackgroundColor2 { get; set; } = "#000000";
+    public int CornerOverlayLabelBackgroundOpacity { get; set; } = 50;
 
     // A subtle vector pattern drawn over the chip fill above (None/Diagonal/Dots/Noise) -- purely
     // decorative texture, independent of the Style/Color/Opacity that determine the underlying fill.
     // No-op when Style is "None" (nothing to texture).
-    public string CornerOverlayLabelBackgroundTexture { get; set; } = "None";
+    public string CornerOverlayLabelBackgroundTexture { get; set; } = "Diagonal";
 
     // Global MASTER-pill overrides for the background block above -- same ""/null = inherit fallback
     // pattern as CornerOverlayLabelBoldMaster etc., so the MASTER (home) pill's chip can look
     // different from the corner pills' shared normal settings without disturbing them.
-    public string CornerOverlayLabelBackgroundStyleMaster { get; set; } = "";
-    public string CornerOverlayLabelBackgroundColorMaster { get; set; } = "";
-    public string CornerOverlayLabelBackgroundColor2Master { get; set; } = "";
-    public int? CornerOverlayLabelBackgroundOpacityMaster { get; set; } = null;
-    public string CornerOverlayLabelBackgroundTextureMaster { get; set; } = "";
+    public string CornerOverlayLabelBackgroundStyleMaster { get; set; } = "None";
+    public string CornerOverlayLabelBackgroundColorMaster { get; set; } = "#000000";
+    public string CornerOverlayLabelBackgroundColor2Master { get; set; } = "#000052";
+    public int? CornerOverlayLabelBackgroundOpacityMaster { get; set; } = 25;
+    public string CornerOverlayLabelBackgroundTextureMaster { get; set; } = "Diagonal";
 
     // Chip corner roundness (px) and text inset/padding (px, horizontal/vertical) -- shape of the
     // chip itself, global only (like CornerOverlayPreviewOpacity, no per-seat/master split; the chip
     // shape isn't worth doubling every option for).
     public int CornerOverlayLabelCornerRadius { get; set; } = 6;
-    public int CornerOverlayLabelPaddingH { get; set; } = 12;
-    public int CornerOverlayLabelPaddingV { get; set; } = 4;
+    public int CornerOverlayLabelPaddingH { get; set; } = 15;
+    public int CornerOverlayLabelPaddingV { get; set; } = 0;
 
     // Preview-tile opacity (0-100%, DWM thumbnail alpha) for every corner/master DWM preview. One
     // global slider applied uniformly -- no per-seat/master split like the label opacity above.
-    public int CornerOverlayPreviewOpacity { get; set; } = 100;
+    public int CornerOverlayPreviewOpacity { get; set; } = 80;
 
     // Click a corner preview tile to bring that client to the center (focus switch). Pure window
     // management — the click is NOT forwarded into the EVE client, so it stays EULA-compliant (no
@@ -202,15 +202,15 @@ public sealed class AppSettings
 
     // How long (ms) the mouse must rest on a corner tile before the peek triggers. A short delay
     // prevents accidental peeks when the cursor merely passes over a tile. 0 = instant.
-    public int HoverPreviewDelayMs { get; set; } = 250;
+    public int HoverPreviewDelayMs { get; set; } = 650;
 
     // What hovering a corner tile does: "Peek" temporarily raises the real client over the master
     // (the original behaviour); "Zoom" magnifies just the preview thumbnail in place — the real
     // window is never moved. Zoom is the eve-o-preview-style option.
-    public string HoverPreviewStyle { get; set; } = "Peek";
+    public string HoverPreviewStyle { get; set; } = "Zoom";
 
     // Preview magnification factor for the Zoom hover style (1.5–4x).
-    public double HoverZoomFactor { get; set; } = 2.0;
+    public double HoverZoomFactor { get; set; } = 1.5;
 
     // Only fire hotkeys when an EVE client is in the foreground.
     public bool RequireEveFocusForHotkeys { get; set; } = true;
@@ -227,7 +227,7 @@ public sealed class AppSettings
     // Hide a corner tile's live preview while that seat's client IS the foreground window (it's
     // already on screen full-size, the tile is redundant clutter). eve-o-preview's
     // "hide active client thumbnail" equivalent.
-    public bool HideActiveSeatTile { get; set; } = false;
+    public bool HideActiveSeatTile { get; set; } = true;
 
     // First-run setup wizard has been completed (controls whether it auto-shows on launch).
     public bool SetupCompleted { get; set; } = false;
@@ -279,13 +279,13 @@ public sealed class AppSettings
     // Once every seat has been simultaneously offline (no live window for any seat) for this many
     // seconds, the corner overlay tears itself down instead of leaving a wall of stale "Name ·
     // offline" pills on screen after the whole session has ended. 0 = never auto-teardown.
-    public int OfflineOverlayTimeoutSeconds { get; set; } = 60;
+    public int OfflineOverlayTimeoutSeconds { get; set; } = 5;
 
     // Hides a seat's "Name · offline" pill after it has been continuously offline for this many
     // seconds. 0 = hide immediately (no offline text ever shown). -1 (default) = never hide,
     // preserving the original always-on behavior. Independent of OfflineOverlayTimeoutSeconds,
     // which only tears down the WHOLE overlay once EVERY seat is offline at once.
-    public int OfflinePillTimeoutSeconds { get; set; } = -1;
+    public int OfflinePillTimeoutSeconds { get; set; } = 0;
 
     // EveDeck-rendered Mumble talker overlay (fed by the EveDeck Mumble plugin over a named
     // pipe). Only Enabled/Locked/X/Y/OpacityPercent are used -- the window owns its own size.
@@ -316,10 +316,10 @@ public sealed class AppSettings
 
 
     // Preview info flyout (added 2026-07-24): a small "i" badge on each corner preview opens a compact
-    // card of live ESI facts for that seat's character. Off until opted in; needs the
-    // location/ship-type/fatigue/skill-queue scopes (re-link characters to grant them). Each line is
+    // card of live ESI facts for that seat's character. On by default; stays empty until a character
+    // is linked via ESI (needs the location/ship-type/fatigue/skill-queue scopes). Each line is
     // independently toggleable so the card stays as small as the user wants.
-    public bool CornerOverlayInfoButtonEnabled { get; set; } = false;
+    public bool CornerOverlayInfoButtonEnabled { get; set; } = true;
     // Independent of Windows' own per-monitor DPI scaling (added 2026-07-29): scales the info
     // badge, jump-status badges, and their popup text so they can be read on a small/high-density
     // display (e.g. a tablet used as a monitor) without cranking Windows scaling up, which affects
@@ -337,20 +337,21 @@ public sealed class AppSettings
 
     // Jump-status badges on each corner preview (added 2026-07-28): small "F"/"R" badges in the
     // tile's top-left corner, shown only while a linked character has active jump fatigue or is on
-    // its jump-reactivation cooldown; hover for the exact remaining time. Off until opted in, needs
-    // the fatigue/skills scopes (already covered by the standard link). One toggle for both, since
-    // the badges are meant to be glanced at together rather than tuned independently.
-    public bool CornerOverlayShowJumpBadges { get; set; } = false;
+    // its jump-reactivation cooldown; hover for the exact remaining time. On by default; stays
+    // invisible until a character is linked via ESI (needs the fatigue/skills scopes, already
+    // covered by the standard link). One toggle for both, since the badges are meant to be glanced
+    // at together rather than tuned independently.
+    public bool CornerOverlayShowJumpBadges { get; set; } = true;
 
     // Seat health alerts (added 2026-07-28): toast notifications for a linked character's ship
     // flipping to a capsule (correlated against zKillboard to distinguish a real kill from a
     // deliberate bare-pod flight or an in-station ship swap) and for an ESI online/offline mismatch
     // against the seat's window (catches a silently disconnected client whose window is still open).
     // Independent toggles -- these are unrelated failure modes, on their own polling timer, not tied
-    // to corner overlays being enabled. Off until opted in; the online check needs a fresh re-link
-    // (see EsiAuthService.ScopeOnline).
-    public bool SeatHealthAlertPodded { get; set; } = false;
-    public bool SeatHealthAlertDisconnected { get; set; } = false;
+    // to corner overlays being enabled. On by default; the online check needs a character linked with
+    // a fresh online scope (see EsiAuthService.ScopeOnline) to actually fire.
+    public bool SeatHealthAlertPodded { get; set; } = true;
+    public bool SeatHealthAlertDisconnected { get; set; } = true;
 
     // Stream-safe mode (added 2026-07-24): masks identifying info on the overlays / pills / info flyout
     // for streamers -- aliases character names to "Alt N", drops system names, and hides wallet ISK.
@@ -359,12 +360,12 @@ public sealed class AppSettings
 
     // Downtime countdown (added 2026-07-24): a small always-on-top readout counting down the final
     // DowntimeLeadMinutes before EVE's daily downtime, plus one toast when that window opens. Time is
-    // UTC "HH:mm" (EVE's historical DT is 11:00 UTC). Off by default.
-    public bool DowntimeCountdownEnabled { get; set; } = false;
+    // UTC "HH:mm" (EVE's historical DT is 11:00 UTC). On by default.
+    public bool DowntimeCountdownEnabled { get; set; } = true;
     public string DowntimeUtcTime { get; set; } = "11:00";
     public int DowntimeLeadMinutes { get; set; } = 60;
     // Where the countdown readout sits (same six anchors as ToastPosition). TopCenter collides with
-    // EVE's own top-centre UI, so default to the top-right corner instead.
-    public string DowntimePosition { get; set; } = "TopRight";
+    // EVE's own top-centre UI, so default to a top corner instead.
+    public string DowntimePosition { get; set; } = "TopLeft";
 
 }

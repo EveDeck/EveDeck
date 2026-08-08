@@ -14,10 +14,10 @@ public partial class SetupWizardWindow : Window
     public int ResultMasterSeat { get; private set; }
     public IReadOnlyList<SlotAssignment> ResultSlotAssignments { get; private set; } = [];
 
-    public SetupWizardWindow(IEnumerable<MonitorInfo> monitors)
+    public SetupWizardWindow(IEnumerable<MonitorInfo> monitors, IEnumerable<long>? existingLinkedCharacterIds = null)
     {
         InitializeComponent();
-        _vm = new SetupWizardViewModel(monitors);
+        _vm = new SetupWizardViewModel(monitors, existingLinkedCharacterIds);
         DataContext = _vm;
     }
 

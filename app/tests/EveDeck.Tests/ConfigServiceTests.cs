@@ -158,10 +158,10 @@ public class ConfigServiceTests : IDisposable
     }
 
     [Fact]
-    public void Load_DefaultsOfflinePillTimeoutSecondsToNegativeOne()
+    public void Load_DefaultsOfflinePillTimeoutSecondsToZero()
     {
         var settings = _configService.Load();
-        Assert.Equal(-1, settings.OfflinePillTimeoutSeconds);
+        Assert.Equal(0, settings.OfflinePillTimeoutSeconds);
     }
 
     [Fact]
@@ -178,12 +178,12 @@ public class ConfigServiceTests : IDisposable
     }
 
     [Fact]
-    public void Load_DefaultsCornerOverlayLabelFontMasterPropertiesToUnset()
+    public void Load_DefaultsCornerOverlayLabelFontMasterProperties()
     {
         var settings = _configService.Load();
-        Assert.Equal("", settings.CornerOverlayLabelFontFamilyMaster);
-        Assert.Null(settings.CornerOverlayLabelFontSizeMaster);
-        Assert.Equal("", settings.CornerOverlayLabelColorMaster);
+        Assert.Equal("Acens", settings.CornerOverlayLabelFontFamilyMaster);
+        Assert.Equal(27.0, settings.CornerOverlayLabelFontSizeMaster);
+        Assert.Equal("#E5E7EB", settings.CornerOverlayLabelColorMaster);
     }
 
     [Fact]
