@@ -11,7 +11,8 @@ public static class HotkeyDefaults
     public static IReadOnlyList<HotkeyBinding> Create()
     {
         var bindings = new List<HotkeyBinding>();
-        // Focus the five real client slots (the user runs at most 5 concurrent characters).
+        // Focus slots 1-5 by default -- covers most multibox sizes out of the box; add more from
+        // the Hotkeys tab for a larger setup, or ignore the unused ones for a 1-2 character setup.
         for (var i = 1; i <= 5; i++)
         {
             bindings.Add(new HotkeyBinding

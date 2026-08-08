@@ -13,7 +13,17 @@ public sealed class SetupWizardViewModel : ObservableObject
 
     private readonly EsiAuthService _esiAuth = new();
     private readonly EsiTokenStore _tokenStore = new(ConfigService.DefaultAppDataFolder);
-    private bool _esiLoginInProgress;
+
+    // Characters already linked to a seat elsewhere in the app (passed in when the wizard is
+    // re-run from Settings, not just on first run) -- checked alongside WizardSlots so re-adding
+    // an already-linked character is rejected with feedback instead of silently vanishing when
+    // MainWindow merges the wizard result back in.
+    private readonly HashSet<long> _existingCharacterIds;
+
+    // Slots trimmed off by PopulateWizardSlots when the user reduces ClientCount, keyed by slot
+    // number, so their linked characters come back if the user raises the count again instead of
+    // being silently dropped.
+    private readonly Dictionary<int, SlotAssignment> _trimmedSlotCache = new();
 
     public ObservableCollection<int> ClientCountOptions { get; } = new(Enumerable.Range(1, 50));
     public ObservableCollection<MonitorInfo> Monitors { get; }
@@ -22,10 +32,11 @@ public sealed class SetupWizardViewModel : ObservableObject
     public RelayCommand AddWizardEsiCharacterCommand { get; }
     public RelayCommand RemoveWizardEsiCharacterCommand { get; }
 
-    public SetupWizardViewModel(IEnumerable<MonitorInfo> monitors)
+    public SetupWizardViewModel(IEnumerable<MonitorInfo> monitors, IEnumerable<long>? existingLinkedCharacterIds = null)
     {
         Monitors = new ObservableCollection<MonitorInfo>(monitors);
         _selectedMonitor = Monitors.FirstOrDefault(m => m.IsPrimary) ?? Monitors.FirstOrDefault();
+        _existingCharacterIds = existingLinkedCharacterIds is null ? new HashSet<long>() : new HashSet<long>(existingLinkedCharacterIds);
         AddWizardEsiCharacterCommand = new RelayCommand(AddWizardEsiCharacter);
         RemoveWizardEsiCharacterCommand = new RelayCommand(RemoveWizardEsiCharacter);
     }
@@ -131,6 +142,28 @@ public sealed class SetupWizardViewModel : ObservableObject
         set { if (SetProperty(ref _focusPreviewOnClick, value)) OnPropertyChanged(nameof(SummaryText)); }
     }
 
+    // ── ESI login feedback ──────────────────────────────────────────────────────
+
+    private bool _isEsiLoginInProgress;
+    public bool IsEsiLoginInProgress
+    {
+        get => _isEsiLoginInProgress;
+        private set { if (SetProperty(ref _isEsiLoginInProgress, value)) OnPropertyChanged(nameof(CanAddEsiCharacter)); }
+    }
+
+    // Bound to each "+ Add via ESI" button's IsEnabled -- only one login flow runs at a time.
+    public bool CanAddEsiCharacter => !IsEsiLoginInProgress;
+
+    // Transient feedback for a cancelled/timed-out/duplicate ESI login attempt. Empty = no message
+    // shown. Cleared at the start of every new attempt.
+    private string _esiStatusMessage = "";
+    public string EsiStatusMessage
+    {
+        get => _esiStatusMessage;
+        private set { if (SetProperty(ref _esiStatusMessage, value)) OnPropertyChanged(nameof(HasEsiStatusMessage)); }
+    }
+    public bool HasEsiStatusMessage => !string.IsNullOrEmpty(EsiStatusMessage);
+
     public bool IsCenterMaster => ClientCount >= 4 && ClientCount <= 15;
 
     public bool NoMonitors => Monitors.Count == 0;
@@ -217,28 +250,47 @@ public sealed class SetupWizardViewModel : ObservableObject
 
     private void PopulateWizardSlots()
     {
-        // Trim excess slots if the user changed client count and went Back
+        // Trim excess slots if the user changed client count and went Back. Cache them (rather than
+        // discarding) so linked characters come back if the count is raised again instead of being
+        // silently lost.
         while (WizardSlots.Count > ClientCount)
+        {
+            var last = WizardSlots[^1];
+            _trimmedSlotCache[last.SlotNumber] = last;
             WizardSlots.RemoveAt(WizardSlots.Count - 1);
-        // Add missing slots
+        }
+        // Add missing slots, restoring a cached one for that slot number if we trimmed it earlier.
         while (WizardSlots.Count < ClientCount)
-            WizardSlots.Add(new SlotAssignment { SlotNumber = WizardSlots.Count + 1, Label = $"Slot {WizardSlots.Count + 1}" });
+        {
+            var slotNumber = WizardSlots.Count + 1;
+            if (_trimmedSlotCache.Remove(slotNumber, out var cached))
+                WizardSlots.Add(cached);
+            else
+                WizardSlots.Add(new SlotAssignment { SlotNumber = slotNumber, Label = $"Slot {slotNumber}" });
+        }
+        UpdateMasterFlags();
     }
 
     private async void AddWizardEsiCharacter(object? parameter)
     {
         if (parameter is not SlotAssignment slot) return;
         if (slot.EsiCharacters.Count >= 3) return;
-        if (_esiLoginInProgress) return;
+        if (IsEsiLoginInProgress) return;
 
-        _esiLoginInProgress = true;
+        IsEsiLoginInProgress = true;
+        EsiStatusMessage = "";
         try
         {
             var token = await _esiAuth.AuthorizeAsync(CancellationToken.None);
             var characterId = token.CharacterId;
             var characterName = token.CharacterName;
 
-            if (WizardSlots.Any(s => s.EsiCharacters.Any(c => c.CharacterId == characterId))) return;
+            if (WizardSlots.Any(s => s.EsiCharacters.Any(c => c.CharacterId == characterId))
+                || _existingCharacterIds.Contains(characterId))
+            {
+                EsiStatusMessage = $"{characterName} is already linked to another seat.";
+                return;
+            }
 
             _tokenStore.Put(token);
 
@@ -255,8 +307,15 @@ public sealed class SetupWizardViewModel : ObservableObject
             }
             OnPropertyChanged(nameof(SummaryText));
         }
-        catch { /* login cancelled or failed — silently ignore in wizard */ }
-        finally { _esiLoginInProgress = false; }
+        catch (TimeoutException)
+        {
+            EsiStatusMessage = "ESI login timed out after 5 minutes — try again.";
+        }
+        catch
+        {
+            EsiStatusMessage = "Login cancelled or failed — try again.";
+        }
+        finally { IsEsiLoginInProgress = false; }
     }
 
     private void RemoveWizardEsiCharacter(object? parameter)

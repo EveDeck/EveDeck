@@ -99,9 +99,10 @@
             <TextBlock Text="Which monitor should the clients be placed on?"
                        FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12"/>
 
-            <TextBlock Text="No monitors were detected. Connect a display and reopen setup."
-                       Foreground="#FCA5A5" TextWrapping="Wrap"
-                       Visibility="{Binding NoMonitors, Converter={StaticResource BoolToVis}}"/>
+            <TextBlock TextWrapping="Wrap" Foreground="#FCA5A5"
+                       Visibility="{Binding NoMonitors, Converter={StaticResource BoolToVis}}">
+No monitors were detected. Connect a display, then close this wizard (Cancel) and reopen it from Settings — EveDeck won't pick up a newly connected display without a restart of setup.
+            </TextBlock>
 
             <ComboBox ItemsSource="{Binding Monitors}"
                       SelectedItem="{Binding SelectedMonitor}"
@@ -132,10 +133,14 @@
           <StackPanel Visibility="{Binding IsEsiStep, Converter={StaticResource BoolToVis}}">
             <TextBlock Text="Link your EVE characters (optional)"
                        FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
-            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10" LineHeight="19">
+            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,4" LineHeight="19">
 Click "+ Add via ESI" on a slot to link a character via EVE SSO — each slot holds a main plus up to 2 alts. The first character you add becomes the Master (centered at rest). You can skip this and link characters later from the Clients tab.
             </TextBlock>
-            <ScrollViewer MaxHeight="310" VerticalScrollBarVisibility="Auto">
+            <TextBlock Text="Waiting for the ESI login page in your browser..." FontSize="12" Foreground="{StaticResource AccentBrush}"
+                       Margin="0,0,0,4" Visibility="{Binding IsEsiLoginInProgress, Converter={StaticResource BoolToVis}}"/>
+            <TextBlock Text="{Binding EsiStatusMessage}" FontSize="12" Foreground="#FCA5A5" TextWrapping="Wrap"
+                       Margin="0,0,0,10" Visibility="{Binding HasEsiStatusMessage, Converter={StaticResource BoolToVis}}"/>
+            <ScrollViewer MaxHeight="290" VerticalScrollBarVisibility="Auto">
               <ItemsControl ItemsSource="{Binding WizardSlots}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
@@ -184,7 +189,8 @@ Click "+ Add via ESI" on a slot to link a character via EVE SSO — each slot ho
                         </StackPanel>
                         <Button Grid.Column="1" Content="+ Add via ESI" Padding="8,4" VerticalAlignment="Top"
                                 Command="{Binding DataContext.AddWizardEsiCharacterCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                CommandParameter="{Binding}"/>
+                                CommandParameter="{Binding}"
+                                IsEnabled="{Binding DataContext.CanAddEsiCharacter, RelativeSource={RelativeSource AncestorType=Window}}"/>
                       </Grid>
                     </Border>
                   </DataTemplate>

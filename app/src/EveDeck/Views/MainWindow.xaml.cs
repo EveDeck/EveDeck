@@ -179,7 +179,8 @@ public partial class MainWindow : Window
     // Re-runnable from the Settings tab; on first run it's launched automatically.
     public void ShowSetupWizard()
     {
-        var wizard = new SetupWizardWindow(_viewModel.Monitors) { Owner = this };
+        var existingCharacterIds = _viewModel.Assignments.SelectMany(a => a.EsiCharacters.Select(c => c.CharacterId));
+        var wizard = new SetupWizardWindow(_viewModel.Monitors, existingCharacterIds) { Owner = this };
         var result = wizard.ShowDialog();
         if (result == true)
         {
@@ -188,6 +189,9 @@ public partial class MainWindow : Window
             // The first character linked in the wizard becomes the app master (overrides the layout default).
             if (wizard.ResultMasterSeat > 0)
                 _viewModel.SetMasterSeatNumber(wizard.ResultMasterSeat);
+
+            var monitorName = _viewModel.Monitors.FirstOrDefault(m => m.Id == wizard.ResultMonitorId)?.DeviceName ?? "your monitor";
+            _viewModel.ShowToast("Setup complete", $"Layout applied to {monitorName}. Assign clients from the Clients tab, then Apply.", "#22C55E");
         }
         else
             _viewModel.DismissSetup();

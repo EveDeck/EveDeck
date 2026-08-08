@@ -130,8 +130,7 @@ public sealed partial class MainWindowViewModel
             var dpiScale = monitor.DpiX / 96.0;
             var anchor = ParseToastAnchor(_settings.DowntimePosition);
             _downtimeWindow = new DowntimeCountdownWindow(
-                monitor.WorkArea.X, monitor.WorkArea.Y, monitor.WorkArea.Width, monitor.WorkArea.Height, dpiScale, anchor,
-                Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0));
+                monitor.WorkArea.X, monitor.WorkArea.Y, monitor.WorkArea.Width, monitor.WorkArea.Height, dpiScale, anchor);
             _downtimeWindow.Show();
         }
         _downtimeWindow.SetText(text);

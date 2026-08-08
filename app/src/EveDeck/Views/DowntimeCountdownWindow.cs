@@ -21,10 +21,11 @@ internal sealed class DowntimeCountdownWindow : Window
     private readonly double _dpiScale;
     private readonly ToastAnchor _anchor;
 
-    // `chromeScale` is AppSettings.CornerOverlayChromeScale -- the app's own legibility multiplier,
-    // independent of Windows' DPI scale, so this readout grows with the rest of the overlay chrome.
-    public DowntimeCountdownWindow(int workX, int workY, int workWidth, int workHeight, double dpiScale, ToastAnchor anchor,
-                                   double chromeScale = 1.0)
+    // Deliberately NOT scaled by AppSettings.CornerOverlayChromeScale (2026-08-04). That setting is
+    // the badge/popup legibility multiplier -- it exists because a 20px "i" badge on a small high-DPI
+    // monitor is unreadable. This card is already a full-size standing readout, so multiplying it too
+    // turned a chrome scale of 4.0 into a 52pt banner spanning a fifth of the screen. Fixed size.
+    public DowntimeCountdownWindow(int workX, int workY, int workWidth, int workHeight, double dpiScale, ToastAnchor anchor)
     {
         _workX = workX;
         _workY = workY;
@@ -48,7 +49,7 @@ internal sealed class DowntimeCountdownWindow : Window
             Foreground = new SolidColorBrush(Color.FromRgb(0xFD, 0xE0, 0x68)), // amber -- reads as "heads up"
             FontFamily = new FontFamily("Segoe UI"),
             FontWeight = FontWeights.SemiBold,
-            FontSize = 13 * chromeScale,
+            FontSize = 13,
         };
 
         Content = new Border
@@ -57,8 +58,8 @@ internal sealed class DowntimeCountdownWindow : Window
             BorderBrush = new SolidColorBrush(Color.FromArgb(0x90, 0xFD, 0xE0, 0x68)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(OverlayChrome.RadiusMd),
-            Padding = new Thickness(OverlayChrome.PadCardH * chromeScale, OverlayChrome.PadCardV * chromeScale,
-                                    OverlayChrome.PadCardH * chromeScale, OverlayChrome.PadCardV * chromeScale),
+            Padding = new Thickness(OverlayChrome.PadCardH, OverlayChrome.PadCardV,
+                                    OverlayChrome.PadCardH, OverlayChrome.PadCardV),
             Child = _text,
         };
 
