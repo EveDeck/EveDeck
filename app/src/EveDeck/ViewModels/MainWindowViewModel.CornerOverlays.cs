@@ -1303,24 +1303,31 @@ public sealed partial class MainWindowViewModel
         _downtimeWindow?.SetZ(); // ride back above the surfaces we just re-topped
     }
 
-    // The overlay (tiles + labels) always stays topmost, over EVE, EveDeck, and every other app
-    // (browser, Discord, etc.) -- it's meant to be visible no matter what has focus. The label
-    // surface is an owned window of the tile surface, so the window manager itself keeps labels
-    // above tiles at all times -- there is nothing to re-assert per tick for THAT relationship.
+    // The overlay (tiles + labels) stays topmost only while an EVE client or EveDeck itself has
+    // focus -- over the game, but not over Steam/Discord/the taskbar/systray/EveDeck's own tray menu
+    // once the user's attention (and the OS foreground window) has moved to one of those. This is
+    // what lets a context menu opened in any other app render above the previews without needing a
+    // per-app allow list or window-class sniffing: the overlay simply steps out of the topmost band
+    // the instant it isn't the relevant thing on screen, then re-claims it the instant focus returns
+    // (both directions are event-driven via the foreground WinEvent hook, immediate, not a poll).
+    // The label surface is an owned window of the tile surface, so the window manager itself keeps
+    // labels above tiles at all times -- there is nothing to re-assert per tick for THAT relationship.
     // This method itself is only called from event-driven triggers (surface creation, layout/swap
-    // changes, the foreground WinEvent hook), never an unconditional per-tick timer.
+    // changes, the foreground WinEvent hook) plus a 2s safety-net tick, never an unconditional
+    // per-tick timer.
     //
     // NOTE: EveDeck deliberately does NOT reorder the real EVE game windows, matching how EVE-O
     // Preview and EVE-APM behave. An attempt to raise the master client above the preview surface
     // (2026-07-21) made z-order visibly worse and was reverted -- do not reintroduce it.
     private void ApplySurfaceZOrder()
     {
-        _tileSurface?.SetZ();
-        _labelSurface?.SetZ();
+        var eveOrEwcFg = IsEveOrEwcForeground();
+        _tileSurface?.SetZ(eveOrEwcFg);
+        _labelSurface?.SetZ(eveOrEwcFg);
         BumpAllowedAppsAboveOverlaySurfaces();
         if (_layoutEditorHwnd != 0) _windowService.SetWindowTopmost(_layoutEditorHwnd, true);
         BumpToastAboveEverything();
-        _downtimeWindow?.SetZ(); // keep the downtime countdown above the surfaces we just re-topped
+        _downtimeWindow?.SetZ(eveOrEwcFg); // rides along with the surfaces we just re-topped/dropped
         // Same class of bug as the tile/label surfaces (see CenterSeatInGroup) -- a real EVE window
         // gaining focus during a swap can climb above the talker overlay too. It already self-heals
         // via a 1s timer (TalkerOverlayWindow.BringToTop), but re-asserting here too means it doesn't
@@ -1611,9 +1618,10 @@ public sealed partial class MainWindowViewModel
         // over, and no source liveness to push -- skip the rest of the tick.
         if (_previewsHiddenByFocusLoss || _previewsSuspended) return;
 
-        // The overlay itself is always topmost now (ApplySurfaceZOrder, called on creation and from
-        // event-driven triggers) -- no per-tick re-assertion of OUR OWN HWND_TOPMOST here, that churn
-        // was the historical source of every "labels flicker" report. The allow-list bump used to run
+        // The overlay's own topmost/not-topmost state (ApplySurfaceZOrder, called on creation and from
+        // event-driven triggers -- see that method for why it's gated on eveOrEwcFg) is not
+        // re-asserted here on a per-tick basis, only via the 2s safety net above; that churn was the
+        // historical source of every "labels flicker" report. The allow-list bump used to run
         // unconditionally every tick regardless of focus -- observed live fighting Waterfox for the
         // topmost slot 4x/second even while just browsing with no EVE client focused at all (Waterfox
         // apparently reclaims front-of-zorder periodically on its own; Firefox doesn't), visibly

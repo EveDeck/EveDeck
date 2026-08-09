@@ -72,13 +72,15 @@ internal sealed class DowntimeCountdownWindow : Window
         if (IsLoaded) Dispatcher.BeginInvoke(new Action(PinPosition));
     }
 
-    // Re-assert HWND_TOPMOST without moving/resizing -- called by the view-model whenever the corner
-    // overlay surfaces re-assert their own topmost, so this card rides back above them.
-    public void SetZ()
+    // Re-assert Z-order without moving/resizing -- called by the view-model whenever the corner
+    // overlay surfaces re-assert theirs, so this card rides along with them (topmost while EVE/EveDeck
+    // has focus, dropped to non-topmost the moment focus moves elsewhere).
+    public void SetZ(bool topmost = true)
     {
         var hwnd = new WindowInteropHelper(this).Handle;
         if (hwnd == 0) return;
-        Win32Native.SetWindowPos(hwnd, Win32Native.HwndTopmost, 0, 0, 0, 0,
+        var insertAfter = topmost ? Win32Native.HwndTopmost : Win32Native.HwndNotTopmost;
+        Win32Native.SetWindowPos(hwnd, insertAfter, 0, 0, 0, 0,
             Win32Native.SwpNoMove | Win32Native.SwpNoSize | Win32Native.SwpNoActivate);
     }
 

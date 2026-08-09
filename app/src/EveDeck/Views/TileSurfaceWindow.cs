@@ -501,16 +501,19 @@ internal sealed class TileSurfaceWindow : WinForms.Form
         Redraw();
     }
 
-    // Always topmost, over EVE, EveDeck, and every other app (browser, Discord, etc.) alike -- the
-    // overlay is meant to stay visible no matter what has focus. Re-asserting HWND_TOPMOST is only
-    // ever called from event-driven triggers (surface creation, layout/swap changes, the foreground
+    // Topmost only while an EVE client or EveDeck itself has focus (see ApplySurfaceZOrder) -- when
+    // focus moves elsewhere (Steam, Discord, the taskbar/systray, even EveDeck's own tray context
+    // menu), this drops to HWND_NOTOPMOST so that app's own menus/windows aren't buried underneath
+    // an overlay that's now irrelevant to what the user is looking at. Re-asserting is only ever
+    // called from event-driven triggers (surface creation, layout/swap changes, the foreground
     // WinEvent hook), never on an unconditional per-tick timer, which is what caused the historical
     // self-inflicted raise/bury/raise flicker (see project-seat-order-and-frame-flicker memory).
-    public void SetZ()
+    public void SetZ(bool topmost = true)
     {
         if (!IsHandleCreated) return;
         const uint flags = Win32Native.SwpNoMove | Win32Native.SwpNoSize | Win32Native.SwpNoActivate;
-        Win32Native.SetWindowPos(Handle, Win32Native.HwndTopmost, 0, 0, 0, 0, flags);
+        var insertAfter = topmost ? Win32Native.HwndTopmost : Win32Native.HwndNotTopmost;
+        Win32Native.SetWindowPos(Handle, insertAfter, 0, 0, 0, 0, flags);
     }
 
     // Pushes the backplates for every visible tile through UpdateLayeredWindow as a 32bpp ARGB
