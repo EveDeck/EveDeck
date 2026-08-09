@@ -300,6 +300,12 @@ public sealed class Win32WindowService
             }
 
             GetWindowThreadProcessId(handle, out var processId);
+            // A substring like "eve" (meant for an EVE-adjacent tool) also matches EveDeck's own
+            // process name, which would pin EveDeck's own main window HWND_TOPMOST -- it never
+            // comes back down afterward, forcing it to sit above every other app (found live
+            // 2026-08-08: user had "evedeck" in their own allow list, had to minimize to tray to
+            // get it out from over a browser). We never want to bump our own windows here.
+            if (processId == Environment.ProcessId) return true;
             Process? process;
             try { process = Process.GetProcessById((int)processId); }
             catch { return true; }

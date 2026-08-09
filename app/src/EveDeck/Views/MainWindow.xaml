@@ -1424,6 +1424,7 @@ Shows live thumbnail previews of background clients in the screen corners while 
                     <ComboBox Width="150" SelectedValuePath="Tag" FontSize="12"
                               SelectedValue="{Binding ActiveFrameStyle}">
                       <ComboBoxItem Tag="Snapshot" Content="Snapshot (glow corners)"/>
+                      <ComboBoxItem Tag="SnapshotFrame" Content="Snapshot + Full Frame"/>
                       <ComboBoxItem Tag="Solid" Content="Solid"/>
                       <ComboBoxItem Tag="Dashed" Content="Dashed"/>
                       <ComboBoxItem Tag="Dotted" Content="Dotted"/>
@@ -1438,8 +1439,11 @@ Shows live thumbnail previews of background clients in the screen corners while 
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
                     <TextBlock Text="Glow radius" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
                     <Slider Minimum="1" Maximum="40" Value="{Binding ActiveFrameGlowRadius}" Width="150" VerticalAlignment="Center"
-                            IsSnapToTickEnabled="True" TickFrequency="1"/>
-                    <TextBlock Text="{Binding ActiveFrameGlowRadius, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                            IsSnapToTickEnabled="True" TickFrequency="1" IsEnabled="{Binding ActiveFrameGlowEnabled}"/>
+                    <TextBlock Text="{Binding ActiveFrameGlowRadius, StringFormat={}{0}px}" VerticalAlignment="Center" Margin="8,0,8,0" FontSize="12"/>
+                    <CheckBox Content="Enabled" IsChecked="{Binding ActiveFrameGlowEnabled}"
+                              ToolTip="Turn off to keep the Snapshot corners crisp instead of blurred into a glow. No effect on Solid/Dashed/Dotted, which never glow."
+                              VerticalAlignment="Center" FontSize="12"/>
                   </StackPanel>
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="Color" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>

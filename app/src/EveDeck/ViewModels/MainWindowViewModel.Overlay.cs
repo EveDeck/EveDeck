@@ -59,7 +59,8 @@ public sealed partial class MainWindowViewModel
         var rectChanged = _lastFrameRect is null
             || _lastFrameRect.X != rect.X || _lastFrameRect.Y != rect.Y
             || _lastFrameRect.Width != rect.Width || _lastFrameRect.Height != rect.Height;
-        var styleChanged = _lastFrameStyle != _settings.ActiveFrameStyle;
+        var styleChanged = _lastFrameStyle != _settings.ActiveFrameStyle
+            || _lastFrameGlowEnabled != _settings.ActiveFrameGlowEnabled;
 
         if (handleChanged)
         {
@@ -82,9 +83,10 @@ public sealed partial class MainWindowViewModel
         {
             var brush = GetFrameBrushForWindow(fgHandle);
             if (!_frameOverlay.IsVisible) _frameOverlay.Show();
-            _frameOverlay.ApplyFrame(rect.X, rect.Y, rect.Width, rect.Height, ActiveFrameThickness, ActiveFrameGlowRadius, brush, ActiveFrameStyle);
+            _frameOverlay.ApplyFrame(rect.X, rect.Y, rect.Width, rect.Height, ActiveFrameThickness, ActiveFrameGlowRadius, ActiveFrameGlowEnabled, brush, ActiveFrameStyle);
             _lastFrameRect = rect;
             _lastFrameStyle = _settings.ActiveFrameStyle;
+            _lastFrameGlowEnabled = _settings.ActiveFrameGlowEnabled;
         }
         else
         {

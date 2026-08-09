@@ -29,9 +29,13 @@ public sealed class AppSettings
     public int ActiveFrameGlowRadius { get; set; } = 3;
     public string ActiveFrameColor { get; set; } = "#FFFFFF";
     // "Snapshot" (glowing camera-viewfinder corner brackets, the original look), "Solid", "Dashed",
-    // or "Dotted" -- the latter three are a plain full-perimeter outline with no blur, since blur
-    // would smear a dash/dot pattern into a fuzzy near-solid line and defeat the point of picking one.
+    // "Dotted" (a plain full-perimeter outline, no blur -- blur would smear a dash/dot pattern into a
+    // fuzzy near-solid line and defeat the point of picking one), or "SnapshotFrame" (both at once --
+    // corner brackets slightly thicker than a full-perimeter outline underneath them).
     public string ActiveFrameStyle { get; set; } = "Snapshot";
+    // Whether the Snapshot style's corner brackets blur into a glow at all -- off gives crisp lines.
+    // Has no effect on Solid/Dashed/Dotted, which never blur regardless.
+    public bool ActiveFrameGlowEnabled { get; set; } = true;
 
     // 2g — Startup profile auto-apply
     public bool ApplyProfileOnStartup { get; set; }

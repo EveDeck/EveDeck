@@ -61,6 +61,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private nint _lastFrameHandle;
     private WindowRect? _lastFrameRect;
     private string _lastFrameStyle = "";
+    private bool _lastFrameGlowEnabled = true;
 
     // 1c — Guard against re-entrant profile apply.
     private bool _applyInProgress;
@@ -1028,6 +1029,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             if (_settings.ActiveFrameStyle == value) return;
             _settings.ActiveFrameStyle = value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    public bool ActiveFrameGlowEnabled
+    {
+        get => _settings.ActiveFrameGlowEnabled;
+        set
+        {
+            if (_settings.ActiveFrameGlowEnabled == value) return;
+            _settings.ActiveFrameGlowEnabled = value;
             OnPropertyChanged();
             Save();
         }

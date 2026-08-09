@@ -18,46 +18,73 @@ public partial class ActiveFrameOverlay : Window
             Win32Native.GetWindowLongPtr(hwnd, Win32Native.GwlExStyle) | Win32Native.WsExTransparent);
     }
 
-    public void ApplyFrame(int x, int y, int width, int height, int thickness, int glowRadius, Brush brush, string style = "Snapshot")
+    public void ApplyFrame(int x, int y, int width, int height, int thickness, int glowRadius, bool glowEnabled, Brush brush, string style = "Snapshot")
     {
-        FrameBrackets.Stroke = brush;
-        FrameBrackets.StrokeThickness = thickness * 2;
+        // "SnapshotFrame" draws both at once: brackets ride slightly thicker than the plain
+        // outline underneath them so they still read clearly at the corners. Pure "Snapshot"
+        // shows brackets only; Solid/Dashed/Dotted show the outline only.
+        var showBrackets = style.Equals("Snapshot", StringComparison.OrdinalIgnoreCase)
+            || style.Equals("SnapshotFrame", StringComparison.OrdinalIgnoreCase);
+        var showOutline = !style.Equals("Snapshot", StringComparison.OrdinalIgnoreCase);
+        var bracketThickness = showOutline ? thickness + 2 : thickness;
 
-        int pad;
-        if (style.Equals("Snapshot", StringComparison.OrdinalIgnoreCase))
+        // The window is padded out beyond the client rect so a glow (when enabled) has room to
+        // bloom OUTWARD; the plain outline never blurs, so it only ever needs room for its own
+        // stroke. Blur would also smear a dash/dot pattern into a fuzzy near-solid line, which is
+        // why Solid/Dashed/Dotted/the outline layer never use it regardless of this toggle.
+        var blur = glowEnabled ? Math.Max(2.0, glowRadius) : 0.0;
+        var bracketPad = (int)Math.Ceiling(blur * 3) + bracketThickness;
+        var outlinePad = thickness;
+        var pad = showBrackets ? Math.Max(bracketPad, outlinePad) : outlinePad;
+
+        if (showBrackets)
         {
-            // The window is padded out beyond the client rect so the glow has room to bloom OUTWARD.
-            // Four corner brackets sit exactly on the client corners (inset by `pad`); the blur then
-            // feathers into the surrounding pad region.
-            var blur = Math.Max(2.0, glowRadius);
-            pad = (int)Math.Ceiling(blur * 3) + thickness;
+            FrameBrackets.Visibility = Visibility.Visible;
+            FrameBrackets.Stroke = brush;
+            FrameBrackets.StrokeThickness = bracketThickness * 2;
+            FrameBrackets.StrokeDashArray = null;
             var arm = Math.Clamp(Math.Min(width, height) * 0.14, 18.0, 70.0);
             FrameBrackets.Data = OverlayGeometry.CornerBrackets(pad, pad, width, height, arm);
-            FrameBrackets.StrokeDashArray = null;
-            FrameBlur.Radius = blur;
-            FrameBrackets.Effect = FrameBlur;
+            if (glowEnabled)
+            {
+                FrameBlur.Radius = blur;
+                FrameBrackets.Effect = FrameBlur;
+            }
+            else
+            {
+                FrameBrackets.Effect = null;
+            }
         }
         else
         {
-            // Solid/Dashed/Dotted: a plain full-perimeter outline, no blur -- blur would smear a
-            // dash/dot pattern into a fuzzy near-solid line and defeat the point of picking one.
-            pad = thickness;
-            FrameBrackets.Data = OverlayGeometry.FullRect(pad, pad, width, height);
-            FrameBrackets.Effect = null;
+            FrameBrackets.Visibility = Visibility.Collapsed;
+        }
+
+        if (showOutline)
+        {
+            FrameOutline.Visibility = Visibility.Visible;
+            FrameOutline.Stroke = brush;
+            FrameOutline.StrokeThickness = thickness * 2;
+            FrameOutline.Effect = null;
+            FrameOutline.Data = OverlayGeometry.FullRect(pad, pad, width, height);
             switch (style.ToUpperInvariant())
             {
                 case "DASHED":
-                    FrameBrackets.StrokeDashArray = new DoubleCollection { 3, 2 };
-                    FrameBrackets.StrokeDashCap = PenLineCap.Flat;
+                    FrameOutline.StrokeDashArray = new DoubleCollection { 3, 2 };
+                    FrameOutline.StrokeDashCap = PenLineCap.Flat;
                     break;
                 case "DOTTED":
-                    FrameBrackets.StrokeDashArray = new DoubleCollection { 0, 2 };
-                    FrameBrackets.StrokeDashCap = PenLineCap.Round;
+                    FrameOutline.StrokeDashArray = new DoubleCollection { 0, 2 };
+                    FrameOutline.StrokeDashCap = PenLineCap.Round;
                     break;
-                default: // "Solid"
-                    FrameBrackets.StrokeDashArray = null;
+                default: // "Solid" / "SnapshotFrame"
+                    FrameOutline.StrokeDashArray = null;
                     break;
             }
+        }
+        else
+        {
+            FrameOutline.Visibility = Visibility.Collapsed;
         }
 
         var hwnd = new WindowInteropHelper(this).Handle;
