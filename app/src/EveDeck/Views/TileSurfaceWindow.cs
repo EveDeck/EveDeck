@@ -116,6 +116,12 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     private int _zoomedPosition = -1;
     private Drawing.Rectangle _zoomedRect;
 
+    // Whether a preview is currently hover-zoomed -- lets other overlay windows (the active-client
+    // frame, in MainWindowViewModel.Overlay.cs) know they need to keep yielding topmost to us instead
+    // of just re-topping themselves on their own independent timer, which is what let the frame/badges
+    // show through an enlarged preview (found live 2026-08-08).
+    public bool IsZoomed => _zoomedPosition >= 0;
+
     // Which edge/corner of the tile the hover-zoom magnification pins in place while it grows -- e.g.
     // BottomRight grows up-and-left instead of always expanding evenly outward. Resolved (per-seat
     // SlotAssignment.ZoomAnchor override -> AppSettings.HoverZoomAnchor) and pushed down by the

@@ -59,6 +59,7 @@ public sealed partial class MainWindowViewModel
         var rectChanged = _lastFrameRect is null
             || _lastFrameRect.X != rect.X || _lastFrameRect.Y != rect.Y
             || _lastFrameRect.Width != rect.Width || _lastFrameRect.Height != rect.Height;
+        var styleChanged = _lastFrameStyle != _settings.ActiveFrameStyle;
 
         if (handleChanged)
         {
@@ -77,21 +78,30 @@ public sealed partial class MainWindowViewModel
             Log.Info($"Active-frame focus -> '{focused?.Title ?? "?"}' rect {rect.X},{rect.Y} {rect.Width}x{rect.Height}, monitor {mon?.Summary ?? "none"}.");
         }
 
-        if (handleChanged || rectChanged)
+        if (handleChanged || rectChanged || styleChanged)
         {
             var brush = GetFrameBrushForWindow(fgHandle);
             if (!_frameOverlay.IsVisible) _frameOverlay.Show();
-            _frameOverlay.ApplyFrame(rect.X, rect.Y, rect.Width, rect.Height, ActiveFrameThickness, ActiveFrameGlowRadius, brush);
+            _frameOverlay.ApplyFrame(rect.X, rect.Y, rect.Width, rect.Height, ActiveFrameThickness, ActiveFrameGlowRadius, brush, ActiveFrameStyle);
             _lastFrameRect = rect;
+            _lastFrameStyle = _settings.ActiveFrameStyle;
         }
         else
         {
-            // Rect/handle unchanged, so ApplyFrame (which re-asserts topmost) didn't run this tick.
-            // Pinned clients / corner tiles may have been raised above the frame since the last apply,
-            // so re-show if needed and re-raise it so it doesn't sink behind them -- kills the flicker.
+            // Rect/handle/style unchanged, so ApplyFrame (which re-asserts topmost) didn't run this
+            // tick. Pinned clients / corner tiles may have been raised above the frame since the last
+            // apply, so re-show if needed and re-raise it so it doesn't sink behind them -- kills the
+            // flicker.
             if (!_frameOverlay.IsVisible) _frameOverlay.Show();
             _frameOverlay.BringToTop();
         }
+
+        // A hover-zoomed preview can grow to cover the master's screen area, but it lives on a
+        // different always-topmost window than the frame we just re-raised above -- reassert our own
+        // overlay surfaces one more time so they deterministically end up on top instead of racing the
+        // frame's own reassert on an independent timer (found live 2026-08-08: previously the frame
+        // and its badges could win that race and show through an enlarged preview).
+        if (_tileSurface?.IsZoomed == true) ReassertOwnOverlaySurfaces();
     }
 
     // 3a — Resolve frame color: per-slot if set, otherwise global.

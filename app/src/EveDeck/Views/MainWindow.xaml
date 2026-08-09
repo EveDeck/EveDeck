@@ -1417,8 +1417,18 @@ Shows live thumbnail previews of background clients in the screen corners while 
                   <TextBlock Text="Active frame" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
                   <CheckBox Content="Enable active client frame"
                             IsChecked="{Binding ActiveFrameEnabled}"
-                            ToolTip="Draws a soft glowing, click-through outline around whichever EVE client you're currently using."
+                            ToolTip="Draws a click-through outline around whichever EVE client you're currently using."
                             Margin="0,0,0,10"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                    <TextBlock Text="Style" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <ComboBox Width="150" SelectedValuePath="Tag" FontSize="12"
+                              SelectedValue="{Binding ActiveFrameStyle}">
+                      <ComboBoxItem Tag="Snapshot" Content="Snapshot (glow corners)"/>
+                      <ComboBoxItem Tag="Solid" Content="Solid"/>
+                      <ComboBoxItem Tag="Dashed" Content="Dashed"/>
+                      <ComboBoxItem Tag="Dotted" Content="Dotted"/>
+                    </ComboBox>
+                  </StackPanel>
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
                     <TextBlock Text="Thickness" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
                     <Slider Minimum="1" Maximum="20" Value="{Binding ActiveFrameThickness}" Width="150" VerticalAlignment="Center"

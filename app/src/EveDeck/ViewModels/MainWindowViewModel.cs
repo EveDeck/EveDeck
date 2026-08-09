@@ -60,6 +60,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     // 1b — Last known frame handle/rect to skip redundant overlay repositions.
     private nint _lastFrameHandle;
     private WindowRect? _lastFrameRect;
+    private string _lastFrameStyle = "";
 
     // 1c — Guard against re-entrant profile apply.
     private bool _applyInProgress;
@@ -1015,6 +1016,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
             var clamped = Math.Clamp(value, 1, 40);
             if (_settings.ActiveFrameGlowRadius == clamped) return;
             _settings.ActiveFrameGlowRadius = clamped;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    public string ActiveFrameStyle
+    {
+        get => _settings.ActiveFrameStyle;
+        set
+        {
+            if (_settings.ActiveFrameStyle == value) return;
+            _settings.ActiveFrameStyle = value;
             OnPropertyChanged();
             Save();
         }

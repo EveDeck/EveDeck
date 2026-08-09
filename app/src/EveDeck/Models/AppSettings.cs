@@ -28,6 +28,10 @@ public sealed class AppSettings
     public int ActiveFrameThickness { get; set; } = 3;
     public int ActiveFrameGlowRadius { get; set; } = 3;
     public string ActiveFrameColor { get; set; } = "#FFFFFF";
+    // "Snapshot" (glowing camera-viewfinder corner brackets, the original look), "Solid", "Dashed",
+    // or "Dotted" -- the latter three are a plain full-perimeter outline with no blur, since blur
+    // would smear a dash/dot pattern into a fuzzy near-solid line and defeat the point of picking one.
+    public string ActiveFrameStyle { get; set; } = "Snapshot";
 
     // 2g — Startup profile auto-apply
     public bool ApplyProfileOnStartup { get; set; }

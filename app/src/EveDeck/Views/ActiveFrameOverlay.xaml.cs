@@ -18,18 +18,48 @@ public partial class ActiveFrameOverlay : Window
             Win32Native.GetWindowLongPtr(hwnd, Win32Native.GwlExStyle) | Win32Native.WsExTransparent);
     }
 
-    public void ApplyFrame(int x, int y, int width, int height, int thickness, int glowRadius, Brush brush)
+    public void ApplyFrame(int x, int y, int width, int height, int thickness, int glowRadius, Brush brush, string style = "Snapshot")
     {
-        // The window is padded out beyond the client rect so the glow has room to bloom OUTWARD.
-        // Four corner brackets sit exactly on the client corners (inset by `pad`); the blur then
-        // feathers into the surrounding pad region.
-        var blur = Math.Max(2.0, glowRadius);
-        var pad = (int)Math.Ceiling(blur * 3) + thickness;
-        var arm = Math.Clamp(Math.Min(width, height) * 0.14, 18.0, 70.0);
         FrameBrackets.Stroke = brush;
         FrameBrackets.StrokeThickness = thickness * 2;
-        FrameBrackets.Data = OverlayGeometry.CornerBrackets(pad, pad, width, height, arm);
-        FrameBlur.Radius = blur;
+
+        int pad;
+        if (style.Equals("Snapshot", StringComparison.OrdinalIgnoreCase))
+        {
+            // The window is padded out beyond the client rect so the glow has room to bloom OUTWARD.
+            // Four corner brackets sit exactly on the client corners (inset by `pad`); the blur then
+            // feathers into the surrounding pad region.
+            var blur = Math.Max(2.0, glowRadius);
+            pad = (int)Math.Ceiling(blur * 3) + thickness;
+            var arm = Math.Clamp(Math.Min(width, height) * 0.14, 18.0, 70.0);
+            FrameBrackets.Data = OverlayGeometry.CornerBrackets(pad, pad, width, height, arm);
+            FrameBrackets.StrokeDashArray = null;
+            FrameBlur.Radius = blur;
+            FrameBrackets.Effect = FrameBlur;
+        }
+        else
+        {
+            // Solid/Dashed/Dotted: a plain full-perimeter outline, no blur -- blur would smear a
+            // dash/dot pattern into a fuzzy near-solid line and defeat the point of picking one.
+            pad = thickness;
+            FrameBrackets.Data = OverlayGeometry.FullRect(pad, pad, width, height);
+            FrameBrackets.Effect = null;
+            switch (style.ToUpperInvariant())
+            {
+                case "DASHED":
+                    FrameBrackets.StrokeDashArray = new DoubleCollection { 3, 2 };
+                    FrameBrackets.StrokeDashCap = PenLineCap.Flat;
+                    break;
+                case "DOTTED":
+                    FrameBrackets.StrokeDashArray = new DoubleCollection { 0, 2 };
+                    FrameBrackets.StrokeDashCap = PenLineCap.Round;
+                    break;
+                default: // "Solid"
+                    FrameBrackets.StrokeDashArray = null;
+                    break;
+            }
+        }
+
         var hwnd = new WindowInteropHelper(this).Handle;
         if (hwnd != 0)
             // Re-assert HWND_TOPMOST (not SwpNoZOrder) on every reposition: pinned EVE clients and

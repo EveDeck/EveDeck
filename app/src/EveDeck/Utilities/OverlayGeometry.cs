@@ -37,4 +37,14 @@ public static class OverlayGeometry
         geo.Freeze();
         return geo;
     }
+
+    // A plain full-perimeter rectangle outline, for the Solid/Dashed/Dotted active-frame styles --
+    // the Snapshot style's corner brackets read as camera-viewfinder framing, these read as a
+    // conventional border.
+    public static Geometry FullRect(double x, double y, double w, double h)
+    {
+        var geo = new RectangleGeometry(new System.Windows.Rect(x, y, w, h));
+        geo.Freeze();
+        return geo;
+    }
 }
