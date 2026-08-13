@@ -33,6 +33,15 @@ public sealed partial class MainWindowViewModel
     // fixed window would cover that without also being wrong every normal day.
     private bool _seatHealthSkippingForDowntime;
 
+    // Inside the downtime window the checks do not simply go dark for the whole 30 minutes: an
+    // ordinary restart is over in about five, and waiting out the rest would drop real podded
+    // coverage exactly when everyone logs back in. So probe on this interval, and the first probe
+    // that gets an answer resumes normal 30s checking for the remainder of the window. A probe that
+    // fails is silent -- it is the expected result while EVE is still down.
+    private static readonly TimeSpan DowntimeProbeInterval = TimeSpan.FromMinutes(3);
+    private DateTimeOffset _nextDowntimeProbe = DateTimeOffset.MinValue;
+    private bool _esiAnsweredInsideDowntimeWindow;
+
     private const int SeatHealthMaxBackoffMinutes = 30;
     private DateTimeOffset _seatHealthBackoffUntil = DateTimeOffset.MinValue;
     private int _seatHealthOutageTicks;
@@ -109,11 +118,28 @@ public sealed partial class MainWindowViewModel
         if (inDowntime != _seatHealthSkippingForDowntime)
         {
             _seatHealthSkippingForDowntime = inDowntime;
-            Log.Info(inDowntime
-                ? $"Downtime: pausing seat health checks for {_settings.SeatHealthDowntimeSkipMinutes} minutes."
-                : "Downtime window over; resuming seat health checks.");
+            if (inDowntime)
+            {
+                _esiAnsweredInsideDowntimeWindow = false;
+                // Not immediately: ESI is reliably gone the moment downtime starts, so the first
+                // probe is worth nothing. Wait one interval before asking.
+                _nextDowntimeProbe = nowUtc + DowntimeProbeInterval;
+                Log.Info($"Downtime: pausing seat health checks (probing every {DowntimeProbeInterval.TotalMinutes:0} minutes, up to {_settings.SeatHealthDowntimeSkipMinutes}).");
+            }
+            else
+            {
+                _esiAnsweredInsideDowntimeWindow = false;
+                Log.Info("Downtime window over; resuming seat health checks.");
+            }
         }
-        if (inDowntime) return;
+
+        // Quiet inside the window, except for a periodic probe -- until one answers, after which
+        // normal checking resumes for whatever is left of the window.
+        if (inDowntime && !_esiAnsweredInsideDowntimeWindow)
+        {
+            if (nowUtc < _nextDowntimeProbe) return;
+            _nextDowntimeProbe = nowUtc + DowntimeProbeInterval;
+        }
 
         // Unscheduled: ESI still away (extended downtime, patch day, an ESI incident).
         if (nowUtc < _seatHealthBackoffUntil) return;
@@ -140,6 +166,11 @@ public sealed partial class MainWindowViewModel
         // outage, not five. Any success in the tick means ESI is reachable and clears the backoff.
         if (_tickSawEsiSuccess)
         {
+            if (inDowntime && !_esiAnsweredInsideDowntimeWindow)
+            {
+                _esiAnsweredInsideDowntimeWindow = true;
+                Log.Info("ESI is answering again; resuming seat health checks before the downtime window ends.");
+            }
             if (_seatHealthOutageTicks > 0)
             {
                 _seatHealthOutageTicks = 0;
@@ -147,7 +178,9 @@ public sealed partial class MainWindowViewModel
                 Log.Info("ESI is responding again; seat health checks resumed.");
             }
         }
-        else if (_tickSawEsiOutage)
+        // A failed probe inside the window is the expected state, not news -- the window is already
+        // governing the retry cadence, so it must not also trip the generic outage backoff.
+        else if (_tickSawEsiOutage && !inDowntime)
         {
             _seatHealthOutageTicks++;
             var minutes = Math.Min(SeatHealthMaxBackoffMinutes, 5 * _seatHealthOutageTicks);
