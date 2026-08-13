@@ -476,6 +476,27 @@ public sealed partial class MainWindowViewModel
         if (_settings.CornerOverlayShowJumpBadges) _jumpStatusTimer.Start();
     }
 
+    // Position tolerance when checking whether a window is "where we think it is". A couple of pixels
+    // of slack absorbs any rounding between the rect we asked for and the rect the DWM reports back;
+    // the drift this guards against is hundreds or thousands of pixels (a parked, off-screen window),
+    // never one or two.
+    private const int RectMatchTolerancePx = 2;
+
+    // Move a seat's window back to the master rect if it has drifted away from it. Position-only --
+    // an EVE client is never resized (that makes it re-flow its whole UI), so this compares and
+    // corrects the top-left corner only. Rect is re-queried live rather than taken from any cache:
+    // a stale rect is exactly how the desync this repairs came about.
+    private void RecenterIfDisplaced(int seat, EveWindowInfo window, WindowRect masterRect)
+    {
+        if (!_windowService.TryGetWindowRect(window.Handle, out var live)) return;
+        if (Math.Abs(live.X - masterRect.X) <= RectMatchTolerancePx
+            && Math.Abs(live.Y - masterRect.Y) <= RectMatchTolerancePx) return;
+
+        Log.Warn($"Seat {seat} ({SeatLabel(seat)}) is recorded as centered but its window is at {live.X},{live.Y} instead of {masterRect.X},{masterRect.Y}; moving it back.");
+        try { _windowService.MoveWindowTo(window.Handle, masterRect.X, masterRect.Y); }
+        catch (Exception ex) { Log.Warn($"Could not re-center seat {seat}: {ex}"); }
+    }
+
     private CharacterPortrait? SeatPortrait(int seat) => Seat(seat)?.RunningPortrait;
 
     // Effective label font (family, WPF size, colour hex) for a seat: the seat's own overrides win,
@@ -816,7 +837,18 @@ public sealed partial class MainWindowViewModel
         if (seat == currentCenteredSeat)
         {
             var already = FindSeatWindow(seat);
-            if (already is not null) { try { _windowService.FocusWindow(already.Handle); } catch { /* best-effort focus */ } }
+            if (already is not null)
+            {
+                // Trust the WINDOW, not the bookkeeping. Occupancy can drift out of step with where
+                // windows actually are -- a missed event, an external move, a client relaunched into a
+                // stale rect -- and this early return used to make that drift PERMANENT: the seat
+                // reports "already centered" while its window sits parked off-screen, so its preview
+                // stays blank and nothing self-corrects until the user swaps to another seat and back.
+                // Seen live: focus landed on a window at 32762,-32768 ("monitor none") one tick before
+                // this logged "already centered". Re-querying the real rect is the whole fix.
+                RecenterIfDisplaced(seat, already, ResolveMasterRect(masterSlot));
+                try { _windowService.FocusWindow(already.Handle); } catch { /* best-effort focus */ }
+            }
             Log.Info($"Seat {seat} ({SeatLabel(seat)}) is already centered.");
             return;
         }

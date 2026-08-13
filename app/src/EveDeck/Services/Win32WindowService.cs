@@ -147,6 +147,22 @@ public sealed class Win32WindowService
         if (!EndDeferWindowPos(hdwp)) throw new Win32Exception(Marshal.GetLastWin32Error(), "EndDeferWindowPos failed.");
     }
 
+    // Move ONE window, position-only (SWP_NOSIZE) for the same reason SwapWindowPositions is:
+    // resizing an EVE client makes it re-flow its UI. Use this, never MoveResizeWindow, for any
+    // window that might be a live EVE client.
+    public void MoveWindowTo(nint handle, int x, int y)
+    {
+        if (handle == 0 || !IsWindow(handle))
+        {
+            throw new InvalidOperationException("Window handle is no longer valid.");
+        }
+
+        if (!SetWindowPos(handle, IntPtr.Zero, x, y, 0, 0, SwpNoSize | SwpNoZOrder | SwpNoActivate))
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "SetWindowPos failed.");
+        }
+    }
+
     public void MoveResizeWindow(nint handle, WindowRect rect)
     {
         if (handle == 0 || !IsWindow(handle))
