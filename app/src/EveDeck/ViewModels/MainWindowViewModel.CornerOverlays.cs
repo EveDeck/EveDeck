@@ -307,13 +307,37 @@ public sealed partial class MainWindowViewModel
     }
     private string SeatLabel(int seat) => Seat(seat)?.DisplayLabel ?? "";
 
-    // True when an EVE client's window title indicates it hasn't selected a character yet -- EVE
-    // titles that window plainly "EVE" (no " - Character Name" suffix) until past the login/
-    // character-select screen. Backs AppSettings.HidePreviewsAtLoginScreen. Title-only, same
-    // CharacterNameFromTitle convention used everywhere else in this file (MainWindowViewModel.Clients.cs)
-    // -- a title with no "EVE - " prefix to strip comes back unchanged, i.e. still literally "EVE".
-    private static bool IsAtLoginScreen(string title) =>
+    // True when an EVE client's window title carries no character name -- EVE titles that window
+    // plainly "EVE" (no " - Character Name" suffix). Same CharacterNameFromTitle convention used
+    // everywhere else (MainWindowViewModel.Clients.cs): a title with no "EVE - " prefix to strip
+    // comes back unchanged, i.e. still literally "EVE". This states ONLY that the title has no
+    // character in it right now -- see IsAtLoginScreen for why that is not the same as "at login".
+    private static bool IsCharacterlessTitle(string title) =>
         CharacterNameFromTitle(title).Equals("EVE", StringComparison.OrdinalIgnoreCase);
+
+    // How long a characterless title must persist on a client we have ALREADY seen logged in before
+    // it counts as a real return to character select. EVE also drops the character suffix for as
+    // long as the in-game ESC menu is open, and that is over in seconds.
+    private const int CharacterlessTitleDwellSeconds = 10;
+
+    // True when an EVE client is genuinely still on the login/character-select screen. Backs
+    // AppSettings.HidePreviewsAtLoginScreen. The title alone cannot decide this: EVE drops the
+    // " - Character" suffix BOTH at character select and, transiently, whenever the in-game ESC menu
+    // is open on a fully logged-in client (verified live -- the suffix returns the instant "Return to
+    // game" is clicked). Treating the menu as "at login" blanked that client's preview every time the
+    // user opened it, and only came back after cycling seats. So:
+    //   - a PID with no known character has never been logged in -> genuinely at character select;
+    //   - a PID we have seen logged in is past it, and a characterless title there is the ESC menu,
+    //     UNLESS it persists (the user logged off in place), which the dwell test catches.
+    // A relog that quits to the launcher starts a NEW process, which has no record and hides at once.
+    private bool IsAtLoginScreen(EveWindowInfo window)
+    {
+        if (!IsCharacterlessTitle(window.Title)) return false;
+        if (window.ProcessId <= 0) return true;
+        if (!_lastKnownCharacterByPid.ContainsKey(window.ProcessId)) return true;
+        return _characterlessSinceByPid.TryGetValue(window.ProcessId, out var since)
+               && (DateTime.UtcNow - since).TotalSeconds >= CharacterlessTitleDwellSeconds;
+    }
 
     // -- Create / show -----------------------------------------------------------
 
@@ -1782,7 +1806,7 @@ public sealed partial class MainWindowViewModel
             // past the login/character-select screen -- reuses CharacterNameFromTitle's existing
             // "EVE - X" -> "X" parsing (MainWindowViewModel.Clients.cs) rather than a second rule, since
             // a title with no prefix match comes back unchanged, i.e. still literally "EVE".
-            var hiddenAsLoginScreen = _settings.HidePreviewsAtLoginScreen && IsAtLoginScreen(window.Title);
+            var hiddenAsLoginScreen = _settings.HidePreviewsAtLoginScreen && IsAtLoginScreen(window);
             var desiredHandle = (hiddenAsActive || hiddenAsLoginScreen) ? 0 : window.Handle;
             _cornerSourceHandles.TryGetValue(position, out var lastHandle);
             if (desiredHandle != lastHandle)

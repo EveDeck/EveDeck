@@ -451,8 +451,17 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    // "Some seat already holds this live window." Identity is the entry's CURRENT resolution
+    // (ResolvedHandle, refreshed by RebindRestartedWindows immediately before this runs), not its
+    // stored title: EVE drops the " - Character" suffix for as long as the in-game ESC menu is open,
+    // and a title-only test made a logged-in client silently fall out of the assigned set for the
+    // duration -- which then made it look NEWLY LAUNCHED when the suffix returned and triggered a
+    // spurious full profile re-apply. ResolvedHandle is runtime-only (never persisted), so unlike
+    // LastProcessId it cannot go stale across sessions and claim an unrelated new client.
     private bool IsWindowAssigned(EveWindowInfo w)
-        => Assignments.Any(a => a.AssignedWindows.Any(e => e.Title.Equals(w.Title, StringComparison.OrdinalIgnoreCase)));
+        => Assignments.Any(a => a.AssignedWindows.Any(e =>
+               (e.ResolvedHandle != 0 && e.ResolvedHandle == w.Handle)
+               || e.Title.Equals(w.Title, StringComparison.OrdinalIgnoreCase)));
 
     private void RebindRestartedWindows()
     {
@@ -485,6 +494,11 @@ public sealed partial class MainWindowViewModel
     // running client (same PID, title's character name changes after logging off and picking another).
     private readonly Dictionary<int, string> _lastKnownCharacterByPid = new();
 
+    // PID -> when that client's title first went characterless (plain "EVE") and stayed that way.
+    // Backs IsAtLoginScreen's dwell test, which is what separates a few seconds of ESC menu from an
+    // actual log-off back to character select. Rebuilt every refresh alongside the map above.
+    private readonly Dictionary<int, DateTime> _characterlessSinceByPid = new();
+
     // Compare the set of detected, slot-assigned EVE windows against the previous refresh. When a
     // client that was absent reappears (e.g. the user closed all clients and relaunched them), or an
     // already-assigned client's character changes (logged off and picked a different one), arm the
@@ -492,9 +506,11 @@ public sealed partial class MainWindowViewModel
     private void DetectNewlyLaunchedClients()
     {
         var assignedWindows = Windows.Where(IsWindowAssigned).ToList();
-        var currentAssigned = assignedWindows
-            .Select(w => w.Title)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Keyed by HWND, not title: a handle is stable for the client's whole lifetime and a
+        // relaunched client gets a fresh one, so "appeared" still means what it should -- while the
+        // ESC menu's transient retitle no longer reads as a client vanishing and instantly
+        // relaunching, which silently re-applied the entire layout ~7s later.
+        var currentAssigned = assignedWindows.Select(w => w.Handle).ToHashSet();
 
         // First refresh only seeds the baseline — clients already open at launch are left in place
         // (use "Apply a layout profile on startup" to position those). Auto-apply only fires for
@@ -502,19 +518,36 @@ public sealed partial class MainWindowViewModel
         var firstRefresh = !_clientBaselineInitialized;
         _clientBaselineInitialized = true;
 
-        var newlyAppeared = currentAssigned.Where(t => !_knownAssignedTitles.Contains(t)).ToList();
+        var newlyAppeared = currentAssigned.Where(h => !_knownAssignedClientHandles.Contains(h)).ToList();
 
         // Replace the baseline so a client must actually disappear and return to re-trigger.
-        _knownAssignedTitles.Clear();
-        foreach (var title in currentAssigned) _knownAssignedTitles.Add(title);
+        _knownAssignedClientHandles.Clear();
+        foreach (var handle in currentAssigned) _knownAssignedClientHandles.Add(handle);
 
         // Detect a character switch on a window that never closed (same PID, title's character changed).
         var characterSwitched = false;
         var currentCharacterByPid = new Dictionary<int, string>();
+        var characterlessSince = new Dictionary<int, DateTime>();
         foreach (var window in assignedWindows)
         {
             if (window.ProcessId <= 0) continue;
             var character = CharacterNameFromTitle(window.Title);
+
+            // A characterless title ("EVE", no suffix) means EITHER the login/character-select screen
+            // OR the ESC menu open on a fully logged-in client -- EVE uses the same title for both.
+            // It is never a character SWITCH, and recording it as one would both fire a phantom
+            // switch and erase the real character known for this PID, which IsAtLoginScreen needs to
+            // tell those two states apart. Carry the last real character forward and remember when
+            // the title went characterless so IsAtLoginScreen can apply its dwell test.
+            if (IsCharacterlessTitle(window.Title))
+            {
+                if (_lastKnownCharacterByPid.TryGetValue(window.ProcessId, out var retained))
+                    currentCharacterByPid[window.ProcessId] = retained;
+                characterlessSince[window.ProcessId] =
+                    _characterlessSinceByPid.TryGetValue(window.ProcessId, out var since) ? since : DateTime.UtcNow;
+                continue;
+            }
+
             currentCharacterByPid[window.ProcessId] = character;
 
             if (!firstRefresh
@@ -539,6 +572,10 @@ public sealed partial class MainWindowViewModel
         }
         _lastKnownCharacterByPid.Clear();
         foreach (var (pid, character) in currentCharacterByPid) _lastKnownCharacterByPid[pid] = character;
+        // Rebuilt (not merged) so a PID whose title regained its character, or whose client closed,
+        // drops its characterless-dwell record instead of lingering.
+        _characterlessSinceByPid.Clear();
+        foreach (var (pid, since) in characterlessSince) _characterlessSinceByPid[pid] = since;
 
         // Note: we deliberately do NOT skip auto-apply on the first refresh anymore. If a client is
         // already logged into a character by the time EveDeck's very first scan runs (common when the

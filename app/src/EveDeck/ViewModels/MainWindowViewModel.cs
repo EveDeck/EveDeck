@@ -49,9 +49,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private readonly Dictionary<int, nint> _lastFocusedHandle = new();
 
-    // Titles of assigned EVE windows seen at the previous refresh, used to detect newly-launched
-    // clients so the active profile can be auto-applied.
-    private readonly HashSet<string> _knownAssignedTitles = new(StringComparer.OrdinalIgnoreCase);
+    // Window handles of assigned EVE clients seen at the previous refresh, used to detect
+    // newly-launched clients so the active profile can be auto-applied. Keyed by HWND rather than
+    // title because EVE transiently drops the " - Character" suffix while the in-game ESC menu is
+    // open, which a title-keyed baseline read as a client disappearing and relaunching.
+    private readonly HashSet<nint> _knownAssignedClientHandles = new();
     private bool _clientBaselineInitialized;
 
     // 1a — Session-level style snapshots keyed by HWND (not persisted, resets on restart).
