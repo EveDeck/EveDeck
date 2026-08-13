@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using EveDeck.Models;
 
 namespace EveDeck.Services;
@@ -27,6 +28,14 @@ public sealed class HotkeyService : IDisposable
     private Func<bool>? _isEveForeground;
     private LogService? _log;
     private bool _gatedActive;
+
+    // How long the foreground must stay away from EVE before the gated hotkeys are actually dropped.
+    // Long enough to swallow a seat swap's transient, short enough that a real alt-tab hands the keys
+    // back to the other app promptly. During this window a gated hotkey can still fire while another
+    // app has focus -- a deliberate trade, and the same one the preview hide-delay already makes.
+    private static readonly TimeSpan GateDropDelay = TimeSpan.FromMilliseconds(400);
+    private DispatcherTimer? _gateDropTimer;
+
     private nint _winEventHook;
     private WinEventDelegate? _winEventProc;   // kept alive to prevent GC of the callback
 
@@ -106,6 +115,10 @@ public sealed class HotkeyService : IDisposable
     public void UnregisterAll(LogService? log = null)
     {
         RemoveForegroundHook();
+        // A pending gate drop must not survive this: hotkey capture unregisters everything and then
+        // re-registers, and a timer left armed from before would fire afterwards and silently strip
+        // the gated set back off again.
+        _gateDropTimer?.Stop();
 
         foreach (var id in _registeredIds.ToList())
         {
@@ -153,23 +166,51 @@ public sealed class HotkeyService : IDisposable
     }
 
     // Registers/unregisters the gated subset to match whether an EVE client is foreground.
+    //
+    // Raising the gate is immediate; DROPPING it is delayed. The foreground leaves EVE constantly in
+    // normal play -- every seat swap passes through a moment where no EVE client is foreground -- and
+    // acting on each of those tore down and rebuilt every gated registration, then did it again
+    // milliseconds later. One short session logged 223 registrations, 12% of the whole log. Because
+    // the re-raise is immediate, gated hotkeys are never missing while you are actually in game; a
+    // flap that resolves inside the delay window now costs nothing at all. Same reasoning as
+    // HidePreviewsOnFocusLossDelaySeconds, which exists for this identical transient.
     private void UpdateGatedState()
     {
         if (!_requireEveFocus) return;
         var eveForeground = _isEveForeground?.Invoke() ?? false;
-        if (eveForeground == _gatedActive) return;
-        _gatedActive = eveForeground;
 
         if (eveForeground)
         {
+            _gateDropTimer?.Stop();   // back in EVE -- cancel any pending drop
+            if (_gatedActive) return;
+            _gatedActive = true;
+
             var failures = new List<string>();
             foreach (var id in _gatedIds) TryRegister(id, failures);
             if (failures.Count > 0) _log?.Error($"Could not register {failures.Count} EVE-focus hotkey(s): {failures[0]}");
+            return;
         }
-        else
+
+        if (!_gatedActive) return;
+        _gateDropTimer ??= CreateGateDropTimer();
+        _gateDropTimer.Stop();
+        _gateDropTimer.Start();
+    }
+
+    private DispatcherTimer CreateGateDropTimer()
+    {
+        var timer = new DispatcherTimer { Interval = GateDropDelay };
+        timer.Tick += (_, _) =>
         {
+            timer.Stop();
+            // Re-check rather than trusting the state that armed the timer: the whole point is that
+            // the foreground may have returned to EVE in the meantime.
+            if (_isEveForeground?.Invoke() ?? false) return;
+            if (!_gatedActive) return;
+            _gatedActive = false;
             foreach (var id in _gatedIds) Unregister(id);
-        }
+        };
+        return timer;
     }
 
     private void InstallForegroundHook()
