@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using EveDeck.Utilities;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
@@ -58,6 +59,11 @@ internal sealed class OverlayHoverTipWindow : Window
         };
 
         ContentRendered += (_, _) => PinPhysical();
+        // Same SizeToContent trap as InfoFlyoutWindow: WPF re-lays the window out from the DIP
+        // Left/Top (the un-flipped badge anchor) whenever the text changes, undoing the quadrant flip
+        // and pushing the tip off the edge. Re-pin once the new size is real. This tip is reused
+        // across badges rather than recreated, so it hits the case more often, not less.
+        SizeChanged += (_, _) => PinPhysical();
     }
 
     // Owner (the label surface). Must be set before the first ShowAt(); keeps this above the overlay
@@ -84,7 +90,9 @@ internal sealed class OverlayHoverTipWindow : Window
         _badgeRight = badgePhysX + badgePhysSize;
         _badgeBottom = badgePhysY + badgePhysSize;
         if (!IsVisible) { Show(); return; } // ContentRendered pins once loaded
-        if (IsLoaded) Dispatcher.BeginInvoke(new Action(PinPhysical));
+        // Loaded priority so this runs AFTER WPF's Render-priority layout pass, not before it with a
+        // stale width -- see the matching comment in InfoFlyoutWindow.SetLines.
+        if (IsLoaded) Dispatcher.BeginInvoke(new Action(PinPhysical), DispatcherPriority.Loaded);
     }
 
     // Pin to the physical anchor at the measured content size, opening away from whichever screen

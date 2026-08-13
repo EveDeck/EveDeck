@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using EveDeck.Utilities;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
@@ -85,6 +86,14 @@ internal sealed class InfoFlyoutWindow : Window
         };
 
         ContentRendered += (_, _) => PinPhysical();
+        // Re-pin on every size change, and this is the fix for cards running off a screen edge.
+        // SizeToContent means WPF resizes the window itself whenever the content grows -- and it lays
+        // the new size out from the DIP Left/Top set in the constructor, which is the UN-flipped badge
+        // anchor. So a card that PinPhysical had correctly flipped leftward would silently snap back
+        // to left-aligned and grow rightward off the monitor as soon as the real ESI lines replaced
+        // "Loading...". SizeChanged fires after that layout pass with the final measurements, so
+        // re-pinning here re-applies the quadrant flip and clamp against a size that is actually correct.
+        SizeChanged += (_, _) => PinPhysical();
     }
 
     // Owner (the label surface, which itself sits above the tile surface). Must be set before Show();
@@ -110,8 +119,11 @@ internal sealed class InfoFlyoutWindow : Window
                 HorizontalAlignment = HorizontalAlignment.Left,
             });
         }
-        // Content changed size after the first pin; re-pin so the corner stays put.
-        if (IsLoaded) Dispatcher.BeginInvoke(new Action(PinPhysical));
+        // Content changed size after the first pin; re-pin so the corner stays put. Loaded priority,
+        // NOT the default Normal: WPF's layout/measure pass runs at Render priority, which is lower
+        // than Normal, so a default BeginInvoke would run BEFORE the window had been re-measured and
+        // would pin using the previous (smaller) width -- the card then grew past the clamp.
+        if (IsLoaded) Dispatcher.BeginInvoke(new Action(PinPhysical), DispatcherPriority.Loaded);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
