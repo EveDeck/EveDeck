@@ -54,6 +54,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
     // title because EVE transiently drops the " - Character" suffix while the in-game ESC menu is
     // open, which a title-keyed baseline read as a client disappearing and relaunching.
     private readonly HashSet<nint> _knownAssignedClientHandles = new();
+
+    // Signature (window handles + monitor count) of the last detection result actually written to the
+    // log, so Refresh only logs a line when something really changed. See the use site in Refresh.
+    private string _lastLoggedDetection = "";
     private bool _clientBaselineInitialized;
 
     // 1a — Session-level style snapshots keyed by HWND (not persisted, resets on restart).
@@ -2651,7 +2655,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
             UpdateLiveSeatCharacters();
             LastUpdatedText = $"Last refresh {DateTime.Now:HH:mm:ss}";
             Status = $"Detected {Windows.Count} EVE/test windows and {Monitors.Count} monitors.";
-            Log.Info(Status);
+            // Log this only when the detected set actually CHANGES. At a 5s poll the unconditional
+            // version wrote ~17k identical lines a day -- easily the largest single source of noise in
+            // the log, and it buried the handful of lines that matter when diagnosing something. The
+            // signature is built from real handles rather than the count, so a client closing while
+            // another opens in the same interval still gets logged. The status bar itself, and
+            // LastUpdatedText above, still update on every refresh.
+            var detection = string.Join(",", Windows.Select(w => w.Handle).OrderBy(h => h)) + $"|{Monitors.Count}";
+            if (detection != _lastLoggedDetection)
+            {
+                _lastLoggedDetection = detection;
+                Log.Info(Status);
+            }
             OnPropertyChanged(nameof(WindowCount));
             OnPropertyChanged(nameof(UnassignedWindowCount));
             OnPropertyChanged(nameof(MonitorCount));
