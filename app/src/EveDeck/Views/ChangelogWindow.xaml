@@ -92,21 +92,42 @@
             <ItemsControl ItemsSource="{Binding Releases}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
-                          BorderThickness="1" CornerRadius="6" Padding="14,10" Margin="0,0,0,10">
+                  <!-- The whole tile is the button, so the click target matches what looks clickable.
+                       A Button (rather than a Border with a mouse handler) keeps it keyboard- and
+                       screen-reader-reachable, which Store certification checks. -->
+                  <Button Command="{Binding ToggleCommand}"
+                          HorizontalContentAlignment="Stretch"
+                          Cursor="Hand"
+                          Focusable="{Binding CanExpand}">
+                    <Button.Template>
+                      <ControlTemplate TargetType="Button">
+                        <Border x:Name="Tile"
+                                Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="6" Padding="14,10" Margin="0,0,0,10">
+                          <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                          <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Tile" Property="Background" Value="{StaticResource PanelAltBrush}"/>
+                          </Trigger>
+                          <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Tile" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                          </Trigger>
+                        </ControlTemplate.Triggers>
+                      </ControlTemplate>
+                    </Button.Template>
                     <StackPanel>
                       <TextBlock FontWeight="SemiBold" FontSize="13">
                         <Run Text="v"/><Run Text="{Binding Version, Mode=OneWay}"/>
                       </TextBlock>
-                      <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Margin="0,6,0,8"
+                      <TextBlock Text="{Binding BodyText}" TextWrapping="Wrap" Margin="0,6,0,8"
                                  Foreground="{StaticResource TextBrush}" FontSize="12" LineHeight="18"/>
-                      <TextBlock>
-                        <Hyperlink NavigateUri="{Binding HtmlUrl}" RequestNavigate="Hyperlink_RequestNavigate">
-                          View full changelog &#8594;
-                        </Hyperlink>
-                      </TextBlock>
+                      <!-- Only where there is genuinely more to read. -->
+                      <TextBlock Text="{Binding ToggleText}"
+                                 Foreground="{StaticResource AccentBrush}" FontSize="12"
+                                 Visibility="{Binding CanExpand, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
-                  </Border>
+                  </Button>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>

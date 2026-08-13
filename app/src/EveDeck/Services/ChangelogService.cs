@@ -26,7 +26,12 @@ public sealed class ChangelogService
         _log = log;
     }
 
-    public sealed record ReleaseNote(string Version, string Summary, string HtmlUrl, DateTimeOffset? PublishedAt);
+    // Summary is what a collapsed tile shows; Full is the whole changelog for that release with the
+    // boilerplate stripped, so the dialog can expand in place instead of sending the user to a
+    // browser. IsTruncated says whether the two actually differ, i.e. whether there is anything to
+    // expand -- a short release should not offer a "Show more" that reveals nothing.
+    public sealed record ReleaseNote(string Version, string Summary, string Full, bool IsTruncated,
+                                     string HtmlUrl, DateTimeOffset? PublishedAt);
 
     public async Task<IReadOnlyList<ReleaseNote>> FetchRecentReleasesAsync(int count = 3)
     {
@@ -48,7 +53,10 @@ public sealed class ChangelogService
                     && DateTimeOffset.TryParse(pubProp.GetString(), out var dt))
                     published = dt;
 
-                notes.Add(new ReleaseNote(tag.TrimStart('v'), Summarize(body), htmlUrl, published));
+                var full = CleanBody(body);
+                var summary = Summarize(full);
+                notes.Add(new ReleaseNote(tag.TrimStart('v'), summary, full,
+                                          !string.Equals(summary, full, StringComparison.Ordinal), htmlUrl, published));
             }
             _log?.Info($"Changelog: fetched {notes.Count} recent release(s).");
             return notes;
@@ -61,9 +69,9 @@ public sealed class ChangelogService
     }
 
     // release.yml appends install instructions + a VirusTotal section below the actual changelog
-    // bullets in every release body -- cut those off before display, then cap length as a last
-    // resort so one unusually long release can't blow out the dialog.
-    private static string Summarize(string body)
+    // bullets in every release body -- cut those off, leaving just the human-written notes. This is
+    // what an EXPANDED tile shows in full.
+    internal static string CleanBody(string body)
     {
         var cut = body;
         foreach (var marker in new[] { "**Two ways to install", "\n---", "**VirusTotal**" })
@@ -71,16 +79,20 @@ public sealed class ChangelogService
             var idx = cut.IndexOf(marker, StringComparison.Ordinal);
             if (idx >= 0) cut = cut[..idx];
         }
-        cut = cut.Trim();
+        return cut.Trim();
+    }
 
+    // Cap the length for the COLLAPSED tile so one unusually long release can't blow out the dialog.
+    // Returns the input unchanged when it already fits, which is what tells the UI there is nothing
+    // to expand.
+    internal static string Summarize(string cleanedBody)
+    {
         const int maxLen = 480;
-        if (cut.Length > maxLen)
-        {
-            var clipped = cut[..maxLen];
-            var lastBreak = clipped.LastIndexOf('\n');
-            if (lastBreak > 150) clipped = clipped[..lastBreak];
-            cut = clipped.TrimEnd() + "\n...";
-        }
-        return cut;
+        if (cleanedBody.Length <= maxLen) return cleanedBody;
+
+        var clipped = cleanedBody[..maxLen];
+        var lastBreak = clipped.LastIndexOf('\n');
+        if (lastBreak > 150) clipped = clipped[..lastBreak];
+        return clipped.TrimEnd() + "\n...";
     }
 }

@@ -11,7 +11,7 @@ public sealed class ChangelogViewModel : ObservableObject
 {
     private readonly ChangelogService _service;
 
-    public ObservableCollection<ChangelogService.ReleaseNote> Releases { get; } = new();
+    public ObservableCollection<ChangelogEntryViewModel> Releases { get; } = new();
 
     private bool _isLoading = true;
     public bool IsLoading
@@ -51,6 +51,43 @@ public sealed class ChangelogViewModel : ObservableObject
         var notes = await _service.FetchRecentReleasesAsync(3);
         IsLoading = false;
         if (notes.Count == 0) { HasError = true; return; }
-        foreach (var note in notes) Releases.Add(note);
+        foreach (var note in notes) Releases.Add(new ChangelogEntryViewModel(note));
     }
+}
+
+// One release tile. Clicking it expands the notes in place rather than opening a browser -- the
+// changelog is the thing the user asked to see, so making them leave the app to read the rest of it
+// was the wrong trade. Holds the expand state, which is why the tiles are wrapped in a view-model
+// instead of binding the immutable ReleaseNote record straight from the service.
+public sealed class ChangelogEntryViewModel : ObservableObject
+{
+    private readonly ChangelogService.ReleaseNote _note;
+
+    public ChangelogEntryViewModel(ChangelogService.ReleaseNote note)
+    {
+        _note = note;
+        // No CanExecute guard: a disabled Button dims its whole content, so a release short enough
+        // to need no expanding would render greyed out. It stays enabled and simply does nothing.
+        ToggleCommand = new RelayCommand(() => { if (CanExpand) IsExpanded = !IsExpanded; });
+    }
+
+    public string Version => _note.Version;
+    public string HtmlUrl => _note.HtmlUrl;
+    public bool CanExpand => _note.IsTruncated;
+    public RelayCommand ToggleCommand { get; }
+
+    private bool _isExpanded;
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        private set
+        {
+            if (!SetProperty(ref _isExpanded, value)) return;
+            OnPropertyChanged(nameof(BodyText));
+            OnPropertyChanged(nameof(ToggleText));
+        }
+    }
+
+    public string BodyText => IsExpanded ? _note.Full : _note.Summary;
+    public string ToggleText => IsExpanded ? "Show less ▴" : "Show more ▾";
 }
