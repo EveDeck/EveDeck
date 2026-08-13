@@ -25,6 +25,35 @@ public sealed class EsiClient
     // When ESI tells us the error budget is spent, hold all requests until this UTC time.
     private DateTimeOffset _backoffUntil = DateTimeOffset.MinValue;
 
+    // Characters whose ESI grant is gone -- a token we had just refreshed was STILL rejected, which
+    // only re-linking can fix. Nothing is requested for them until then. Without this each feature
+    // keeps asking on its own timer forever: one live install logged 12,776 rejected calls in a
+    // single day (14% of the whole log) while every ESI-backed feature sat silently dead.
+    private readonly HashSet<long> _needsReauth = new();
+    private readonly object _reauthGate = new();
+
+    // Raised ONCE per character, the moment its ESI access breaks unrecoverably, so the UI can say so
+    // out loud instead of leaving the user to discover it in a log file.
+    public event Action<long>? ReauthRequired;
+
+    public bool NeedsReauth(long characterId)
+    {
+        lock (_reauthGate) return _needsReauth.Contains(characterId);
+    }
+
+    // Called after the user re-links a character, so its requests start flowing again.
+    public void ClearReauth(long characterId)
+    {
+        lock (_reauthGate) _needsReauth.Remove(characterId);
+    }
+
+    private void MarkNeedsReauth(long characterId)
+    {
+        bool isFirst;
+        lock (_reauthGate) isFirst = _needsReauth.Add(characterId);
+        if (isFirst) ReauthRequired?.Invoke(characterId);
+    }
+
     public EsiClient(EsiAuthService auth, EsiTokenStore store)
     {
         _auth = auth;
@@ -85,22 +114,64 @@ public sealed class EsiClient
         var wait = _backoffUntil - DateTimeOffset.UtcNow;
         if (wait > TimeSpan.Zero) await Task.Delay(wait, ct);
 
-        var token = await GetValidTokenAsync(characterId, ct);
+        if (NeedsReauth(characterId))
+            throw new EsiAuthException($"ESI access for character {characterId} needs re-authorisation -- re-link the character.");
+
+        var (resp, usedAccessToken) = await SendOnceAsync(path, characterId, null, ct);
+        if (resp.StatusCode != HttpStatusCode.Unauthorized) return resp;
+
+        // A 401 on a token we believed valid: ESI can invalidate an access token ahead of its stated
+        // expiry (grant revoked, scopes changed, SSO-side invalidation), and IsExpired cannot see any
+        // of that. Force one refresh and retry before concluding anything -- that alone recovers the
+        // ordinary case with no user action at all.
+        resp.Dispose();
+        try
+        {
+            (resp, _) = await SendOnceAsync(path, characterId, usedAccessToken, ct);
+        }
+        catch (EsiAuthException)
+        {
+            // The refresh itself was rejected, so the grant is genuinely gone.
+            MarkNeedsReauth(characterId);
+            throw;
+        }
+
+        if (resp.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            resp.Dispose();
+            MarkNeedsReauth(characterId);
+            throw new EsiAuthException(
+                $"ESI rejected a freshly refreshed token for character {characterId} -- the grant was revoked; re-link the character.");
+        }
+        return resp;
+    }
+
+    // One authenticated attempt. Returns the access token it actually used, so a 401 can ask for a
+    // refresh of *that specific* token rather than blindly refreshing whatever is current.
+    private async Task<(HttpResponseMessage Response, string UsedAccessToken)> SendOnceAsync(
+        string path, long characterId, string? invalidAccessToken, CancellationToken ct)
+    {
+        var token = await GetValidTokenAsync(characterId, ct, invalidAccessToken);
         var req = new HttpRequestMessage(HttpMethod.Get, BaseUrl + path);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
 
         var resp = await _http.SendAsync(req, ct);
         ObserveErrorLimit(resp);
-        return resp;
+        return (resp, token.AccessToken);
     }
 
     // Returns a token guaranteed unexpired, refreshing (and re-persisting the rotated refresh token)
     // if needed. Throws EsiAuthException if the character isn't linked or the refresh is rejected.
-    public async Task<EsiToken> GetValidTokenAsync(long characterId, CancellationToken ct)
+    //
+    // invalidAccessToken: an access token ESI just rejected with a 401. Supplying it forces a refresh
+    // even though the token still looks unexpired locally -- but only while the store still holds
+    // that same token, so several callers that each got a 401 trigger ONE refresh between them
+    // rather than one apiece (which would rotate the refresh token repeatedly for no reason).
+    public async Task<EsiToken> GetValidTokenAsync(long characterId, CancellationToken ct, string? invalidAccessToken = null)
     {
         var token = _store.Get(characterId)
             ?? throw new EsiAuthException($"Character {characterId} is not linked to ESI.");
-        if (!token.IsExpired) return token;
+        if (!token.IsExpired && invalidAccessToken is null) return token;
 
         var gate = LockFor(characterId);
         await gate.WaitAsync(ct);
@@ -108,7 +179,7 @@ public sealed class EsiClient
         {
             // Re-read inside the lock: another caller may have refreshed while we waited.
             token = _store.Get(characterId) ?? token;
-            if (!token.IsExpired) return token;
+            if (!token.IsExpired && token.AccessToken != invalidAccessToken) return token;
 
             try
             {

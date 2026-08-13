@@ -22,7 +22,22 @@ public sealed partial class MainWindowViewModel
 
     private CharacterInfoService? _characterInfo;
 
-    private CharacterInfoService CharacterInfoShared => _characterInfo ??= new CharacterInfoService(new EsiClient(_esiAuth, TokenStore), TimeSpan.FromSeconds(60));
+    // The one EsiClient every ESI-backed feature shares, kept in a field (not inlined into the
+    // service below) so its ReauthRequired event can be wired up and so ClearEsiReauth can reach it
+    // when the user re-links a character. See OnEsiReauthRequired.
+    private EsiClient? _esiClient;
+    internal EsiClient EsiClientShared
+    {
+        get
+        {
+            if (_esiClient is not null) return _esiClient;
+            _esiClient = new EsiClient(_esiAuth, TokenStore);
+            _esiClient.ReauthRequired += OnEsiReauthRequired;
+            return _esiClient;
+        }
+    }
+
+    private CharacterInfoService CharacterInfoShared => _characterInfo ??= new CharacterInfoService(EsiClientShared, TimeSpan.FromSeconds(60));
 
     private EsiTypeCache? _esiTypeCache;
     private EsiTypeCache EsiTypeCacheShared => _esiTypeCache ??= new EsiTypeCache(_configService.AppDataFolder);

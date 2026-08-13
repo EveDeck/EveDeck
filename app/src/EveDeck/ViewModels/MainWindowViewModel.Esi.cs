@@ -15,6 +15,28 @@ public sealed partial class MainWindowViewModel
     private EsiTokenStore? _tokenStore;
     public EsiTokenStore TokenStore => _tokenStore ??= new EsiTokenStore(_configService.AppDataFolder);
 
+    // A character's ESI grant has stopped working in a way only re-linking fixes (EsiClient has
+    // already retried with a freshly refreshed token before raising this, and has parked further
+    // requests for that character). Fires at most once per character per session.
+    //
+    // This exists because the failure mode it replaces was completely silent to the user: every
+    // ESI-backed feature -- seat health toasts above all -- simply stopped working while the only
+    // trace was a [Warn] line per attempt, thousands a day, in a log nobody reads. A dead feature
+    // has to announce itself.
+    private void OnEsiReauthRequired(long characterId)
+    {
+        // Raised from a background ESI call; toasts and the log collection are UI-thread affine.
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            var seat = Assignments.FirstOrDefault(a => a.EsiCharacters.Any(c => c.CharacterId == characterId));
+            var name = seat?.EsiCharacters.FirstOrDefault(c => c.CharacterId == characterId)?.CharacterName
+                       ?? characterId.ToString();
+
+            Log.Warn($"ESI access for {name} needs re-authorisation -- requests are paused for this character until it is re-linked (Clients tab -> the seat's ESI character -> re-link).");
+            ShowToast(name, "ESI access expired -- re-link this character to restore seat health alerts and info", "#F59E0B", seat);
+        });
+    }
+
     private async void AddEsiCharacter(object? parameter)
     {
         if (parameter is not SlotAssignment slot) return;
@@ -46,6 +68,9 @@ public sealed partial class MainWindowViewModel
 
             // Persist the (encrypted) token so the info flyout and skill queue can call ESI on this character's behalf.
             TokenStore.Put(token);
+            // A fresh grant clears any "needs re-authorisation" park, so requests start flowing again
+            // without an app restart -- re-linking IS the fix that park is waiting for.
+            EsiClientShared.ClearReauth(characterId);
             if (!token.HasScope(EsiAuthService.ScopeSkills))
                 Log.Warn($"{characterName} was linked without the skills scope — their info flyout won't show total SP. Re-link and keep all boxes ticked to fix.");
 
@@ -113,6 +138,11 @@ public sealed partial class MainWindowViewModel
             }
 
             TokenStore.Put(token);
+            // THE path that clears a needs-reauth park -- this command exists precisely to fix a
+            // character whose grant went bad, so forgetting it here left the park in place and the
+            // character still blocked despite a perfectly good new token (seen live: 16 successful
+            // re-auths, every character still parked until restart).
+            EsiClientShared.ClearReauth(token.CharacterId);
             var missing = new List<string>();
             if (!token.HasScope(EsiAuthService.ScopeSkills)) missing.Add("skills");
             Log.Info(missing.Count == 0

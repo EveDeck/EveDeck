@@ -116,10 +116,12 @@ public sealed class EsiAuthService
             ["refresh_token"] = token.RefreshToken,
             ["client_id"] = ClientId,
         });
-        return await ExchangeAsync(body, ct);
+        return await ExchangeAsync(body, ct, token.RefreshToken);
     }
 
-    private static async Task<EsiToken> ExchangeAsync(FormUrlEncodedContent body, CancellationToken ct)
+    // existingRefreshToken: the refresh token this exchange was made WITH, if any. Used only as the
+    // fallback when the response carries no replacement -- see the assignment below.
+    private static async Task<EsiToken> ExchangeAsync(FormUrlEncodedContent body, CancellationToken ct, string? existingRefreshToken = null)
     {
         var tokenResp = await _http.PostAsync(TokenUrl, body, ct);
         if (!tokenResp.IsSuccessStatusCode)
@@ -133,6 +135,11 @@ public sealed class EsiAuthService
         var accessToken = root.GetProperty("access_token").GetString()
             ?? throw new InvalidOperationException("No access_token in EVE SSO response.");
         var refreshToken = root.TryGetProperty("refresh_token", out var rt) ? rt.GetString() ?? "" : "";
+        // SSO usually rotates the refresh token, but a response that omits the field means "keep the
+        // one you already have". Persisting the empty string instead would silently brick this
+        // character -- every later refresh would post an empty refresh_token and be rejected, with
+        // nothing short of re-linking able to recover it.
+        if (string.IsNullOrEmpty(refreshToken)) refreshToken = existingRefreshToken ?? "";
         var expiresIn = root.TryGetProperty("expires_in", out var ei) ? ei.GetInt32() : 1200;
 
         // Verify → get character identity + the scopes actually granted (which can be fewer than we
