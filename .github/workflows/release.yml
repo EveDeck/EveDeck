@@ -97,8 +97,16 @@ jobs:
       - name: Publish self-contained
         shell: pwsh
         run: |
+          # DebugType=none: ship no PDBs in the public build. With PDBs present, .NET resolves file
+          # and line for every logged exception using the paths recorded AT BUILD TIME -- on a
+          # windows-latest runner that is D:\a\EveDeck\EveDeck\..., so users' logs filled with stack
+          # frames pointing at a drive that exists only inside a GitHub runner (247k such lines in one
+          # user's log folder). It leaks nothing (org/repo names are public) but it is confusing and
+          # bulky. The trade: shipped stack traces lose file/line and keep method names. Local and
+          # `dotnet publish` builds are unaffected and still produce PDBs for development.
           dotnet publish app/src/EveDeck/EveDeck.csproj `
             -c Release --self-contained -r win-x64 `
+            -p:DebugType=none `
             -o publish-ci
 
       - name: Package portable app with Velopack
