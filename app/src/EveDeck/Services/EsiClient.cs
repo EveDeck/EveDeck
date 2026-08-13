@@ -5,6 +5,14 @@ using System.Text.Json;
 
 namespace EveDeck.Services;
 
+// The one thing EsiClient needs from EsiAuthService. Exists so the 401 -> refresh -> retry path can
+// be tested without standing up a real EVE SSO exchange (EsiAuthService is sealed and talks to the
+// live token endpoint).
+public interface IEsiTokenRefresher
+{
+    Task<EsiToken> RefreshAsync(EsiToken token, CancellationToken ct);
+}
+
 // Authenticated ESI access for the linked characters. Owns transparent token refresh (via the token
 // store) and respects ESI's error-limit budget so a burst of failures can't get the app IP-banned.
 public sealed class EsiClient
@@ -12,9 +20,11 @@ public sealed class EsiClient
     private const string BaseUrl = "https://esi.evetech.net/latest";
 
     // ESI requires a descriptive User-Agent so Fenris Creations can contact the app author over misbehaviour.
-    private static readonly HttpClient _http = CreateHttp();
+    // Shared by default so every client reuses one connection pool; a test-supplied handler gets its own.
+    private static readonly HttpClient SharedHttp = CreateHttp();
+    private readonly HttpClient _http;
 
-    private readonly EsiAuthService _auth;
+    private readonly IEsiTokenRefresher _auth;
     private readonly EsiTokenStore _store;
 
     // Per-character refresh mutex so a tick that fires several requests for one character doesn't
@@ -30,6 +40,11 @@ public sealed class EsiClient
     // keeps asking on its own timer forever: one live install logged 12,776 rejected calls in a
     // single day (14% of the whole log) while every ESI-backed feature sat silently dead.
     private readonly HashSet<long> _needsReauth = new();
+    // characterId -> the exact access token that was still rejected after a refresh. A park is tied to
+    // the credential that failed, so a DIFFERENT stored token means the user has re-linked and the
+    // park lifts by itself. Relying on every re-link call site to remember ClearReauth did not work:
+    // the re-authorise command stored a perfectly good token and left the character blocked anyway.
+    private readonly Dictionary<long, string> _parkedAccessTokens = new();
     private readonly object _reauthGate = new();
 
     // Raised ONCE per character, the moment its ESI access breaks unrecoverably, so the UI can say so
@@ -38,31 +53,59 @@ public sealed class EsiClient
 
     public bool NeedsReauth(long characterId)
     {
-        lock (_reauthGate) return _needsReauth.Contains(characterId);
+        lock (_reauthGate)
+        {
+            if (!_needsReauth.Contains(characterId)) return false;
+            // Self-clearing: the store holding a token other than the one that failed means a fresh
+            // grant arrived, whoever put it there.
+            var current = _store.Get(characterId);
+            if (current is not null
+                && _parkedAccessTokens.TryGetValue(characterId, out var failed)
+                && !string.Equals(current.AccessToken, failed, StringComparison.Ordinal))
+            {
+                _needsReauth.Remove(characterId);
+                _parkedAccessTokens.Remove(characterId);
+                return false;
+            }
+            return true;
+        }
     }
 
-    // Called after the user re-links a character, so its requests start flowing again.
+    // Explicit un-park for the re-link paths. Belt and braces now that NeedsReauth self-clears on a
+    // replaced token, but it makes the intent obvious at the call site and covers a re-link that
+    // somehow reissues an identical access token.
     public void ClearReauth(long characterId)
     {
-        lock (_reauthGate) _needsReauth.Remove(characterId);
+        lock (_reauthGate)
+        {
+            _needsReauth.Remove(characterId);
+            _parkedAccessTokens.Remove(characterId);
+        }
     }
 
-    private void MarkNeedsReauth(long characterId)
+    private void MarkNeedsReauth(long characterId, string failedAccessToken)
     {
         bool isFirst;
-        lock (_reauthGate) isFirst = _needsReauth.Add(characterId);
+        lock (_reauthGate)
+        {
+            isFirst = _needsReauth.Add(characterId);
+            _parkedAccessTokens[characterId] = failedAccessToken;
+        }
         if (isFirst) ReauthRequired?.Invoke(characterId);
     }
 
-    public EsiClient(EsiAuthService auth, EsiTokenStore store)
+    // handler: test seam only. Production passes nothing and shares one HttpClient process-wide.
+    public EsiClient(IEsiTokenRefresher auth, EsiTokenStore store, HttpMessageHandler? handler = null)
     {
         _auth = auth;
         _store = store;
+        _http = handler is null ? SharedHttp : CreateHttp(handler);
     }
 
-    private static HttpClient CreateHttp()
+    private static HttpClient CreateHttp(HttpMessageHandler? handler = null)
     {
-        var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        var http = handler is null ? new HttpClient() : new HttpClient(handler);
+        http.Timeout = TimeSpan.FromSeconds(20);
         http.DefaultRequestHeaders.UserAgent.ParseAdd("EveDeck/PI (github.com/EveDeck/EveDeck)");
         return http;
     }
@@ -125,21 +168,22 @@ public sealed class EsiClient
         // of that. Force one refresh and retry before concluding anything -- that alone recovers the
         // ordinary case with no user action at all.
         resp.Dispose();
+        string retriedWith;
         try
         {
-            (resp, _) = await SendOnceAsync(path, characterId, usedAccessToken, ct);
+            (resp, retriedWith) = await SendOnceAsync(path, characterId, usedAccessToken, ct);
         }
         catch (EsiAuthException)
         {
             // The refresh itself was rejected, so the grant is genuinely gone.
-            MarkNeedsReauth(characterId);
+            MarkNeedsReauth(characterId, usedAccessToken);
             throw;
         }
 
         if (resp.StatusCode == HttpStatusCode.Unauthorized)
         {
             resp.Dispose();
-            MarkNeedsReauth(characterId);
+            MarkNeedsReauth(characterId, retriedWith);
             throw new EsiAuthException(
                 $"ESI rejected a freshly refreshed token for character {characterId} -- the grant was revoked; re-link the character.");
         }

@@ -8,7 +8,7 @@ using System.Text.Json;
 
 namespace EveDeck.Services;
 
-public sealed class EsiAuthService
+public sealed class EsiAuthService : IEsiTokenRefresher
 {
     private const string ClientId = "a86176aac0314cc7aa3f94dc2535842f";
     private const string AuthUrl = "https://login.eveonline.com/v2/oauth/authorize";
@@ -119,8 +119,15 @@ public sealed class EsiAuthService
         return await ExchangeAsync(body, ct, token.RefreshToken);
     }
 
+    // SSO usually rotates the refresh token, but a response that omits the field means "keep the one
+    // you already have". Persisting the empty string instead would silently brick the character --
+    // every later refresh would post an empty refresh_token and be rejected, with nothing short of
+    // re-linking able to recover it. Pure, so the rule is directly testable.
+    public static string ResolveRefreshToken(string? fromResponse, string? existing)
+        => string.IsNullOrEmpty(fromResponse) ? existing ?? "" : fromResponse;
+
     // existingRefreshToken: the refresh token this exchange was made WITH, if any. Used only as the
-    // fallback when the response carries no replacement -- see the assignment below.
+    // fallback when the response carries no replacement -- see ResolveRefreshToken.
     private static async Task<EsiToken> ExchangeAsync(FormUrlEncodedContent body, CancellationToken ct, string? existingRefreshToken = null)
     {
         var tokenResp = await _http.PostAsync(TokenUrl, body, ct);
@@ -134,12 +141,8 @@ public sealed class EsiAuthService
         var root = tokenDoc.RootElement;
         var accessToken = root.GetProperty("access_token").GetString()
             ?? throw new InvalidOperationException("No access_token in EVE SSO response.");
-        var refreshToken = root.TryGetProperty("refresh_token", out var rt) ? rt.GetString() ?? "" : "";
-        // SSO usually rotates the refresh token, but a response that omits the field means "keep the
-        // one you already have". Persisting the empty string instead would silently brick this
-        // character -- every later refresh would post an empty refresh_token and be rejected, with
-        // nothing short of re-linking able to recover it.
-        if (string.IsNullOrEmpty(refreshToken)) refreshToken = existingRefreshToken ?? "";
+        var refreshToken = ResolveRefreshToken(
+            root.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : null, existingRefreshToken);
         var expiresIn = root.TryGetProperty("expires_in", out var ei) ? ei.GetInt32() : 1200;
 
         // Verify → get character identity + the scopes actually granted (which can be fewer than we
