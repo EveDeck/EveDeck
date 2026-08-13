@@ -24,6 +24,45 @@ public sealed partial class MainWindowViewModel
     private readonly Dictionary<int, int> _lastKnownShipTypeId = new();
     private readonly Dictionary<int, bool> _lastKnownOnline = new();
 
+    // -- Not polling ESI while EVE is down -------------------------------------------------------
+    // ESI goes down with the cluster at downtime, so every seat's podded check fails with a 502/504
+    // and logs a warning: 55 of them in a five-minute stretch on an ordinary day. (The disconnected
+    // check is naturally quiet then -- it only runs for a seat with a live window, and the clients are
+    // closed.) Two layers handle it: a scheduled skip for the configured DT window, and an automatic
+    // backoff for everything else, because a patch day can keep ESI away for an hour or more and no
+    // fixed window would cover that without also being wrong every normal day.
+    private bool _seatHealthSkippingForDowntime;
+
+    private const int SeatHealthMaxBackoffMinutes = 30;
+    private DateTimeOffset _seatHealthBackoffUntil = DateTimeOffset.MinValue;
+    private int _seatHealthOutageTicks;
+    private bool _tickSawEsiOutage;
+    private bool _tickSawEsiSuccess;
+
+    // "ESI is not answering" as opposed to "this request was wrong". A missing StatusCode is a
+    // transport-level failure (DNS/socket), which is what the cluster going away looks like from here.
+    internal static bool IsEsiUnavailable(Exception ex) => ex switch
+    {
+        System.Net.Http.HttpRequestException hre => hre.StatusCode is null
+            or System.Net.HttpStatusCode.BadGateway
+            or System.Net.HttpStatusCode.ServiceUnavailable
+            or System.Net.HttpStatusCode.GatewayTimeout
+            or System.Net.HttpStatusCode.RequestTimeout,
+        TaskCanceledException => true,   // HttpClient's own timeout
+        _ => false,
+    };
+
+    // Called from the per-seat check's catch. True means "this was an outage, not a real error", so
+    // the caller skips the warning -- one line per tick beats one per seat per tick.
+    private bool NoteEsiFailure(Exception ex)
+    {
+        if (!IsEsiUnavailable(ex)) return false;
+        _tickSawEsiOutage = true;
+        return true;
+    }
+
+    private void NoteEsiSuccess() => _tickSawEsiSuccess = true;
+
     public bool SeatHealthAlertPodded
     {
         get => _settings.SeatHealthAlertPodded;
@@ -63,6 +102,25 @@ public sealed partial class MainWindowViewModel
 
     private async void OnSeatHealthTick(object? sender, EventArgs e)
     {
+        var nowUtc = DateTimeOffset.UtcNow;
+
+        // Scheduled: EVE's daily downtime.
+        var inDowntime = IsWithinDowntimeWindow(nowUtc, _settings.DowntimeUtcTime, _settings.SeatHealthDowntimeSkipMinutes);
+        if (inDowntime != _seatHealthSkippingForDowntime)
+        {
+            _seatHealthSkippingForDowntime = inDowntime;
+            Log.Info(inDowntime
+                ? $"Downtime: pausing seat health checks for {_settings.SeatHealthDowntimeSkipMinutes} minutes."
+                : "Downtime window over; resuming seat health checks.");
+        }
+        if (inDowntime) return;
+
+        // Unscheduled: ESI still away (extended downtime, patch day, an ESI incident).
+        if (nowUtc < _seatHealthBackoffUntil) return;
+
+        _tickSawEsiOutage = false;
+        _tickSawEsiSuccess = false;
+
         foreach (var assignment in Assignments.ToList())
         {
             var seat = assignment.SlotNumber;
@@ -77,6 +135,26 @@ public sealed partial class MainWindowViewModel
             if (_settings.SeatHealthAlertDisconnected && FindSeatWindow(seat) is not null)
                 await CheckDisconnectedAsync(seat, character.CharacterId, character.CharacterName, assignment);
         }
+
+        // One backoff step per TICK, not per failed seat -- five seats failing together is one
+        // outage, not five. Any success in the tick means ESI is reachable and clears the backoff.
+        if (_tickSawEsiSuccess)
+        {
+            if (_seatHealthOutageTicks > 0)
+            {
+                _seatHealthOutageTicks = 0;
+                _seatHealthBackoffUntil = DateTimeOffset.MinValue;
+                Log.Info("ESI is responding again; seat health checks resumed.");
+            }
+        }
+        else if (_tickSawEsiOutage)
+        {
+            _seatHealthOutageTicks++;
+            var minutes = Math.Min(SeatHealthMaxBackoffMinutes, 5 * _seatHealthOutageTicks);
+            _seatHealthBackoffUntil = DateTimeOffset.UtcNow.AddMinutes(minutes);
+            if (_seatHealthOutageTicks == 1)
+                Log.Info($"ESI is not responding (EVE restarting?); pausing seat health checks, retrying in {minutes} minutes.");
+        }
     }
 
     private async System.Threading.Tasks.Task CheckPoddedAsync(int seat, long characterId, string characterName, SlotAssignment assignment)
@@ -84,6 +162,7 @@ public sealed partial class MainWindowViewModel
         try
         {
             var ship = await CharacterInfoShared.GetShipAsync(characterId, forceRefresh: false, CancellationToken.None);
+            NoteEsiSuccess();   // the call completed, so ESI is reachable -- clears any outage backoff
             if (ship is null) return;
 
             var wasCapsule = _lastKnownShipTypeId.TryGetValue(seat, out var prevType) && CapsuleTypeIds.Contains(prevType);
@@ -108,6 +187,8 @@ public sealed partial class MainWindowViewModel
         }
         catch (Exception ex)
         {
+            // An outage is reported once for the whole tick by OnSeatHealthTick, not once per seat.
+            if (NoteEsiFailure(ex)) return;
             Log.Warn($"Seat health (podded check) failed for {characterName}: {ex}");
         }
     }
@@ -117,6 +198,7 @@ public sealed partial class MainWindowViewModel
         try
         {
             var online = await CharacterInfoShared.GetOnlineAsync(characterId, forceRefresh: false, CancellationToken.None);
+            NoteEsiSuccess();
             if (online is null) return; // e.g. 403 -- character linked before the online scope existed
 
             var hadPriorObservation = _lastKnownOnline.TryGetValue(seat, out var wasOnline);
@@ -129,6 +211,7 @@ public sealed partial class MainWindowViewModel
         }
         catch (Exception ex)
         {
+            if (NoteEsiFailure(ex)) return;
             Log.Warn($"Seat health (disconnected check) failed for {characterName}: {ex}");
         }
     }

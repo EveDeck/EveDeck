@@ -110,6 +110,19 @@ public sealed partial class MainWindowViewModel
         return today > nowUtc ? today : today.AddDays(1);
     }
 
+    // True while nowUtc sits inside [downtime, downtime + windowMinutes). Shares the configured DT
+    // time with the countdown so there is one source of truth for when EVE goes away. Yesterday's
+    // occurrence is checked too, so a window running past midnight UTC still matches.
+    internal static bool IsWithinDowntimeWindow(DateTimeOffset nowUtc, string utcTime, int windowMinutes)
+    {
+        if (windowMinutes <= 0) return false;
+        var t = ParseDowntimeTime(utcTime);
+        var todays = new DateTimeOffset(nowUtc.Year, nowUtc.Month, nowUtc.Day, t.Hours, t.Minutes, 0, TimeSpan.Zero);
+        foreach (var start in new[] { todays, todays.AddDays(-1) })
+            if (nowUtc >= start && nowUtc < start.AddMinutes(windowMinutes)) return true;
+        return false;
+    }
+
     private static TimeSpan ParseDowntimeTime(string utcTime)
     {
         if (TimeSpan.TryParse(utcTime?.Trim(), CultureInfo.InvariantCulture, out var ts)

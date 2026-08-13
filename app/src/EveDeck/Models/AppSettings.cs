@@ -376,6 +376,14 @@ public sealed class AppSettings
 
     // Downtime countdown (added 2026-07-24): a small always-on-top readout counting down the final
     // DowntimeLeadMinutes before EVE's daily downtime, plus one toast when that window opens. Time is
+    // How long after downtime starts to stop running seat-health checks. ESI goes down with the
+    // cluster, so every check in that window fails with a 502/504 and logs a warning per seat -- 55 of
+    // them in one five-minute stretch on an ordinary day. A normal restart is 5-10 minutes; 30 gives
+    // it room. Patch days run far longer, which the automatic outage backoff in
+    // MainWindowViewModel.SeatHealth handles rather than this needing to be set to an hour.
+    // 0 disables the scheduled skip entirely.
+    public int SeatHealthDowntimeSkipMinutes { get; set; } = 30;
+
     // UTC "HH:mm" (EVE's historical DT is 11:00 UTC). On by default.
     public bool DowntimeCountdownEnabled { get; set; } = true;
     public string DowntimeUtcTime { get; set; } = "11:00";
