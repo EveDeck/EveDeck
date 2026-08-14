@@ -700,8 +700,15 @@ public sealed partial class MainWindowViewModel
     internal static string SystemColorHex(string system)
     {
         if (string.IsNullOrEmpty(system)) return "";
+        // Hash the system NAME only, ignoring any state tag SeatSystemName appended ("<system> (Abyss)").
+        // A character running an abyssal filament is still tied to the system they will return to, so
+        // their pill must keep that system's colour -- the whole point of the palette is spotting at a
+        // glance who has split off from the fleet, and a colour flip on entering the abyss reads as
+        // exactly that split. No EVE system name contains a parenthesis, so this can't clip a real one.
+        var end = system.IndexOf(" (", StringComparison.Ordinal);
+        var name = end > 0 ? system[..end] : system;
         var h = 0;
-        foreach (var c in system) h = (h * 31 + c) & 0x7fffffff;
+        foreach (var c in name) h = (h * 31 + c) & 0x7fffffff;
         return SystemPalette[h % SystemPalette.Length];
     }
 

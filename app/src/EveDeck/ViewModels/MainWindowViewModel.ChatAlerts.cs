@@ -36,7 +36,42 @@ public sealed partial class MainWindowViewModel
 
     // Current solar system per character name (from Local chatlog "Channel changed to Local"
     // lines). Character names come from EVE's own logs, so exact-name matching is reliable.
+    // Only ever holds REAL system names -- see LocalUnnamedSystem below.
     private readonly Dictionary<string, string> _systemByCharacter = new(StringComparer.OrdinalIgnoreCase);
+
+    // In abyssal space EVE writes the Local channel's system as literally "Unknown" instead of a
+    // name. This is NOT a system name -- storing it as one would read "<character> . Unknown" on the pill
+    // AND throw away the system they are about to pop back into, since a filament always returns you
+    // to the system you launched it from.
+    //
+    // Measured against 7156 real Local chatlogs (2024-05 to 2026-08) before writing this:
+    //   * The abyss is the ONLY thing that produces it. Wormholes log their real J-signature
+    //     (<wormhole>, <wormhole>, <wormhole>, <wormhole>) and Pochven logs its real system names (18 visits:
+    //     <system>, <system>, Ala, <system>, <system>, Vale, <system>). Neither is ever "Unknown" --
+    //     both are named in the client's UI, and this string is simply what it writes when it has no
+    //     name to write.
+    //   * Every one of the 81 measurable "Unknown" stretches in the last two months fit inside the
+    //     abyss's 20-minute filament timer: min 2.6, mean 14.1, max 20.2 minutes, none longer.
+    // That is why the neutral tag below exists anyway: "only thing observed" is not "only thing
+    // possible", and ResolveUnnamedSpaceAsync degrades to a real system name for anything else.
+    private const string LocalUnnamedSystem = "Unknown";
+
+    // What gets appended to that retained system while EVE refuses to name the location. "Abyss" is
+    // used only once ESI has CONFIRMED it (ResolveUnnamedSpaceAsync); until then -- and permanently,
+    // for a character that was never ESI-linked -- the neutral tag states what is actually known,
+    // which is that the location is unreported. Any other instanced space EVE might one day report
+    // this way therefore degrades to a neutral marker rather than being mislabelled as abyss.
+    private const string AbyssSpaceTag = "Abyss";
+    private const string UnnamedSpaceTag = "?";
+
+    // Character name -> one of the tags above, present only while that character is in unnamed space.
+    private readonly Dictionary<string, string> _unnamedSpaceByCharacter = new(StringComparer.OrdinalIgnoreCase);
+
+    // EVE's abyssal solar systems occupy their own id block, verified live against ESI 2026-08-14:
+    // 32000001 resolves to "AD001" (constellation ADC01, region ADR01) and 32000480 is already past
+    // the end ("System not found"). Ordinary k-space is 30xxxxxx and wormholes are 31xxxxxx, so
+    // testing the whole 32xxxxxx block is stable against CCP adding pockets, unlike a system list.
+    internal static bool IsAbyssalSystemId(int systemId) => systemId is >= 32_000_000 and <= 32_999_999;
 
     private void InitChatAlerts()
     {
@@ -118,21 +153,107 @@ public sealed partial class MainWindowViewModel
 
     private void OnCharacterSystemChanged(string character, string system)
     {
-        if (_systemByCharacter.GetValueOrDefault(character) == system) return;
+        // Entering space EVE won't name: KEEP the last real system (it is where a filament will spit
+        // them back out) and hang a tag off it. The tag starts neutral and is upgraded to "Abyss"
+        // only if ESI confirms it, so nothing is asserted before it is actually known.
+        if (string.Equals(system, LocalUnnamedSystem, StringComparison.OrdinalIgnoreCase))
+        {
+            if (_unnamedSpaceByCharacter.ContainsKey(character)) return;
+            _unnamedSpaceByCharacter[character] = UnnamedSpaceTag;
+            RefreshSystemPills();
+            _ = ResolveUnnamedSpaceAsync(character);
+            return;
+        }
+
+        // Leaving it is a pill change even when the system name itself is unchanged, which is the
+        // normal case: a filament drops you back exactly where you started, so only the tag moves.
+        var wasUnnamed = _unnamedSpaceByCharacter.Remove(character);
+        if (!wasUnnamed && _systemByCharacter.GetValueOrDefault(character) == system) return;
         _systemByCharacter[character] = system;
+        RefreshSystemPills();
+    }
+
+    private void RefreshSystemPills()
+    {
         if (_settings.CornerOverlayShowSystem && CornerOverlaysLive) RefreshAllPills();
     }
 
-    // Current solar system for the character seated at the given seat, or "" when unknown.
+    // Asks ESI where a character in unnamed space actually is. Fires once per entry, not on a timer,
+    // so the cost is one location call per abyss run per character -- and only for characters that
+    // are ESI-linked anyway for the info card and the jump timers.
+    //
+    // ESI's own location data lags the client by a few seconds, so a first reading can still name the
+    // system they just left. That case is indistinguishable from "ESI knows a real system EVE simply
+    // didn't announce in Local", so it counts as inconclusive and is retried rather than trusted:
+    // believing it would drop the tag and claim they are still flying around in normal space.
+    private async Task ResolveUnnamedSpaceAsync(string character)
+    {
+        var seat = FindSeatByCharacter(character);
+        var linked = seat?.EsiCharacters.FirstOrDefault(
+            c => c.CharacterName.Equals(character, StringComparison.OrdinalIgnoreCase));
+        if (linked is null || TokenStore.Get(linked.CharacterId) is null) return; // stays neutral
+
+        var lastKnown = _systemByCharacter.GetValueOrDefault(character, "");
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            if (attempt > 0) await Task.Delay(TimeSpan.FromSeconds(5));
+            // They may already be back in named space, or logged off, while this was waiting.
+            if (!_unnamedSpaceByCharacter.ContainsKey(character)) return;
+
+            try
+            {
+                var loc = await CharacterInfoShared.GetLocationAsync(linked.CharacterId, forceRefresh: true, CancellationToken.None);
+                if (loc is null) continue;
+
+                if (IsAbyssalSystemId(loc.SolarSystemId))
+                {
+                    _unnamedSpaceByCharacter[character] = AbyssSpaceTag;
+                    RefreshSystemPills();
+                    return;
+                }
+
+                var sys = await EsiTypeCacheShared.GetSystemInfoAsync(loc.SolarSystemId, CancellationToken.None);
+                if (string.IsNullOrEmpty(sys.Name) || sys.Name.Equals(lastKnown, StringComparison.OrdinalIgnoreCase))
+                    continue; // stale reading of the system they left -- inconclusive, ask again
+
+                // ESI names a system EVE declined to announce in Local. A real name beats any tag.
+                _unnamedSpaceByCharacter.Remove(character);
+                _systemByCharacter[character] = sys.Name;
+                RefreshSystemPills();
+                return;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"Could not resolve unnamed location for {character}: {ex}");
+                return; // the neutral tag is already correct; don't retry into a failing endpoint
+            }
+        }
+    }
+
+    // Current solar system for the character seated at the given seat, or "" when unknown. A
+    // character in unnamed space reads "<last system> (Abyss)": the system they left, which is also
+    // the one a filament returns them to, plus what state they are in.
     private string SeatSystemName(int seat)
     {
         if (!_settings.CornerOverlayShowSystem) return "";
         var a = Seat(seat);
         if (a is null) return "";
-        if (!string.IsNullOrWhiteSpace(a.RunningCharacterName)
-            && _systemByCharacter.TryGetValue(a.RunningCharacterName, out var bySession))
-            return bySession;
-        return _systemByCharacter.GetValueOrDefault(a.Label, "");
+
+        // Whoever is actually logged into the seat right now wins over its configured main, but only
+        // if we know anything at all about them -- otherwise fall back to the seat label, exactly as
+        // this did before the unnamed-space tag existed.
+        var running = a.RunningCharacterName;
+        var character = !string.IsNullOrWhiteSpace(running)
+                        && (_systemByCharacter.ContainsKey(running) || _unnamedSpaceByCharacter.ContainsKey(running))
+            ? running
+            : a.Label;
+        if (string.IsNullOrEmpty(character)) return "";
+
+        var system = _systemByCharacter.GetValueOrDefault(character, "");
+        if (!_unnamedSpaceByCharacter.TryGetValue(character, out var tag)) return system;
+        // No last-known system to hang the tag off (EveDeck was started while they were already
+        // inside) -- show the bare tag rather than nothing at all.
+        return system.Length > 0 ? $"{system} ({tag})" : tag;
     }
 
     // Rapid-fire FlashOnTile events (sustained incoming damage can log several hits a second, often
