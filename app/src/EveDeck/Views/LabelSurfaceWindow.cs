@@ -259,11 +259,15 @@ internal sealed class LabelSurfaceWindow : Window
     private static readonly Color FatigueBadgeColor = Color.FromRgb(0xFB, 0xBF, 0x24);
     private static readonly Color ReactivationBadgeColor = Color.FromRgb(0x22, 0xD3, 0xEE);
 
-    public void SetFatigueBadge(int key, WindowRect physRect, bool visible) =>
-        SetJumpBadge(_fatigueBadges, key, physRect, visible, slot: 0, "F", FatigueBadgeColor);
+    // `text` is the full badge face including the leading glyph (e.g. "F 4:52") -- the caller owns
+    // the formatting because it owns the deadline it is counting down from. Passing a different
+    // string to an already-visible badge just updates the label in place, which is what the
+    // once-per-second display tick does; it never rebuilds or re-adds the element.
+    public void SetFatigueBadge(int key, WindowRect physRect, bool visible, string text = "F") =>
+        SetJumpBadge(_fatigueBadges, key, physRect, visible, slot: 0, text, FatigueBadgeColor);
 
-    public void SetReactivationBadge(int key, WindowRect physRect, bool visible) =>
-        SetJumpBadge(_reactivationBadges, key, physRect, visible, slot: 1, "R", ReactivationBadgeColor);
+    public void SetReactivationBadge(int key, WindowRect physRect, bool visible, string text = "R") =>
+        SetJumpBadge(_reactivationBadges, key, physRect, visible, slot: 1, text, ReactivationBadgeColor);
 
     public void MoveJumpBadges(int key, WindowRect physRect)
     {
@@ -279,7 +283,7 @@ internal sealed class LabelSurfaceWindow : Window
         if (_reactivationBadges.TryGetValue(key, out var r)) r.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void SetJumpBadge(Dictionary<int, Border> badges, int key, WindowRect physRect, bool visible, int slot, string glyph, Color color)
+    private void SetJumpBadge(Dictionary<int, Border> badges, int key, WindowRect physRect, bool visible, int slot, string text, Color color)
     {
         if (!visible)
         {
@@ -288,12 +292,23 @@ internal sealed class LabelSurfaceWindow : Window
         }
         if (!badges.TryGetValue(key, out var btn))
         {
-            btn = BuildJumpBadge(glyph, color, _chromeScale);
+            btn = BuildJumpBadge(text, color, _chromeScale);
             badges[key] = btn;
             _canvas.Children.Add(btn);
+            btn.Visibility = Visibility.Visible;
+            PlaceJumpBadge(btn, physRect, slot);
+            return;
         }
-        btn.Visibility = Visibility.Visible;
-        PlaceJumpBadge(btn, physRect, slot);
+
+        // Already built: update the label only. Re-placing on every one-second tick would run the
+        // Remove/Add z-order shuffle in PlaceJumpBadge 60 times a minute per badge for no reason --
+        // the rect only changes when the tile does, which goes through MoveJumpBadges instead.
+        if (btn.Child is TextBlock tb && !string.Equals(tb.Text, text, StringComparison.Ordinal)) tb.Text = text;
+        if (btn.Visibility != Visibility.Visible)
+        {
+            btn.Visibility = Visibility.Visible;
+            PlaceJumpBadge(btn, physRect, slot);
+        }
     }
 
     private void PlaceJumpBadge(Border btn, WindowRect physRect, int slot)
@@ -308,17 +323,21 @@ internal sealed class LabelSurfaceWindow : Window
         btn.Height = r.Height / _dpiScale;
     }
 
-    private static Border BuildJumpBadge(string glyph, Color color, double chromeScale)
+    private static Border BuildJumpBadge(string label, Color color, double chromeScale)
     {
         var text = new TextBlock
         {
-            Text = glyph,
+            Text = label,
             Foreground = new SolidColorBrush(color),
             FontFamily = new FontFamily("Segoe UI"),
             FontWeight = FontWeights.Bold,
-            FontSize = OverlayChrome.BadgeGlyphSize * chromeScale,
+            // 0.8x the shared badge glyph size: unlike the info button's single "i", this badge now
+            // holds a whole countdown ("F 4:52", up to "F 9d23h"), which does not fit the tile-badge
+            // type scale at full size. Height still matches the info button, so the corners pair up.
+            FontSize = OverlayChrome.BadgeGlyphSize * 0.8 * chromeScale,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
+            TextAlignment = TextAlignment.Center,
             IsHitTestVisible = false,
         };
         return new Border

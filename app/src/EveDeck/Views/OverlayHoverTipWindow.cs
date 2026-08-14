@@ -82,17 +82,28 @@ internal sealed class OverlayHoverTipWindow : Window
     }
 
     // Shows (or moves/retexts, if already visible) the tip next to the given physical badge rect.
-    public void ShowAt(int badgePhysX, int badgePhysY, int badgePhysSize, string text)
+    // Width and height are separate because the jump badges stopped being square when they gained an
+    // inline countdown (2026-08-14) -- deriving the bottom edge from the width would have placed the
+    // anchor well below the badge and let the tip open over the preview it belongs to.
+    public void ShowAt(int badgePhysX, int badgePhysY, int badgePhysWidth, int badgePhysHeight, string text)
     {
         _text.Text = text;
         _badgeLeft = badgePhysX;
         _badgeTop = badgePhysY;
-        _badgeRight = badgePhysX + badgePhysSize;
-        _badgeBottom = badgePhysY + badgePhysSize;
+        _badgeRight = badgePhysX + badgePhysWidth;
+        _badgeBottom = badgePhysY + badgePhysHeight;
         if (!IsVisible) { Show(); return; } // ContentRendered pins once loaded
         // Loaded priority so this runs AFTER WPF's Render-priority layout pass, not before it with a
         // stale width -- see the matching comment in InfoFlyoutWindow.SetLines.
         if (IsLoaded) Dispatcher.BeginInvoke(new Action(PinPhysical), DispatcherPriority.Loaded);
+    }
+
+    // Text-only update for the once-per-second countdown, keeping the existing anchor. No explicit
+    // re-pin needed: the ctor's SizeChanged handler already re-pins whenever the new text changes the
+    // measured width, and a same-width update does not need repositioning at all.
+    public void SetText(string text)
+    {
+        if (!string.Equals(_text.Text, text, StringComparison.Ordinal)) _text.Text = text;
     }
 
     // Pin to the physical anchor at the measured content size, opening away from whichever screen

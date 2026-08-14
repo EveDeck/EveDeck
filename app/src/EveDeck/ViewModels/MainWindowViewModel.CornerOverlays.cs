@@ -25,6 +25,11 @@ public sealed partial class MainWindowViewModel
     private readonly Dictionary<int, nint> _cornerSourceHandles = new();
     private readonly Dictionary<int, bool> _cornerPreventedState = new();
     private readonly Dictionary<int, WindowRect> _cornerRects = new();
+    // Each group's master/center rect in layouts where that area is the REAL EVE window rather than a
+    // preview tile (the Center Master family) -- those positions get no _cornerRects entry, so this is
+    // the only record of where they are. Jump badges draw on the master too (2026-08-14), and they
+    // need a rect for it; populated alongside the center pill in StartCornerOverlays.
+    private readonly Dictionary<int, WindowRect> _groupCenterRects = new();
     private int _cursorOverPosition = -1;
 
     // Safety-net timestamp for the low-frequency z-order re-assert in MaintainCornerOverlays -- a
@@ -458,7 +463,13 @@ public sealed partial class MainWindowViewModel
             // which carries its own working badge -- so the master rect never needs one.
 
             var groupCenterSlot = SelectedProfile.Slots.FirstOrDefault(s => s.SlotNumber == groupCenter);
-            if (groupCenterSlot is not null && !HasDominantMasterSlot(groupCenterSlot))
+            if (groupCenterSlot is not null && HasDominantMasterSlot(groupCenterSlot))
+            {
+                // Dominant master area -- the real EVE window occupies it, so there is no tile and no
+                // _cornerRects entry. Record the rect anyway so the jump badges can be drawn over it.
+                _groupCenterRects[groupCenter] = masterRect;
+            }
+            else if (groupCenterSlot is not null)
             {
                 // No dominant master area for this group (e.g. Grid family) -- the real master window
                 // now runs at full resolution (see ResolveMasterRect) rather than being shrunk to this
@@ -473,7 +484,7 @@ public sealed partial class MainWindowViewModel
 
         ApplySurfaceZOrder();
         _frameTimer.Start();
-        if (_settings.CornerOverlayShowJumpBadges) _jumpStatusTimer.Start();
+        StartJumpStatus();
     }
 
     // Position tolerance when checking whether a window is "where we think it is". A couple of pixels
@@ -785,6 +796,7 @@ public sealed partial class MainWindowViewModel
         _tileSurface = null;
         _cornerSourceHandles.Clear();
         _cornerRects.Clear();
+        _groupCenterRects.Clear();
         _seatOfflineSince.Clear();
         StopJumpStatus();
 
@@ -1727,6 +1739,44 @@ public sealed partial class MainWindowViewModel
             CloseInfoFlyout();
         }
 
+        // Jump-status badge hover (2026-08-14: lifted out of the zoom poll below, which is gated on
+        // HoverPreviewEnabled -- "F"/"R" are unreadable glyphs without their hover text, so switching
+        // hover-PREVIEW off must not also silence them; the info badge above is already independent
+        // for exactly this reason). LabelSurfaceWindow is WS_EX_TRANSPARENT end to end, so this
+        // poll -- not a WPF mouse event -- is the only way to detect the hover at all. The resulting
+        // position is reused below to suppress that tile's zoom, keeping the badge a static target.
+        var jumpHoverPosition = -1;
+        if (_settings.CornerOverlayShowJumpBadges && eveOrEwcFg && !_tileSurface.IsDragging
+            && Utilities.Win32Native.GetCursorPos(out var jbCur))
+        {
+            var jbScale = Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0);
+            var jbNow = DateTimeOffset.UtcNow;
+            foreach (var (jbPos, jbRect) in JumpBadgeTargets())
+            {
+                if (!_jumpStatusByPosition.TryGetValue(jbPos, out var jbState)) continue;
+                var jbTile = new System.Drawing.Rectangle(jbRect.X, jbRect.Y, jbRect.Width, jbRect.Height);
+                var overFatigue = jbState.FatigueActive(jbNow) && OverlayJumpBadge.RectFor(jbTile, 0, jbScale).Contains(jbCur.X, jbCur.Y);
+                var overReactivation = !overFatigue && jbState.ReactivationActive(jbNow)
+                    && OverlayJumpBadge.RectFor(jbTile, 1, jbScale).Contains(jbCur.X, jbCur.Y);
+                if (!overFatigue && !overReactivation) continue;
+
+                var slot = overFatigue ? 0 : 1;
+                var badgeRect = OverlayJumpBadge.RectFor(jbTile, slot, jbScale);
+                ShowJumpHoverTip(badgeRect.X, badgeRect.Y, badgeRect.Width, badgeRect.Height,
+                    JumpTipText(jbState, slot, jbNow));
+                _jumpHoverActive = true;
+                _jumpHoverHitPosition = jbPos;
+                _jumpHoverHitSlot = slot;
+                jumpHoverPosition = jbPos;
+                break;
+            }
+        }
+        if (jumpHoverPosition < 0 && _jumpHoverActive)
+        {
+            HideJumpHoverTip();
+            _jumpHoverActive = false;
+        }
+
         // Suppressed while a tile is being dragged/resized -- moving the mouse across other tiles
         // mid-drag shouldn't also trigger hover-peek/zoom on them (see OnCornerTileDragStarted for
         // the matching cleanup of whatever was already active when the drag began). Also suppressed
@@ -1755,34 +1805,10 @@ public sealed partial class MainWindowViewModel
                 if (zone.Contains(cur.X, cur.Y)) hitPos = -1;
             }
 
-            // Jump-status badge hover: suppress zoom the same way the info-button zone does (both
-            // badges must stay easy, static hover targets), and show/hide the shared hover-tip window
-            // with that badge's precomputed text. LabelSurfaceWindow is WS_EX_TRANSPARENT end to end,
-            // so this poll -- not a WPF mouse event -- is the only way to detect the hover at all.
-            var overJumpBadge = false;
-            if (hitPos >= 0 && _settings.CornerOverlayShowJumpBadges && _cornerRects.TryGetValue(hitPos, out var jbRect)
-                && _jumpStatusByPosition.TryGetValue(hitPos, out var jbState))
-            {
-                var jbTile = new System.Drawing.Rectangle(jbRect.X, jbRect.Y, jbRect.Width, jbRect.Height);
-                var jbScale = Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0);
-                var overFatigue = jbState.FatigueActive && OverlayJumpBadge.RectFor(jbTile, 0, jbScale).Contains(cur.X, cur.Y);
-                var overReactivation = !overFatigue && jbState.ReactivationActive && OverlayJumpBadge.RectFor(jbTile, 1, jbScale).Contains(cur.X, cur.Y);
-                if (overFatigue || overReactivation)
-                {
-                    overJumpBadge = true;
-                    hitPos = -1;
-                    var slot = overFatigue ? 0 : 1;
-                    var text = overFatigue ? jbState.FatigueText : jbState.ReactivationText;
-                    var badgeRect = OverlayJumpBadge.RectFor(jbTile, slot, jbScale);
-                    ShowJumpHoverTip(badgeRect.X, badgeRect.Y, badgeRect.Width, text);
-                    _jumpHoverActive = true;
-                }
-            }
-            if (!overJumpBadge && _jumpHoverActive)
-            {
-                HideJumpHoverTip();
-                _jumpHoverActive = false;
-            }
+            // A jump badge under the cursor suppresses that tile's zoom the same way the info-button
+            // zone does -- both badges must stay easy, static hover targets. The tip itself is shown
+            // by the independent poll above, which runs whether or not hover-preview is enabled.
+            if (hitPos >= 0 && hitPos == jumpHoverPosition) hitPos = -1;
 
             if (hitPos < 0 && _peekPosition >= 0 && _cursorOverPosition >= 0 && _peekMasterRect is { } peekMr)
             {

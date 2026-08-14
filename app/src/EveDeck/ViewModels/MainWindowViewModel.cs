@@ -266,6 +266,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _frameBrush = ParseFrameBrush(_settings.ActiveFrameColor);
         _frameTimer.Tick += OnFrameTick;
         _jumpStatusTimer.Tick += OnJumpStatusTick;
+        _jumpDisplayTimer.Tick += OnJumpDisplayTick;
         _seatHealthTimer.Tick += OnSeatHealthTick;
         if (_settings.SeatHealthAlertPodded || _settings.SeatHealthAlertDisconnected) _seatHealthTimer.Start();
         _hoverPeekTimer.Tick += OnHoverPeekTimerTick;
