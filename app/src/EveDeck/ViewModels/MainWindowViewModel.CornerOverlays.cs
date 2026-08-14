@@ -1129,7 +1129,9 @@ public sealed partial class MainWindowViewModel
             // preview looks and reads wrong. It reappears when the zoom clears (OnCornerTileHoverLeft),
             // and the badge corner suppresses the zoom anyway so it's reachable to click.
             _labelSurface?.SetInfoButtonVisible(position, false);
-            _labelSurface?.SetJumpBadgesVisible(position, false);
+            // The jump countdowns are NOT hidden here (unlike the info badge): they live inside the
+            // pill now, which stays put through a zoom, and collapsing just that line would resize
+            // the chip under the cursor for no reason.
             // The magnified tile can now grow over master's screen area (no longer geometrically
             // clamped away from it) -- reassert topmost right away so the enlarged DWM thumbnail wins
             // the compositing there instead of relying on whatever z-order state happened to be
@@ -1739,43 +1741,11 @@ public sealed partial class MainWindowViewModel
             CloseInfoFlyout();
         }
 
-        // Jump-status badge hover (2026-08-14: lifted out of the zoom poll below, which is gated on
-        // HoverPreviewEnabled -- "F"/"R" are unreadable glyphs without their hover text, so switching
-        // hover-PREVIEW off must not also silence them; the info badge above is already independent
-        // for exactly this reason). LabelSurfaceWindow is WS_EX_TRANSPARENT end to end, so this
-        // poll -- not a WPF mouse event -- is the only way to detect the hover at all. The resulting
-        // position is reused below to suppress that tile's zoom, keeping the badge a static target.
-        var jumpHoverPosition = -1;
-        if (_settings.CornerOverlayShowJumpBadges && eveOrEwcFg && !_tileSurface.IsDragging
-            && Utilities.Win32Native.GetCursorPos(out var jbCur))
-        {
-            var jbScale = Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0);
-            var jbNow = DateTimeOffset.UtcNow;
-            foreach (var (jbPos, jbRect) in JumpBadgeTargets())
-            {
-                if (!_jumpStatusByPosition.TryGetValue(jbPos, out var jbState)) continue;
-                var jbTile = new System.Drawing.Rectangle(jbRect.X, jbRect.Y, jbRect.Width, jbRect.Height);
-                var overFatigue = jbState.FatigueActive(jbNow) && OverlayJumpBadge.RectFor(jbTile, 0, jbScale).Contains(jbCur.X, jbCur.Y);
-                var overReactivation = !overFatigue && jbState.ReactivationActive(jbNow)
-                    && OverlayJumpBadge.RectFor(jbTile, 1, jbScale).Contains(jbCur.X, jbCur.Y);
-                if (!overFatigue && !overReactivation) continue;
-
-                var slot = overFatigue ? 0 : 1;
-                var badgeRect = OverlayJumpBadge.RectFor(jbTile, slot, jbScale);
-                ShowJumpHoverTip(badgeRect.X, badgeRect.Y, badgeRect.Width, badgeRect.Height,
-                    JumpTipText(jbState, slot, jbNow));
-                _jumpHoverActive = true;
-                _jumpHoverHitPosition = jbPos;
-                _jumpHoverHitSlot = slot;
-                jumpHoverPosition = jbPos;
-                break;
-            }
-        }
-        if (jumpHoverPosition < 0 && _jumpHoverActive)
-        {
-            HideJumpHoverTip();
-            _jumpHoverActive = false;
-        }
+        // NOTE: there used to be a cursor-poll here that hit-tested the two free-floating jump badges
+        // and opened a hover tip spelling out the remaining time, because "F"/"R" were unreadable
+        // glyphs on their own. The countdowns now render in full inside the pill's second line
+        // (2026-08-14), so there is nothing left to reveal on hover -- poll, tip, and the zoom
+        // suppression that kept the badges a static hover target are all gone with it.
 
         // Suppressed while a tile is being dragged/resized -- moving the mouse across other tiles
         // mid-drag shouldn't also trigger hover-peek/zoom on them (see OnCornerTileDragStarted for
@@ -1804,11 +1774,6 @@ public sealed partial class MainWindowViewModel
                 zone.Inflate(inflatePx, inflatePx);
                 if (zone.Contains(cur.X, cur.Y)) hitPos = -1;
             }
-
-            // A jump badge under the cursor suppresses that tile's zoom the same way the info-button
-            // zone does -- both badges must stay easy, static hover targets. The tip itself is shown
-            // by the independent poll above, which runs whether or not hover-preview is enabled.
-            if (hitPos >= 0 && hitPos == jumpHoverPosition) hitPos = -1;
 
             if (hitPos < 0 && _peekPosition >= 0 && _cursorOverPosition >= 0 && _peekMasterRect is { } peekMr)
             {

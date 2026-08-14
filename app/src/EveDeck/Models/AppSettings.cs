@@ -351,12 +351,13 @@ public sealed class AppSettings
     // Total + unallocated skill points.
     public bool InfoFlyoutShowSp { get; set; } = true;
 
-    // Jump-status badges on each corner preview (added 2026-07-28): small "F"/"R" badges in the
-    // tile's top-left corner, shown only while a linked character has active jump fatigue or is on
-    // its jump-reactivation cooldown; hover for the exact remaining time. On by default; stays
-    // invisible until a character is linked via ESI (needs the fatigue/skills scopes, already
-    // covered by the standard link). One toggle for both, since the badges are meant to be glanced
-    // at together rather than tuned independently.
+    // Jump status on each corner preview (added 2026-07-28): "F"/"R" countdowns shown only while a
+    // linked character has active jump fatigue or is on its jump-reactivation cooldown. As of
+    // 2026-08-14 these render on a second line INSIDE the character pill rather than as separate
+    // chips in the tile's corner, so they also require the pill itself (CornerOverlayShowLabel).
+    // On by default; stays invisible until a character is linked via ESI (needs the fatigue/skills
+    // scopes, already covered by the standard link). One toggle for both, since the two countdowns
+    // are meant to be glanced at together rather than tuned independently.
     public bool CornerOverlayShowJumpBadges { get; set; } = true;
 
     // Seat health alerts (added 2026-07-28): toast notifications for a linked character's ship

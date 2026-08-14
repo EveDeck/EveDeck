@@ -5,14 +5,14 @@ using EveDeck.Views;
 
 namespace EveDeck.ViewModels;
 
-// Jump-status badges on each corner preview (added 2026-07-28): small "F" (fatigue, amber) and "R"
-// (jump-reactivation cooldown, cyan) badges, shown only while a linked seat's active value is
-// nonzero; hover for the exact remaining time. This partial owns the settings-bound toggle, the
+// Jump status for each corner preview (added 2026-07-28): fatigue ("F", amber) and jump-reactivation
+// cooldown ("R", cyan) countdowns, shown only while a linked seat's value is actually running.
+// 2026-08-14 they moved OUT of two chips in the tile's top-left corner and INTO the character pill,
+// on a second line under the name/location row. This partial owns the settings-bound toggle, the
 // periodic ESI poll that computes badge state (fatigue is already fetched elsewhere for the info
 // flyout, but that's fetch-on-open only -- these badges need it kept fresh in the background), and
-// the reactivation-timer formula. Badge geometry/rendering live on LabelSurfaceWindow
-// (see OverlayJumpBadge); hover-to-text hooks into MainWindowViewModel.CornerOverlays.cs's own
-// badge cursor-poll, which reads the state cache this partial maintains.
+// the reactivation-timer formula. Rendering lives on LabelSurfaceWindow (see SetJumpLine), which
+// owns placement now that the countdowns are part of the pill.
 //
 // 2026-08-14 rework -- the poll used to store PRE-RENDERED text and paint straight from the fetch,
 // which made everything downstream only as fresh as the last 30s tick: a badge could survive up to
@@ -34,13 +34,6 @@ public sealed partial class MainWindowViewModel
 
     // Local render tick. Costs no network at all: it re-renders the countdowns from cached deadlines.
     private readonly DispatcherTimer _jumpDisplayTimer = new() { Interval = TimeSpan.FromSeconds(1) };
-
-    private OverlayHoverTipWindow? _jumpHoverTip;
-    private bool _jumpHoverActive;
-    // Which badge the tip is currently describing, so the display tick can keep its text counting
-    // down instead of leaving it frozen at whatever it said when the cursor arrived.
-    private int _jumpHoverHitPosition = -1;
-    private int _jumpHoverHitSlot;
 
     // Deadlines, not text -- see the class comment. Null means "not active".
     private sealed record JumpBadgeState(DateTimeOffset? FatigueUntil, DateTimeOffset? ReactivationUntil)
@@ -103,37 +96,17 @@ public sealed partial class MainWindowViewModel
         _jumpStatusTimer.Stop();
         _jumpDisplayTimer.Stop();
         _jumpStatusByPosition.Clear();
-        _jumpHoverActive = false;
-        try { _jumpHoverTip?.Close(); } catch { /* window may already be closed */ }
-        _jumpHoverTip = null;
         // _jdcLevelCache is deliberately NOT cleared: it is keyed by character, not by position, and
         // survives an overlay rebuild perfectly well. Clearing it here would refetch every skill
         // sheet on every settings tweak, which is exactly the traffic this cache exists to avoid.
     }
 
-    private void ShowJumpHoverTip(int physX, int physY, int physWidth, int physHeight, string text)
-    {
-        if (_jumpHoverTip is null)
-        {
-            _jumpHoverTip = new OverlayHoverTipWindow(_overlayDpiScale, Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0));
-            _jumpHoverTip.SetOwner(_labelSurface?.Handle ?? _tileSurface?.Handle ?? 0);
-        }
-        _jumpHoverTip.ShowAt(physX, physY, physWidth, physHeight, text);
-    }
-
-    private void HideJumpHoverTip()
-    {
-        _jumpHoverHitPosition = -1;
-        if (_jumpHoverTip is null) return;
-        try { _jumpHoverTip.Hide(); } catch { /* window may already be closed */ }
-    }
-
     // -- Formatting -------------------------------------------------------------------------------
 
-    // Compact enough to sit on the badge face. Widest output is "9d23h" (5 chars, plus the glyph and
-    // a space) -- OverlayJumpBadge.WidthPx is sized against exactly that, so any change here needs a
-    // matching look at the badge width. Days are capped rather than wrapped: fatigue can technically
-    // run to weeks, and "9d+" reads better on a 58px badge than a number that keeps growing.
+    // Compact enough to sit on the pill's second line next to its sibling countdown. Widest output is
+    // "9d23h" (5 chars, plus the glyph and a space). Days are capped rather than wrapped: fatigue can
+    // technically run to weeks, and "9d+" reads better on a narrow pill than a number that keeps
+    // growing and pushes the reactivation countdown out of the tile.
     private static string FormatBadgeCountdown(TimeSpan left)
     {
         if (left < TimeSpan.Zero) left = TimeSpan.Zero;
@@ -142,10 +115,6 @@ public sealed partial class MainWindowViewModel
         if (left.TotalMinutes >= 60) return $"{(int)left.TotalHours}h{left.Minutes:00}";
         return $"{left.Minutes}:{left.Seconds:00}";
     }
-
-    private static string JumpTipText(JumpBadgeState state, int slot, DateTimeOffset now) => slot == 0
-        ? $"Jump fatigue: {HumanizeDuration(state.FatigueUntil!.Value - now)}"
-        : $"Jump reactivation: {HumanizeDuration(state.ReactivationUntil!.Value - now)}";
 
     // -- Geometry / visibility --------------------------------------------------------------------
 
@@ -180,6 +149,9 @@ public sealed partial class MainWindowViewModel
         PaintJumpBadges(position, rect, DateTimeOffset.UtcNow);
     }
 
+    // `rect` is unused now that the countdowns live inside the pill (which owns its own placement),
+    // but every caller already has it and the parameter keeps this callable from the same places if
+    // the rendering ever moves back out to tile-anchored chrome.
     private void PaintJumpBadges(int position, WindowRect rect, DateTimeOffset now)
     {
         if (_labelSurface is null) return;
@@ -188,10 +160,9 @@ public sealed partial class MainWindowViewModel
 
         var fatigue = live && state?.FatigueActive(now) == true;
         var reactivation = live && state?.ReactivationActive(now) == true;
-        _labelSurface.SetFatigueBadge(position, rect, fatigue,
-            fatigue ? $"F {FormatBadgeCountdown(state!.FatigueUntil!.Value - now)}" : "F");
-        _labelSurface.SetReactivationBadge(position, rect, reactivation,
-            reactivation ? $"R {FormatBadgeCountdown(state!.ReactivationUntil!.Value - now)}" : "R");
+        _labelSurface.SetJumpLine(position,
+            fatigue ? $"F {FormatBadgeCountdown(state!.FatigueUntil!.Value - now)}" : null,
+            reactivation ? $"R {FormatBadgeCountdown(state!.ReactivationUntil!.Value - now)}" : null);
     }
 
     // -- Local display tick -----------------------------------------------------------------------
@@ -205,15 +176,6 @@ public sealed partial class MainWindowViewModel
 
         foreach (var (position, rect) in JumpBadgeTargets())
             PaintJumpBadges(position, rect, now);
-
-        // Keep an open hover tip counting down too, rather than freezing at the text it opened with.
-        if (_jumpHoverActive && _jumpHoverHitPosition >= 0
-            && _jumpStatusByPosition.TryGetValue(_jumpHoverHitPosition, out var hovered))
-        {
-            var slot = _jumpHoverHitSlot;
-            var stillActive = slot == 0 ? hovered.FatigueActive(now) : hovered.ReactivationActive(now);
-            if (stillActive) _jumpHoverTip?.SetText(JumpTipText(hovered, slot, now));
-        }
     }
 
     // -- ESI poll ---------------------------------------------------------------------------------
@@ -251,8 +213,7 @@ public sealed partial class MainWindowViewModel
             if (character is null || TokenStore.Get(character.CharacterId) is null)
             {
                 _jumpStatusByPosition.Remove(position);
-                _labelSurface.SetFatigueBadge(position, rect, false);
-                _labelSurface.SetReactivationBadge(position, rect, false);
+                _labelSurface.SetJumpLine(position, null, null);
                 continue;
             }
 

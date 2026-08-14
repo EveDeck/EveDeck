@@ -44,8 +44,6 @@ internal sealed class LabelSurfaceWindow : Window
     private readonly Dictionary<int, PillElement> _pills = new();
     private readonly Dictionary<int, AlertGlowElement> _glows = new();
     private readonly Dictionary<int, Border> _infoButtons = new();
-    private readonly Dictionary<int, Border> _fatigueBadges = new();
-    private readonly Dictionary<int, Border> _reactivationBadges = new();
     private readonly int _physX, _physY, _physWidth, _physHeight;
     private readonly double _dpiScale;
     private readonly bool _iconStyle;
@@ -174,7 +172,6 @@ internal sealed class LabelSurfaceWindow : Window
         if (_pills.TryGetValue(key, out var pill))
             pill.Place(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height);
         MoveInfoButton(key, physRect);
-        MoveJumpBadges(key, physRect);
     }
 
     // The small "i" info badge in a tile's top-right corner (added 2026-07-24). Drawn here, on the
@@ -251,104 +248,20 @@ internal sealed class LabelSurfaceWindow : Window
         };
     }
 
-    // Jump-status badges in a tile's top-left corner (added 2026-07-28): fatigue ("F", amber) and
-    // jump-reactivation-timer ("R", cyan), each shown only while its underlying value is active.
-    // Same click-through/hit-tested-elsewhere split as the info button, except these have no click
-    // target at all -- hover-to-text is driven by MainWindowViewModel's existing tile cursor-poll
-    // (this whole surface is WS_EX_TRANSPARENT, so a WPF ToolTip on these would never fire).
-    private static readonly Color FatigueBadgeColor = Color.FromRgb(0xFB, 0xBF, 0x24);
-    private static readonly Color ReactivationBadgeColor = Color.FromRgb(0x22, 0xD3, 0xEE);
-
-    // `text` is the full badge face including the leading glyph (e.g. "F 4:52") -- the caller owns
-    // the formatting because it owns the deadline it is counting down from. Passing a different
-    // string to an already-visible badge just updates the label in place, which is what the
-    // once-per-second display tick does; it never rebuilds or re-adds the element.
-    public void SetFatigueBadge(int key, WindowRect physRect, bool visible, string text = "F") =>
-        SetJumpBadge(_fatigueBadges, key, physRect, visible, slot: 0, text, FatigueBadgeColor);
-
-    public void SetReactivationBadge(int key, WindowRect physRect, bool visible, string text = "R") =>
-        SetJumpBadge(_reactivationBadges, key, physRect, visible, slot: 1, text, ReactivationBadgeColor);
-
-    public void MoveJumpBadges(int key, WindowRect physRect)
+    // Jump status: fatigue (amber) and jump-reactivation cooldown (cyan) countdowns.
+    //
+    // 2026-08-14: these used to be two free-floating chips pinned to the tile's top-left corner
+    // (OverlayJumpBadge, now deleted). They are now a SECOND LINE inside the character pill itself,
+    // under the name/system row -- one piece of chrome per tile instead of three competing for the
+    // same corners, and the countdown inherits the pill's backdrop, so it stays legible over bright
+    // video without needing its own chip. The line is hidden entirely while neither timer is running,
+    // so a pill with nothing to report is exactly the height it always was.
+    //
+    // `fatigue`/`reactivation` are the fully formatted faces (e.g. "F 4:52") -- the caller owns the
+    // formatting because it owns the deadlines it is counting down from. Null/empty hides that half.
+    public void SetJumpLine(int key, string? fatigue, string? reactivation)
     {
-        if (_fatigueBadges.TryGetValue(key, out var f) && f.Visibility == Visibility.Visible) PlaceJumpBadge(f, physRect, 0);
-        if (_reactivationBadges.TryGetValue(key, out var r) && r.Visibility == Visibility.Visible) PlaceJumpBadge(r, physRect, 1);
-    }
-
-    // Hides both badges without discarding them -- used while a tile is hover-zoomed, same reasoning
-    // as SetInfoButtonVisible. No-op for whichever badge was never created (inactive/feature off).
-    public void SetJumpBadgesVisible(int key, bool visible)
-    {
-        if (_fatigueBadges.TryGetValue(key, out var f)) f.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-        if (_reactivationBadges.TryGetValue(key, out var r)) r.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void SetJumpBadge(Dictionary<int, Border> badges, int key, WindowRect physRect, bool visible, int slot, string text, Color color)
-    {
-        if (!visible)
-        {
-            if (badges.TryGetValue(key, out var hidden)) hidden.Visibility = Visibility.Collapsed;
-            return;
-        }
-        if (!badges.TryGetValue(key, out var btn))
-        {
-            btn = BuildJumpBadge(text, color, _chromeScale);
-            badges[key] = btn;
-            _canvas.Children.Add(btn);
-            btn.Visibility = Visibility.Visible;
-            PlaceJumpBadge(btn, physRect, slot);
-            return;
-        }
-
-        // Already built: update the label only. Re-placing on every one-second tick would run the
-        // Remove/Add z-order shuffle in PlaceJumpBadge 60 times a minute per badge for no reason --
-        // the rect only changes when the tile does, which goes through MoveJumpBadges instead.
-        if (btn.Child is TextBlock tb && !string.Equals(tb.Text, text, StringComparison.Ordinal)) tb.Text = text;
-        if (btn.Visibility != Visibility.Visible)
-        {
-            btn.Visibility = Visibility.Visible;
-            PlaceJumpBadge(btn, physRect, slot);
-        }
-    }
-
-    private void PlaceJumpBadge(Border btn, WindowRect physRect, int slot)
-    {
-        var tile = new System.Drawing.Rectangle(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height);
-        var r = OverlayJumpBadge.RectFor(tile, slot, _chromeScale);
-        _canvas.Children.Remove(btn);          // keep it drawn last so it stays above the pill/glow
-        _canvas.Children.Add(btn);
-        Canvas.SetLeft(btn, r.X / _dpiScale);
-        Canvas.SetTop(btn, r.Y / _dpiScale);
-        btn.Width = r.Width / _dpiScale;
-        btn.Height = r.Height / _dpiScale;
-    }
-
-    private static Border BuildJumpBadge(string label, Color color, double chromeScale)
-    {
-        var text = new TextBlock
-        {
-            Text = label,
-            Foreground = new SolidColorBrush(color),
-            FontFamily = new FontFamily("Segoe UI"),
-            FontWeight = FontWeights.Bold,
-            // 0.8x the shared badge glyph size: unlike the info button's single "i", this badge now
-            // holds a whole countdown ("F 4:52", up to "F 9d23h"), which does not fit the tile-badge
-            // type scale at full size. Height still matches the info button, so the corners pair up.
-            FontSize = OverlayChrome.BadgeGlyphSize * 0.8 * chromeScale,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextAlignment = TextAlignment.Center,
-            IsHitTestVisible = false,
-        };
-        return new Border
-        {
-            Background = new SolidColorBrush(Color.FromArgb(0xB0, 0x0D, 0x11, 0x17)),
-            BorderBrush = new SolidColorBrush(color),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(OverlayChrome.RadiusPill),
-            Child = text,
-            IsHitTestVisible = false,
-        };
+        if (_pills.TryGetValue(key, out var pill)) pill.SetJumpLine(fatigue, reactivation);
     }
 
     public void SetPillContent(int key, string text, CharacterPortrait? portrait,
@@ -428,6 +341,34 @@ internal sealed class LabelSurfaceWindow : Window
         private readonly Grid _textLayer = new();
         private readonly TextBlock[] _outlineCopies = new TextBlock[8];
 
+        // Second line under the name: the jump-fatigue / reactivation countdowns (see SetJumpLine).
+        // Always Segoe UI rather than the pill's chosen family -- the shipped default label font
+        // (Acens) is a display face whose digits and colon read poorly at this size, and this line is
+        // nothing but digits. Collapsed whenever neither timer is running.
+        private readonly TextBlock _jumpLine = new()
+        {
+            FontFamily = new FontFamily("Segoe UI"),
+            FontWeight = FontWeights.Bold,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Visibility = Visibility.Collapsed,
+            IsHitTestVisible = false,
+        };
+        private bool _jumpLineVisible;
+        private double _jumpLineHeightDip;
+        // Last rendered pair, so the once-a-second display tick can bail out without rebuilding
+        // inlines when nothing actually changed (the common case between whole seconds).
+        private string _jumpLineKey = "";
+
+        private static readonly SolidColorBrush FatigueBrush = Frozen(Color.FromRgb(0xFB, 0xBF, 0x24));
+        private static readonly SolidColorBrush ReactivationBrush = Frozen(Color.FromRgb(0x22, 0xD3, 0xEE));
+
+        private static SolidColorBrush Frozen(Color c)
+        {
+            var b = new SolidColorBrush(c);
+            b.Freeze();
+            return b;
+        }
+
         // Unit offsets for the 8 outline copies drawn behind the main text (a "poor man's" stroke --
         // cheap, works with any font/size, no Geometry/FormattedText needed). Scaled by font size in
         // ApplyAppearance.
@@ -452,6 +393,7 @@ internal sealed class LabelSurfaceWindow : Window
         private LabelAnchor _anchor;
         private double _inset;
         private double _pillHeightDip;
+        private double _baseContentDip;
         private double _portraitDip;
         private double _paddingHDip;
         private CharacterPortrait? _portrait;
@@ -492,9 +434,15 @@ internal sealed class LabelSurfaceWindow : Window
             for (var i = 0; i < OutlineDirections.Length; i++) _outlineCopies[i] = (TextBlock)_textLayer.Children[i];
             _textLayer.Children.Add(_text); // real text last = drawn on top of the outline copies
 
+            // Name row and jump line stack vertically; the portrait sits to their left, centered
+            // across both, so it doesn't jump when the second line appears and disappears.
+            var column = new StackPanel { Orientation = Orientation.Vertical };
+            column.Children.Add(_textLayer);
+            column.Children.Add(_jumpLine);
+
             var stack = new StackPanel { Orientation = Orientation.Horizontal };
             stack.Children.Add(_portraitDot);
-            stack.Children.Add(_textLayer);
+            stack.Children.Add(column);
             // Grid, not the stack directly, so the texture layer can sit behind it in the same cell.
             var content = new Grid();
             content.Children.Add(_textureLayer);
@@ -539,6 +487,47 @@ internal sealed class LabelSurfaceWindow : Window
             _pill.Margin = new Thickness(
                 anchor.X == LabelAnchorX.Left ? inset : 0, 0,
                 anchor.X == LabelAnchorX.Right ? inset : 0, 0);
+            // The jump line is almost always narrower than the name above it; align it to whichever
+            // edge the pill hugs so the two lines share a margin instead of one floating oddly.
+            _jumpLine.TextAlignment = anchor.X switch
+            {
+                LabelAnchorX.Left  => TextAlignment.Left,
+                LabelAnchorX.Right => TextAlignment.Right,
+                _                  => TextAlignment.Center,
+            };
+        }
+
+        // The chip grows by exactly one line when a countdown is running and shrinks straight back
+        // when both expire, so an idle pill is the same size it has always been.
+        private void UpdatePillHeight() =>
+            _pillHeightDip = Math.Max(_baseHeight, _baseContentDip) + 8
+                + (_jumpLineVisible ? _jumpLineHeightDip : 0);
+
+        // Fatigue (amber) and jump reactivation (cyan) on one line, in that order, each already
+        // formatted by the caller. Called once a second by the display tick, so the common path --
+        // same text, same visibility -- must not touch layout at all; only a real change re-places
+        // the pill (its height moves when the line comes and goes).
+        public void SetJumpLine(string? fatigue, string? reactivation)
+        {
+            var wanted = (fatigue ?? "") + "|" + (reactivation ?? "");
+            if (string.Equals(wanted, _jumpLineKey, StringComparison.Ordinal)) return;
+            _jumpLineKey = wanted;
+
+            _jumpLine.Inlines.Clear();
+            if (!string.IsNullOrEmpty(fatigue))
+                _jumpLine.Inlines.Add(new System.Windows.Documents.Run(fatigue) { Foreground = FatigueBrush });
+            if (!string.IsNullOrEmpty(reactivation))
+            {
+                if (_jumpLine.Inlines.Count > 0) _jumpLine.Inlines.Add(new System.Windows.Documents.Run("   "));
+                _jumpLine.Inlines.Add(new System.Windows.Documents.Run(reactivation) { Foreground = ReactivationBrush });
+            }
+
+            var visible = _jumpLine.Inlines.Count > 0;
+            if (visible == _jumpLineVisible) return;
+            _jumpLineVisible = visible;
+            _jumpLine.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            UpdatePillHeight();
+            RePlace();
         }
 
         // Font family, size, colour and style (bold/italic/drop shadow/outline) for this label;
@@ -585,9 +574,19 @@ internal sealed class LabelSurfaceWindow : Window
                 copy.RenderTransform = new TranslateTransform(dx * offset, dy * offset);
             }
 
+            // Jump line: a notch smaller than the name so it reads as secondary, floored so a tiny
+            // label font can't shrink a countdown into illegibility. Alignment follows the pill's own
+            // horizontal anchor so the two lines stay flush with each other.
+            _jumpLine.FontSize = Math.Max(9.0, fontSize * 0.72);
+            _jumpLine.Effect = dropShadow
+                ? new System.Windows.Media.Effects.DropShadowEffect { Color = Colors.Black, BlurRadius = 4, ShadowDepth = 0, Opacity = 0.9 }
+                : null;
+            _jumpLineHeightDip = _jumpLine.FontSize * 1.35;
+
             _portraitDip = _iconStyle ? fontSize + 8 : 0;
             var content = _iconStyle ? Math.Max(fontSize * 1.7, _portraitDip) : fontSize * 1.7;
-            _pillHeightDip = Math.Max(_baseHeight, content) + 8;
+            _baseContentDip = content;
+            UpdatePillHeight();
             if (_iconStyle) ApplyPortrait();
 
             // Whole-label fade: multiplies uniformly across background chip, text, outline copies and
@@ -747,6 +746,7 @@ internal sealed class LabelSurfaceWindow : Window
             var portrait = _portraitDip > 0 ? _portraitDip + PortraitGapDip : 0;
             var cap = Math.Max(MinTextWidthDip, _tileWDip - _paddingHDip * 2 - _inset - portrait);
             _text.MaxWidth = cap;
+            _jumpLine.MaxWidth = cap;
             foreach (var copy in _outlineCopies) copy.MaxWidth = cap;
         }
 

@@ -47,7 +47,7 @@ internal static class OverlayChrome
     public const double BadgeGlyphSize = 12;
 
     // Quadrant-aware placement for a card/tip anchored to a small badge, clamped to the badge's own
-    // monitor work area. Shared by InfoFlyoutWindow and OverlayHoverTipWindow so a badge near a
+    // monitor work area. Used by InfoFlyoutWindow so a badge near a
     // screen edge can never push its popup off-screen.
     //
     // Quadrant-FIRST rather than a post-hoc overflow check against a measured width (which is fragile

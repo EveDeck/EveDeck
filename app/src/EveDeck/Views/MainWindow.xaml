@@ -1756,10 +1756,10 @@ Preview tiles shrink the whole client window. To read them better: raise UI Scal
                     <CheckBox Content="SP" IsChecked="{Binding InfoFlyoutShowSp}" Margin="0,0,14,0" ToolTip="Total skill points"/>
                     <CheckBox Content="Jump fatigue" IsChecked="{Binding InfoFlyoutShowFatigue}" ToolTip="Current jump fatigue / reactivation timer"/>
                   </WrapPanel>
-                  <CheckBox Content="Show jump fatigue / reactivation-timer badges on each preview"
+                  <CheckBox Content="Show jump fatigue / reactivation timers on the character label"
                             IsChecked="{Binding CornerOverlayShowJumpBadges}"
                             Margin="0,0,0,2"/>
-                  <TextBlock Text="Shows jump fatigue and reactivation cooldown badges on each preview. Requires the same ESI scopes as the info button above."
+                  <TextBlock Text="Adds a live jump fatigue / reactivation countdown line under the name on each preview's character label. Needs the character label switched on, and the same ESI scopes as the info button above."
                              TextWrapping="Wrap" FontSize="12" Margin="20,0,0,6"
                              Foreground="{StaticResource MutedBrush}"/>
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,2" VerticalAlignment="Center">
