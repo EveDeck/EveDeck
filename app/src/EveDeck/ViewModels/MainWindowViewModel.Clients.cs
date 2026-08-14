@@ -560,7 +560,7 @@ public sealed partial class MainWindowViewModel
                 // Rename the matched entry to the new character ONLY when that character isn't already
                 // assigned to this seat. On character-SET seats the switched-to alt has its own entry, so
                 // renaming this one would duplicate it and drop the alt that just logged off (the exact
-                // corruption that hit the <character>/<character> seats). Single-window seats (new char not in the
+                // corruption seen live on a pair of character-set seats). Single-window seats (new char not in the
                 // set) still follow a permanent relog. Display labels update live via UpdateLiveSeatCharacters.
                 var slot = Assignments.FirstOrDefault(a => a.AssignedWindows.Any(e => e.LastProcessId == window.ProcessId));
                 var entry = slot?.AssignedWindows.FirstOrDefault(e => e.LastProcessId == window.ProcessId);

@@ -40,18 +40,17 @@ public sealed partial class MainWindowViewModel
     private readonly Dictionary<string, string> _systemByCharacter = new(StringComparer.OrdinalIgnoreCase);
 
     // In abyssal space EVE writes the Local channel's system as literally "Unknown" instead of a
-    // name. This is NOT a system name -- storing it as one would read "<character> . Unknown" on the pill
-    // AND throw away the system they are about to pop back into, since a filament always returns you
-    // to the system you launched it from.
+    // name. This is NOT a system name -- storing it as one would read "<character> . Unknown" on the
+    // pill AND throw away the system they are about to pop back into, since a filament always returns
+    // you to the system you launched it from.
     //
-    // Measured against 7156 real Local chatlogs (2024-05 to 2026-08) before writing this:
-    //   * The abyss is the ONLY thing that produces it. Wormholes log their real J-signature
-    //     (<wormhole>, <wormhole>, <wormhole>, <wormhole>) and Pochven logs its real system names (18 visits:
-    //     <system>, <system>, Ala, <system>, <system>, Vale, <system>). Neither is ever "Unknown" --
-    //     both are named in the client's UI, and this string is simply what it writes when it has no
-    //     name to write.
-    //   * Every one of the 81 measurable "Unknown" stretches in the last two months fit inside the
-    //     abyss's 20-minute filament timer: min 2.6, mean 14.1, max 20.2 minutes, none longer.
+    // Measured against 7156 real Local chatlogs spanning 2024-05 to 2026-08 before writing this:
+    //   * The abyss is the ONLY thing that produces it. Wormholes log their real J-signature and
+    //     Pochven logs its real system names (18 visits across the sample); neither is ever
+    //     "Unknown". Both are named in the client's UI, and this string is simply what EVE writes
+    //     when it has no name to write.
+    //   * Every one of the 81 measurable "Unknown" stretches in the last two months of that sample
+    //     fit inside the abyss's 20-minute filament timer: min 2.6, mean 14.1, max 20.2 minutes.
     // That is why the neutral tag below exists anyway: "only thing observed" is not "only thing
     // possible", and ResolveUnnamedSpaceAsync degrades to a real system name for anything else.
     private const string LocalUnnamedSystem = "Unknown";

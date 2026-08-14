@@ -5,7 +5,7 @@ namespace EveDeck.Tests;
 
 // In abyssal space EVE writes the Local channel's system as literally "Unknown" rather than a name,
 // which used to land on the pill verbatim and overwrite the real system underneath it. The fix keeps
-// the last real system and hangs a state tag off it ("<system> (Abyss)"). These pin the two pieces of
+// the last real system and hangs a state tag off it ("Jita (Abyss)"). These pin the two pieces of
 // that which are pure functions: which system ids count as abyssal, and the pill colour staying with
 // the system rather than following the tag.
 public class UnnamedSpaceLocationTests
@@ -29,9 +29,9 @@ public class UnnamedSpaceLocationTests
     // palette exists to spot a straggler at a glance, and a colour flip on entering the abyss would
     // read as exactly that.
     [Theory]
-    [InlineData("<system>", "<system> (Abyss)")]
-    [InlineData("<system>", "<system> (?)")]
     [InlineData("Jita", "Jita (Abyss)")]
+    [InlineData("Jita", "Jita (?)")]
+    [InlineData("Amarr", "Amarr (Abyss)")]
     public void SystemColorHex_IgnoresTheStateTag(string plain, string tagged)
         => Assert.Equal(MainWindowViewModel.SystemColorHex(plain), MainWindowViewModel.SystemColorHex(tagged));
 
@@ -39,7 +39,7 @@ public class UnnamedSpaceLocationTests
     // hiding a real difference rather than ignoring noise.
     [Fact]
     public void SystemColorHex_StillSeparatesDifferentSystems()
-        => Assert.NotEqual(MainWindowViewModel.SystemColorHex("<system>"), MainWindowViewModel.SystemColorHex("Jita"));
+        => Assert.NotEqual(MainWindowViewModel.SystemColorHex("Amarr"), MainWindowViewModel.SystemColorHex("Jita"));
 
     [Fact]
     public void SystemColorHex_IsEmptyForNoSystem()
