@@ -2286,12 +2286,20 @@ Each row's value is colour-coded: damage out white, damage in red, logistics gre
                         <WrapPanel>
                           <CheckBox Content="Damage out" IsChecked="{Binding DpsShowDamageOut}" Margin="0,0,16,6" FontSize="12"/>
                           <CheckBox Content="Damage in" IsChecked="{Binding DpsShowDamageIn}" Margin="0,0,16,6" FontSize="12"/>
-                          <CheckBox Content="Logistics" IsChecked="{Binding DpsShowLogistics}" Margin="0,0,16,6" FontSize="12"
-                                    ToolTip="Remote armor, shield and hull you repair onto someone else. Repairs you RECEIVE are not counted - this row is your own output."/>
-                          <CheckBox Content="Cap warfare" IsChecked="{Binding DpsShowCapacitor}" Margin="0,0,16,6" FontSize="12"
-                                    ToolTip="Capacitor you transmit out, plus energy neutralized and drained with a nos."/>
+                          <CheckBox Content="Logistics out" IsChecked="{Binding DpsShowLogistics}" Margin="0,0,16,6" FontSize="12"
+                                    ToolTip="Remote armor, shield and hull you repair onto someone else - your own output."/>
+                          <CheckBox Content="Reps received" IsChecked="{Binding DpsShowLogisticsIn}" Margin="0,0,16,6" FontSize="12"
+                                    ToolTip="Remote armor and shield being repaired onto YOU by someone else. Shown as its own row rather than netted against your output, because repairing 300/s and being repaired 300/s are completely different situations that would both net to zero."/>
+                          <CheckBox Content="Cap transferred out" IsChecked="{Binding DpsShowCapTransferOut}" Margin="0,0,16,6" FontSize="12"
+                                    ToolTip="Capacitor you send to someone else with a remote capacitor transmitter."/>
+                          <CheckBox Content="Cap transferred in" IsChecked="{Binding DpsShowCapTransferIn}" Margin="0,0,16,6" FontSize="12"
+                                    ToolTip="Capacitor a fleet-mate is sending TO you. Kept separate from the neut rows because it moves cap the opposite way - netting the two would cancel a friendly cap chain against a hostile neut and show roughly nothing."/>
+                          <CheckBox Content="Neut/nos applied" IsChecked="{Binding DpsShowNeutOut}" Margin="0,0,16,6" FontSize="12"
+                                    ToolTip="Capacitor you neutralize or drain off a target with a neut or nos."/>
+                          <CheckBox Content="Cap lost to neut/nos" IsChecked="{Binding DpsShowNeutIn}" Margin="0,0,16,6" FontSize="12"
+                                    ToolTip="Capacitor being neutralized or drained off YOU. Turn this on to see cap pressure on a client that is getting capped out."/>
                           <CheckBox Content="Mining" IsChecked="{Binding DpsShowMining}" Margin="0,0,16,6" FontSize="12"
-                                    ToolTip="Ore mined, in UNITS per minute rather than m3. EVE's log records the units and the ore name but never its volume, so m3 would need a per-ore lookup table that silently goes wrong every time a new ore is added. Asteroid residue is excluded; critical mining successes are included."/>
+                                    ToolTip="Ore mined, in m3 per minute. EVE's log records units and the ore name but never its volume, so EveDeck converts using a built-in per-ore volume table. An ore missing from that table falls back to 0.1 m3 per unit and its name is written to the log so it can be corrected. Asteroid residue is excluded; critical mining successes are included."/>
                         </WrapPanel>
                       </StackPanel>
                     </Border>

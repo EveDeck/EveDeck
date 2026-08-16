@@ -309,8 +309,32 @@ public sealed class AppSettings
     public bool DpsShowDamageOut { get; set; } = true;
     public bool DpsShowDamageIn { get; set; } = true;
     public bool DpsShowLogistics { get; set; } = false;
-    public bool DpsShowCapacitor { get; set; } = false;
     public bool DpsShowMining { get; set; } = false;
+
+    // Cap transfer (remote capacitor transmitter) is kept apart from neut/nos on purpose: they move
+    // capacitor in opposite directions and mean opposite things, so a single "cap" figure would net
+    // a fleet-mate topping you up against a hostile draining you down to roughly nothing.
+    public bool DpsShowCapTransferOut { get; set; } = false;
+    public bool DpsShowCapTransferIn { get; set; } = false;
+    public bool DpsShowNeutOut { get; set; } = false;
+
+    // The receiving side of remote effects. Separate rows rather than netted against the outgoing
+    // ones: "I am repairing 300/s" and "I am being repaired 300/s" are completely different
+    // situations, and a single net figure of zero would describe both.
+    //
+    // Incoming cap warfare in particular was invisible until 2026-08-16: EVE writes direction into
+    // the line's COLOUR, and being neutralized says the same "energy neutralized" as neutralizing
+    // someone, so a client getting capped out showed an entirely empty panel.
+    // "Being neuted" defaults ON while its outgoing twin defaults off, which looks inconsistent but
+    // is the point: for a parked alt you are NOT looking at, cap pressure arriving is exactly the
+    // thing you need surfaced, whereas cap you are projecting is something you already know about
+    // because you are the one doing it. It costs nothing while idle -- the row reads zero and the
+    // hide-while-idle check now judges on enabled rows, so the panel stays hidden.
+    //
+    // Reps received stays off by default: in a logi-heavy fleet it is thousands of lines a minute
+    // and reads as noise rather than signal.
+    public bool DpsShowLogisticsIn { get; set; } = false;
+    public bool DpsShowNeutIn { get; set; } = true;
 
     // Hide the whole panel while every enabled row reads zero, so idle tiles stay clean instead of
     // carrying a permanent block of noughts over the preview.

@@ -29,6 +29,13 @@ public sealed partial class MainWindowViewModel
     private const string DpsLogiColor  = "#4ADE80";
     private const string DpsCapColor   = "#22D3EE";
     private const string DpsMiningColor = "#FBBF24";
+    // Received effects are dimmer variants of the outgoing colour: same meaning, other direction.
+    private const string DpsLogiInColor = "#86EFAC";
+    private const string DpsCapInColor  = "#67E8F9";
+    // Neut/nos is cap being destroyed rather than moved, so it gets its own hue entirely -- reading it
+    // as a shade of the cap-transfer colour would suggest the two are the same effect.
+    private const string DpsNeutOutColor = "#C084FC";
+    private const string DpsNeutInColor  = "#F0ABFC";
 
     private void StartDpsMeter()
     {
@@ -75,6 +82,7 @@ public sealed partial class MainWindowViewModel
         {
             _dpsMeter.WindowSeconds = _settings.DpsWindowSeconds;
             _dpsMeter.Tick(now);
+            ReportUnknownOres();
         }
 
         var style = CurrentDpsPanelStyle();
@@ -91,13 +99,33 @@ public sealed partial class MainWindowViewModel
             DpsReading reading;
             lock (_dpsMeter) reading = _dpsMeter.GetReading(character);
 
-            if (_settings.DpsHideWhenIdle && reading.IsIdle)
+            // Idleness is judged on the ENABLED rows, not on the whole reading. Judging it on the
+            // reading meant a client being neuted or repped un-hid a panel whose every visible row
+            // still read zero, because the rows carrying that data were switched off -- a panel of
+            // noughts appearing for no visible reason, which is worse than staying hidden.
+            var rows = BuildDpsRows(reading, out var anyNonZero);
+            if (_settings.DpsHideWhenIdle && !anyNonZero)
             {
                 _labelSurface.ClearDpsPanel(position);
                 continue;
             }
 
-            _labelSurface.SetDpsPanel(position, rect, BuildDpsRows(reading), style);
+            _labelSurface.SetDpsPanel(position, rect, rows, style);
+        }
+    }
+
+    // An ore with no volume-table entry is converted at a fallback rate, which would otherwise be an
+    // invisible approximation sitting inside a number the user reads as exact. Logged once per ore
+    // per session so the table can be corrected rather than quietly drifting.
+    private readonly HashSet<string> _reportedUnknownOres = new(StringComparer.OrdinalIgnoreCase);
+
+    private void ReportUnknownOres()
+    {
+        foreach (var ore in _dpsMeter.UnknownOres)
+        {
+            if (!_reportedUnknownOres.Add(ore)) continue;
+            Log.Warn($"Mining: no volume on record for '{ore}', converting at 0.1 m3 per unit. "
+                   + "The m3 figure for that ore is an estimate until its volume is added.");
         }
     }
 
@@ -187,16 +215,35 @@ public sealed partial class MainWindowViewModel
         set { if (_settings.DpsPanelOutline == value) return; _settings.DpsPanelOutline = value; OnPropertyChanged(); Save(); }
     }
 
-    private List<DpsPanelRow> BuildDpsRows(DpsReading reading)
+    // `anyNonZero` reports whether any ENABLED row actually carries a value, which is what the
+    // hide-while-idle decision has to be made on -- see OnDpsTick.
+    private List<DpsPanelRow> BuildDpsRows(DpsReading reading, out bool anyNonZero)
     {
-        var rows = new List<DpsPanelRow>(5);
-        if (_settings.DpsShowDamageOut) rows.Add(new DpsPanelRow("OUT", FormatRate(reading.DamageOut), DpsOutColor));
-        if (_settings.DpsShowDamageIn) rows.Add(new DpsPanelRow("IN", FormatRate(reading.DamageIn), DpsInColor));
-        if (_settings.DpsShowLogistics) rows.Add(new DpsPanelRow("LOGI", FormatRate(reading.Logistics), DpsLogiColor));
-        if (_settings.DpsShowCapacitor) rows.Add(new DpsPanelRow("CAP", FormatRate(reading.Capacitor), DpsCapColor));
-        // Mining is per MINUTE, not per second -- labelled "ORE" with a /m suffix so the different
-        // timescale is visible in the panel rather than being a silent inconsistency between rows.
-        if (_settings.DpsShowMining) rows.Add(new DpsPanelRow("ORE", FormatRate(reading.MiningUnitsPerMinute) + "/m", DpsMiningColor));
+        var rows = new List<DpsPanelRow>(7);
+        var sawValue = false;   // a local function cannot capture an out parameter
+
+        void Add(bool enabled, string label, double value, string color, string suffix = "")
+        {
+            if (!enabled) return;
+            if (value > 0) sawValue = true;
+            rows.Add(new DpsPanelRow(label, FormatRate(value) + suffix, color));
+        }
+
+        Add(_settings.DpsShowDamageOut, "OUT", reading.DamageOut, DpsOutColor);
+        Add(_settings.DpsShowDamageIn, "IN", reading.DamageIn, DpsInColor);
+        Add(_settings.DpsShowLogistics, "LOGI", reading.Logistics, DpsLogiColor);
+        Add(_settings.DpsShowLogisticsIn, "REPD", reading.LogisticsIn, DpsLogiInColor);
+        Add(_settings.DpsShowCapTransferOut, "CAP+", reading.CapTransferOut, DpsCapColor);
+        Add(_settings.DpsShowCapTransferIn, "CAP-", reading.CapTransferIn, DpsCapInColor);
+        // "NEUT" rather than "CAP OUT/IN": neut and nos take cap AWAY, which is the opposite of what
+        // a cap transfer does, so they must never share a label with it.
+        Add(_settings.DpsShowNeutOut, "NEUT", reading.NeutOut, DpsNeutOutColor);
+        Add(_settings.DpsShowNeutIn, "NEUTD", reading.NeutIn, DpsNeutInColor);
+        // Mining is m3 per MINUTE, not per second -- the "/m" suffix keeps that different timescale
+        // visible in the panel rather than leaving it a silent inconsistency between rows.
+        Add(_settings.DpsShowMining, "ORE", reading.MiningM3PerMinute, DpsMiningColor, "/m");
+
+        anyNonZero = sawValue;
         return rows;
     }
 
@@ -250,16 +297,40 @@ public sealed partial class MainWindowViewModel
         set { if (_settings.DpsShowLogistics == value) return; _settings.DpsShowLogistics = value; OnPropertyChanged(); Save(); }
     }
 
-    public bool DpsShowCapacitor
+    public bool DpsShowCapTransferOut
     {
-        get => _settings.DpsShowCapacitor;
-        set { if (_settings.DpsShowCapacitor == value) return; _settings.DpsShowCapacitor = value; OnPropertyChanged(); Save(); }
+        get => _settings.DpsShowCapTransferOut;
+        set { if (_settings.DpsShowCapTransferOut == value) return; _settings.DpsShowCapTransferOut = value; OnPropertyChanged(); Save(); }
+    }
+
+    public bool DpsShowCapTransferIn
+    {
+        get => _settings.DpsShowCapTransferIn;
+        set { if (_settings.DpsShowCapTransferIn == value) return; _settings.DpsShowCapTransferIn = value; OnPropertyChanged(); Save(); }
+    }
+
+    public bool DpsShowNeutOut
+    {
+        get => _settings.DpsShowNeutOut;
+        set { if (_settings.DpsShowNeutOut == value) return; _settings.DpsShowNeutOut = value; OnPropertyChanged(); Save(); }
     }
 
     public bool DpsShowMining
     {
         get => _settings.DpsShowMining;
         set { if (_settings.DpsShowMining == value) return; _settings.DpsShowMining = value; OnPropertyChanged(); Save(); }
+    }
+
+    public bool DpsShowLogisticsIn
+    {
+        get => _settings.DpsShowLogisticsIn;
+        set { if (_settings.DpsShowLogisticsIn == value) return; _settings.DpsShowLogisticsIn = value; OnPropertyChanged(); Save(); }
+    }
+
+    public bool DpsShowNeutIn
+    {
+        get => _settings.DpsShowNeutIn;
+        set { if (_settings.DpsShowNeutIn == value) return; _settings.DpsShowNeutIn = value; OnPropertyChanged(); Save(); }
     }
 
     public bool DpsHideWhenIdle

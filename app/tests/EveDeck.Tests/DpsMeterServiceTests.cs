@@ -7,12 +7,17 @@ public class DpsMeterServiceTests
 {
     private static readonly DateTime BaseTime = new(2026, 8, 16, 12, 0, 0, DateTimeKind.Utc);
 
+    // Real EVE damage markup, not a minimal string that merely satisfies a regex. Direction lives in
+    // the COLOUR (ff00ffff out / ffcc0000 in), which is what the parser keys on -- an invented shape
+    // would pass these arithmetic tests while telling us nothing about whether the parser matches the
+    // actual game. See DpsMeterRealLogShapeTests for the rest of the verbatim shapes.
     private static string Line(DateTime time, int damage, bool outbound)
     {
-        string stamp = time.ToString("yyyy.MM.dd HH:mm:ss");
-        string direction = outbound ? "to" : "from";
-        string color = outbound ? "0xffffffff" : "0xffcc0000";
-        return $"[ {stamp} ] (combat) <color=0xff00ffff><b>{damage}</b><color={color}><font size=10>{direction}<b>Some Target</b>";
+        var stamp = time.ToString("yyyy.MM.dd HH:mm:ss");
+        var direction = outbound ? "to" : "from";
+        var color = outbound ? "0xff00ffff" : "0xffcc0000";
+        return $"[ {stamp} ] (combat) <color={color}><b>{damage}</b> <color=0x77ffffff><font size=10>{direction}</font> "
+             + "<b><color=0xffffffff>Target Frigate</b><font size=10><color=0x77ffffff> - Hits";
     }
 
     [Fact]
@@ -67,17 +72,20 @@ public class DpsMeterServiceTests
         Assert.True(reading.IsIdle);
     }
 
+    // The colour is authoritative, not the words. A damage-IN line names the attacker, and that name
+    // can itself contain "to" -- keying on stray text instead of the colour is how a line gets filed
+    // under the wrong direction.
     [Fact]
-    public void Ingest_LineMatchingBothPatterns_TakesDamageOut()
+    public void Ingest_ColorDecidesDirectionNotStrayTextInTheName()
     {
-        // Constructed so both "to" and "from" markers exist -- damage-out must win.
         var svc = new DpsMeterService(10);
-        string line = $"[ {BaseTime:yyyy.MM.dd HH:mm:ss} ] (combat) <color=0xff00ffff><b>77</b><color=0xffffffff><font size=10>to<b>Ship</b>from<b>Other</b>";
+        var line = $"[ {BaseTime:yyyy.MM.dd HH:mm:ss} ] (combat) <color=0xffcc0000><b>77</b> <color=0x77ffffff>"
+                 + "<font size=10>from</font> <b><color=0xffffffff>Protoceratops</b><font size=10> - Hits";
         svc.Ingest("Pilot", line, BaseTime);
 
         DpsReading reading = svc.GetReading("Pilot");
-        Assert.Equal(7.7, reading.DamageOut);
-        Assert.Equal(0.0, reading.DamageIn);
+        Assert.Equal(7.7, reading.DamageIn);
+        Assert.Equal(0.0, reading.DamageOut);
     }
 
     [Fact]
