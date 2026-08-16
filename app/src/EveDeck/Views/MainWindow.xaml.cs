@@ -821,6 +821,27 @@ public partial class MainWindow : Window
             _viewModel.ApplyGlobalMasterLabelFont(f, s, c);
     }
 
+    private void DpsPanelFontPick_Click(object sender, RoutedEventArgs e)
+    {
+        var (family, sizeDip, color) = _viewModel.GlobalDpsPanelFont();
+        if (TryPickFont(family, sizeDip, color, out var f, out var s, out var c))
+            _viewModel.ApplyDpsPanelFont(f, s, c);
+    }
+
+    private void DpsPanelBackgroundColorPick_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true };
+        try
+        {
+            var current = (Color)System.Windows.Media.ColorConverter.ConvertFromString(_viewModel.DpsPanelBackgroundColor);
+            dialog.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
+        }
+        catch { /* keep dialog's default color if the stored hex fails to parse */ }
+
+        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        _viewModel.DpsPanelBackgroundColor = ColorToHex(dialog.Color);
+    }
+
     private void MasterLabelFontReset_Click(object sender, RoutedEventArgs e)
         => _viewModel.ResetGlobalMasterLabelFont();
 

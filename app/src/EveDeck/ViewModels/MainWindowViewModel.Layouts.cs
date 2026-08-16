@@ -153,10 +153,39 @@ public sealed partial class MainWindowViewModel
             // NB: settings fallback (not ActiveMasterSeat) — ActiveMasterSeat calls back here, so using
             // it would recurse when a profile exists but has no slots.
             if (SelectedProfile is null || SelectedProfile.Slots.Count == 0) return _settings.MasterSlotNumber;
-            return SelectedProfile.Slots
-                .OrderByDescending(s => (long)s.Width * s.Height)
-                .First().SlotNumber;
+            return PickCenterSlot(SelectedProfile.Slots) ?? _settings.MasterSlotNumber;
         }
+    }
+
+    // Picks the slot that acts as the master/centre rect for a set of slots: the biggest one, with ties
+    // broken by proximity to the layout's own centre.
+    //
+    // Plain area order alone is not enough for UNIFORM layouts. PopulateGridSlots hands the last column
+    // and last row the integer-division remainder, so a 3x3 at 2560x1440 leaves three cells tied at
+    // 854x480 against six at 853x480 -- and taking the first of those made the TOP-RIGHT cell the master
+    // off a one-pixel rounding artifact. Layouts with a genuinely dominant master (Center Master, Whammy,
+    // Side/Twin Stack) are unaffected: nothing else comes anywhere near their master's area.
+    internal static int? PickCenterSlot(IEnumerable<LayoutSlot> slots)
+    {
+        var list = slots as IList<LayoutSlot> ?? slots.ToList();
+        if (list.Count == 0) return null;
+
+        var maxArea = list.Max(s => (long)s.Width * s.Height);
+        if (maxArea <= 0) return list[0].SlotNumber;
+
+        // Within 1% of the largest counts as tied -- well above the few-pixel remainder skew, and well
+        // below any real size gap between a master rect and the tiles around it.
+        var tied = list.Where(s => (long)s.Width * s.Height >= maxArea * 99 / 100).ToList();
+        if (tied.Count == 1) return tied[0].SlotNumber;
+
+        // Ties go to the slot nearest the layout's centroid, then to the lowest slot number so that
+        // symmetric layouts (an even grid has no true centre cell) still resolve deterministically.
+        var midX = (list.Min(s => s.X) + list.Max(s => s.X + s.Width)) / 2.0;
+        var midY = (list.Min(s => s.Y) + list.Max(s => s.Y + s.Height)) / 2.0;
+        return tied
+            .OrderBy(s => Math.Pow(s.X + (s.Width / 2.0) - midX, 2) + Math.Pow(s.Y + (s.Height / 2.0) - midY, 2))
+            .ThenBy(s => s.SlotNumber)
+            .First().SlotNumber;
     }
 
     // The MASTER is a SEAT (character/account), not a position: whichever seat the user designated as

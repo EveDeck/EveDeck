@@ -11,6 +11,13 @@ public sealed partial class MainWindowViewModel
 
     private void RebuildLayoutPreview()
     {
+        // Raised up here, ahead of the empty-profile early return below, so the readout still updates
+        // when a profile loses its slots. Every path that changes profile geometry or selection ends up
+        // calling this, which makes it the one reliable place to refresh the preview/flat mode readout.
+        OnPropertyChanged(nameof(LayoutModeSummary));
+        OnPropertyChanged(nameof(LayoutModeWarning));
+        OnPropertyChanged(nameof(HasLayoutModeWarning));
+
         LayoutPreviewSlots.Clear();
         if (SelectedProfile is null || SelectedProfile.Slots.Count == 0) return;
 

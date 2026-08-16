@@ -292,6 +292,55 @@ public sealed class AppSettings
     // corner-overlay labels.
     public bool CornerOverlayShowSystem { get; set; } = true;
 
+    // Rolling damage-per-second readout on the pill's second line, computed from the same gamelogs
+    // GameLogWatcherService already tails for combat alerts. OFF by default and deliberately so:
+    // EveDeck is a window manager, and a damage meter is adjacent to that rather than part of it, so
+    // it stays something you turn on rather than something every user is handed. Purely passive log
+    // reading -- no input is ever sent to EVE. See COMPLIANCE.md.
+    public bool CornerOverlayShowDps { get; set; } = false;
+
+    // Averaging window for the readout above, in seconds. 10s matches the convention EVE damage
+    // meters have settled on: long enough to ride out reload and tracking gaps, short enough that a
+    // change in what you are shooting shows up while it still matters.
+    public int DpsWindowSeconds { get; set; } = 10;
+
+    // Which rows the panel draws. Damage is on by default because that is what "DPS meter" means to
+    // most people; the rest are opt-in so a solo PvE pilot is not handed four rows of permanent zeroes.
+    public bool DpsShowDamageOut { get; set; } = true;
+    public bool DpsShowDamageIn { get; set; } = true;
+    public bool DpsShowLogistics { get; set; } = false;
+    public bool DpsShowCapacitor { get; set; } = false;
+    public bool DpsShowMining { get; set; } = false;
+
+    // Hide the whole panel while every enabled row reads zero, so idle tiles stay clean instead of
+    // carrying a permanent block of noughts over the preview.
+    public bool DpsHideWhenIdle { get; set; } = true;
+
+    // Placement WITHIN the tile, same 3x3 vocabulary as CornerOverlayLabelAnchor (see
+    // LabelSurfaceWindow.ParseAnchor). Defaults to the bottom-right so it stays clear of the
+    // character pill, which centers by default.
+    public string DpsPanelAnchor { get; set; } = "BottomRight";
+    public int DpsPanelInset { get; set; } = 6;
+
+    // Overall size multiplier for the panel. Independent of CornerOverlayChromeScale because the
+    // panel is dense text that often wants to be smaller than the rest of the chrome, not larger.
+    public double DpsPanelScale { get; set; } = 1.0;
+
+    // Typography, set through the same font+colour dialog the character labels use (see
+    // MainWindow.TryPickFont), so this section behaves like every other text block in the app.
+    // Segoe UI is the default rather than the shipped label font (Acens): this panel is nothing but
+    // digits, and a display face reads badly at that job. It is only a default, not a lock.
+    public string DpsPanelFontFamily { get; set; } = "Segoe UI";
+    public double DpsPanelFontSize { get; set; } = 11.0;
+    public string DpsPanelTextColor { get; set; } = "#E5E7EB";
+    public bool DpsPanelBold { get; set; } = true;
+    public bool DpsPanelItalic { get; set; } = false;
+    public bool DpsPanelDropShadow { get; set; } = true;
+    public bool DpsPanelOutline { get; set; } = false;
+    public string DpsPanelBackgroundColor { get; set; } = "#0B0F17";
+    public int DpsPanelBackgroundOpacity { get; set; } = 60;
+    public int DpsPanelCornerRadius { get; set; } = 6;
+
     // Once every seat has been simultaneously offline (no live window for any seat) for this many
     // seconds, the corner overlay tears itself down instead of leaving a wall of stale "Name ·
     // offline" pills on screen after the whole session has ended. 0 = never auto-teardown.

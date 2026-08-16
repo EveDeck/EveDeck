@@ -809,6 +809,64 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private string SeatLabelFor(int slotNumber)
         => Assignments.FirstOrDefault(a => a.SlotNumber == slotNumber)?.DisplayLabel ?? $"Slot {slotNumber}";
 
+    // EVE will not run its client window below roughly this size; it clamps or ignores the resize.
+    private const int MinUsableClientWidth = 1024;
+    private const int MinUsableClientHeight = 768;
+
+    // One authoritative answer to "will this profile show live previews or real windows, and why".
+    // Which of the two apply paths runs (ApplyCornerOverlayLayout vs ApplyLayout) was previously
+    // invisible in the UI -- it is decided at apply time from SupportsCornerGrid plus the global
+    // toggle, so someone picking a dense Grid had no way to tell that all but one of their clients
+    // would be thumbnails rather than live windows.
+    public string LayoutModeSummary
+    {
+        get
+        {
+            if (SelectedProfile is null || SelectedProfile.Slots.Count == 0) return "";
+            var n = SelectedProfile.Slots.Count;
+
+            if (!SelectedProfile.SupportsCornerGrid)
+                return $"Flat mode - all {n} clients render live. Previews need slots at two or more "
+                     + "distinct positions; every slot in this layout sits at the same one.";
+
+            if (!CornerOverlaysEnabled)
+                return $"Flat mode - all {n} clients render live, each resized to its own slot. Turn on "
+                     + $"\"Enable live previews\" in Options > Previews to render the master live and the "
+                     + $"other {n - 1} as preview thumbnails instead.";
+
+            return $"Preview mode - the master seat renders live in slot {CenterSlotNumber}; the other "
+                 + $"{n - 1} are live preview thumbnails, and their clients park off-screen at master "
+                 + "resolution. This is the EVE-O Preview style arrangement.";
+        }
+    }
+
+    // Flat mode resizes each client to its OWN slot rect, so a dense flat layout quietly asks for
+    // windows smaller than EVE will accept -- the clients clamp, overlap, and the layout looks broken
+    // with nothing explaining why. Preview mode is immune: every client sits at master resolution.
+    public string LayoutModeWarning
+    {
+        get
+        {
+            if (SelectedProfile is null || SelectedProfile.Slots.Count == 0) return "";
+            if (SelectedProfile.SupportsCornerGrid && CornerOverlaysEnabled) return "";
+
+            var tooSmall = SelectedProfile.Slots
+                .Select(ResolvePlacementRect)
+                .Where(r => r.Width < MinUsableClientWidth || r.Height < MinUsableClientHeight)
+                .ToList();
+            if (tooSmall.Count == 0) return "";
+
+            var smallest = tooSmall.OrderBy(r => (long)r.Width * r.Height).First();
+            return $"Warning: {tooSmall.Count} of this layout's {SelectedProfile.Slots.Count} slots are "
+                 + $"smaller than EVE's minimum window size ({MinUsableClientWidth}x{MinUsableClientHeight}); "
+                 + $"the smallest is {smallest.Width}x{smallest.Height}. In flat mode those clients are "
+                 + "resized to fit and EVE will clamp them, so they will overlap. Use live previews for "
+                 + "this many clients, or a layout with fewer slots.";
+        }
+    }
+
+    public bool HasLayoutModeWarning => LayoutModeWarning.Length > 0;
+
     public ObservableCollection<LayoutSlot>? ActiveProfileSlots => SelectedProfile?.Slots;
     public bool SelectedProfileIsBuiltIn => SelectedProfile?.IsBuiltIn == true;
     public bool SelectedProfileIsFamilyTemplate => SelectedProfile?.IsFamilyTemplate == true;
@@ -1198,6 +1256,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _settings.CornerOverlaysEnabled = value;
             OnPropertyChanged();
             UpdatePositionCodes();
+            // This toggle is half of what decides preview vs flat mode, so the Layouts-tab readout
+            // has to follow it -- otherwise it keeps advertising the mode that was in effect before.
+            RebuildLayoutPreview();
             if (!value) StopCornerOverlays();
             Save();
         }

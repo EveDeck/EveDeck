@@ -26,6 +26,29 @@ internal enum LabelAnchorY { Top, Middle, Bottom }
 
 internal readonly record struct LabelAnchor(LabelAnchorX X, LabelAnchorY Y);
 
+// One formatted line of the DPS panel, e.g. ("OUT", "1.2k"). The caller formats both halves; the
+// panel only lays them out. AccentHex colours the value (damage in reads red, logi green, and so on)
+// while the label stays muted, so the eye lands on the number.
+internal readonly record struct DpsPanelRow(string Label, string Value, string AccentHex);
+
+// Everything user-configurable about the panel's look, resolved from AppSettings by the caller so
+// this window never reaches into settings itself (it is constructed once per overlay rebuild and
+// would otherwise go stale).
+internal readonly record struct DpsPanelStyle(
+    LabelAnchor Anchor,
+    double Inset,
+    double Scale,
+    string FontFamily,
+    double FontSize,
+    string TextColorHex,
+    bool Bold,
+    bool Italic,
+    bool DropShadow,
+    bool Outline,
+    string BackgroundColorHex,
+    int BackgroundOpacity,
+    int CornerRadius);
+
 // One transparent, click-through window that draws EVERY character-name label ("pill") for the
 // corner layout. Replaces the old one-PillOverlay-window-per-label design.
 //
@@ -43,6 +66,7 @@ internal sealed class LabelSurfaceWindow : Window
     private readonly Canvas _canvas = new();
     private readonly Dictionary<int, PillElement> _pills = new();
     private readonly Dictionary<int, AlertGlowElement> _glows = new();
+    private readonly Dictionary<int, DpsPanelElement> _dpsPanels = new();
     private readonly Dictionary<int, Border> _infoButtons = new();
     private readonly int _physX, _physY, _physWidth, _physHeight;
     private readonly double _dpiScale;
@@ -317,6 +341,42 @@ internal sealed class LabelSurfaceWindow : Window
         glow.Stop();
         _canvas.Children.Remove(glow.Container);
         _glows.Remove(key);
+    }
+
+    // -- DPS panel ------------------------------------------------------------------------------
+
+    // A small PELD-style readout anchored inside a tile. Keyed by position id like everything else
+    // here, and drawn on this surface (not the tile surface) for the same reason the pills are: DWM
+    // thumbnails always composite above their destination window's own content, so anything drawn on
+    // the tile surface would be hidden behind the live preview.
+    //
+    // `rows` is already formatted by the caller -- it owns the numbers, the units and the rounding.
+    // An empty list clears the panel, which is how "hide while idle" is expressed.
+    public void SetDpsPanel(int key, WindowRect physRect, IReadOnlyList<DpsPanelRow> rows, DpsPanelStyle style)
+    {
+        if (rows.Count == 0) { ClearDpsPanel(key); return; }
+
+        if (!_dpsPanels.TryGetValue(key, out var panel))
+        {
+            panel = new DpsPanelElement();
+            _dpsPanels[key] = panel;
+            _canvas.Children.Add(panel.Container);
+        }
+        panel.Update(rows, style);
+        panel.Place(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height, _dpiScale, style);
+    }
+
+    public void ClearDpsPanel(int key)
+    {
+        if (!_dpsPanels.TryGetValue(key, out var panel)) return;
+        _canvas.Children.Remove(panel.Container);
+        _dpsPanels.Remove(key);
+    }
+
+    public void ClearAllDpsPanels()
+    {
+        foreach (var panel in _dpsPanels.Values) _canvas.Children.Remove(panel.Container);
+        _dpsPanels.Clear();
     }
 
     // -- One label: a tile-width strip with a centered chip (or portrait + name) inside -------------
@@ -843,6 +903,196 @@ internal sealed class LabelSurfaceWindow : Window
             }
             catch { /* fall through to the style default */ }
             return new SolidColorBrush(fallback);
+        }
+    }
+
+    // -- One DPS panel: a small stat block anchored inside a tile --------------------------------
+
+    // The rough equivalent of PELD's window, per character, drawn as part of the overlay instead of
+    // as a separate always-on-top process to babysit. Text rows only, deliberately: a live graph on a
+    // layered per-pixel-alpha surface redrawn across N tiles is the shape of the redraw pressure that
+    // has bitten this overlay before, and at tile size a graph reads as noise anyway.
+    private sealed class DpsPanelElement
+    {
+        public readonly Grid Container = new() { IsHitTestVisible = false };
+        private readonly Border _panel = new() { IsHitTestVisible = false };
+        private readonly Grid _rows = new();
+
+        // Last rendered content, so the once-a-second tick can bail out without rebuilding the row
+        // grid when nothing actually changed. The values move constantly in combat but sit still the
+        // rest of the time, which is when the overlay can least afford pointless layout passes.
+        private string _contentKey = "";
+        private string _styleKey = "";
+
+        public DpsPanelElement()
+        {
+            _panel.Child = _rows;
+            Container.Children.Add(_panel);
+        }
+
+        public void Update(IReadOnlyList<DpsPanelRow> rows, DpsPanelStyle style)
+        {
+            var contentKey = string.Join("", rows.Select(r => $"{r.Label}{r.Value}{r.AccentHex}"));
+            var styleKey = $"{style.Scale}|{style.FontFamily}|{style.FontSize}|{style.TextColorHex}|"
+                         + $"{style.Bold}|{style.Italic}|{style.DropShadow}|{style.Outline}|"
+                         + $"{style.BackgroundColorHex}|{style.BackgroundOpacity}|{style.CornerRadius}";
+            if (contentKey == _contentKey && styleKey == _styleKey) return;
+
+            _contentKey = contentKey;
+            _styleKey = styleKey;
+
+            var scale = Math.Clamp(style.Scale, 0.4, 4.0);
+            var fontSize = Math.Max(6.0, style.FontSize * scale);
+            var pad = Math.Max(2.0, 5.0 * scale);
+            var family = ResolveFamily(style.FontFamily);
+            var weight = style.Bold ? FontWeights.Bold : FontWeights.SemiBold;
+            var slant = style.Italic ? FontStyles.Italic : FontStyles.Normal;
+
+            _panel.Background = BrushFrom(style.BackgroundColorHex, Color.FromRgb(0x0B, 0x0F, 0x17),
+                Math.Clamp(style.BackgroundOpacity, 0, 100) / 100.0);
+            _panel.CornerRadius = new CornerRadius(Math.Max(0, style.CornerRadius) * scale);
+            _panel.Padding = new Thickness(pad * 1.6, pad, pad * 1.6, pad);
+
+            var labelBrush = BrushFrom(style.TextColorHex, Color.FromRgb(0xE5, 0xE7, 0xEB), 0.65);
+
+            _rows.Children.Clear();
+            _rows.RowDefinitions.Clear();
+            if (_rows.ColumnDefinitions.Count == 0)
+            {
+                _rows.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                _rows.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            }
+
+            for (var i = 0; i < rows.Count; i++)
+            {
+                _rows.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                // Always Segoe UI, never the pill's configured display face: this block is dense
+                // digits, and the shipped default label font (Acens) is unreadable at that job.
+                var label = new TextBlock
+                {
+                    Text = rows[i].Label,
+                    FontFamily = family,
+                    FontSize = fontSize * 0.85,
+                    FontWeight = FontWeights.SemiBold,
+                    FontStyle = slant,
+                    Foreground = labelBrush,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, pad * 1.8, 0),
+                };
+                var value = new TextBlock
+                {
+                    Text = rows[i].Value,
+                    FontFamily = family,
+                    FontSize = fontSize,
+                    FontWeight = weight,
+                    FontStyle = slant,
+                    Foreground = BrushFrom(rows[i].AccentHex, Color.FromRgb(0xE5, 0xE7, 0xEB), 1.0),
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                if (style.DropShadow)
+                {
+                    // Legible over bright video without needing a heavier backdrop.
+                    value.Effect = new System.Windows.Media.Effects.DropShadowEffect
+                    {
+                        Color = Colors.Black, BlurRadius = 3, ShadowDepth = 0, Opacity = 0.9,
+                    };
+                }
+
+                var valueCell = style.Outline ? WithOutline(value) : (FrameworkElement)value;
+
+                Grid.SetRow(label, i);
+                Grid.SetColumn(label, 0);
+                Grid.SetRow(valueCell, i);
+                Grid.SetColumn(valueCell, 1);
+                _rows.Children.Add(label);
+                _rows.Children.Add(valueCell);
+            }
+        }
+
+        // WPF cannot stroke text, so an outline is eight offset black copies stacked behind the real
+        // one -- the same trick PillElement uses, kept identical so a user who outlines their
+        // character labels gets a matching look here rather than a subtly different one.
+        private static FrameworkElement WithOutline(TextBlock value)
+        {
+            var stack = new Grid { HorizontalAlignment = HorizontalAlignment.Right };
+            var d = Math.Max(1.0, value.FontSize / 12.0);
+            foreach (var (dx, dy) in new[]
+                     {
+                         (-d, -d), (0.0, -d), (d, -d),
+                         (-d, 0.0),           (d, 0.0),
+                         (-d,  d), (0.0,  d), (d,  d),
+                     })
+            {
+                stack.Children.Add(new TextBlock
+                {
+                    Text = value.Text,
+                    FontFamily = value.FontFamily,
+                    FontSize = value.FontSize,
+                    FontWeight = value.FontWeight,
+                    FontStyle = value.FontStyle,
+                    Foreground = Brushes.Black,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    RenderTransform = new TranslateTransform(dx, dy),
+                });
+            }
+            stack.Children.Add(value);
+            return stack;
+        }
+
+        // Falls back to Segoe UI for an empty or unresolvable family. This panel is dense digits, so
+        // an unavailable font quietly substituting something decorative would read worse than a
+        // plain known-good default.
+        private static FontFamily ResolveFamily(string family)
+        {
+            if (string.IsNullOrWhiteSpace(family)) return new FontFamily("Segoe UI");
+            try { return new FontFamily(family); }
+            catch { return new FontFamily("Segoe UI"); }
+        }
+
+        // Container spans the whole tile; the anchor then reduces to an alignment of the panel inside
+        // it, which keeps this to two switches instead of nine placement cases.
+        public void Place(int x, int y, int width, int height, double dpiScale, DpsPanelStyle style)
+        {
+            Canvas.SetLeft(Container, x / dpiScale);
+            Canvas.SetTop(Container, y / dpiScale);
+            Container.Width = width / dpiScale;
+            Container.Height = height / dpiScale;
+
+            var inset = Math.Max(0, style.Inset) * Math.Clamp(style.Scale, 0.4, 4.0);
+
+            _panel.HorizontalAlignment = style.Anchor.X switch
+            {
+                LabelAnchorX.Left  => HorizontalAlignment.Left,
+                LabelAnchorX.Right => HorizontalAlignment.Right,
+                _                  => HorizontalAlignment.Center,
+            };
+            _panel.VerticalAlignment = style.Anchor.Y switch
+            {
+                LabelAnchorY.Top    => VerticalAlignment.Top,
+                LabelAnchorY.Bottom => VerticalAlignment.Bottom,
+                _                   => VerticalAlignment.Center,
+            };
+            // A centered axis needs no inset; applying one there would shift the panel off-center.
+            _panel.Margin = new Thickness(
+                style.Anchor.X == LabelAnchorX.Left ? inset : 0,
+                style.Anchor.Y == LabelAnchorY.Top ? inset : 0,
+                style.Anchor.X == LabelAnchorX.Right ? inset : 0,
+                style.Anchor.Y == LabelAnchorY.Bottom ? inset : 0);
+        }
+
+        private static SolidColorBrush BrushFrom(string hex, Color fallback, double opacity)
+        {
+            var color = fallback;
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(hex))
+                    color = (Color)ColorConverter.ConvertFromString(hex);
+            }
+            catch { /* fall through to the supplied default */ }
+            return new SolidColorBrush(color) { Opacity = Math.Clamp(opacity, 0, 1) };
         }
     }
 

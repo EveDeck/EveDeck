@@ -556,6 +556,16 @@
                       <TextBlock Text="{Binding MasterSeatSummary}" FontSize="11" FontWeight="SemiBold"
                                  Foreground="{StaticResource MasterAccentBrush}" Margin="0,5,0,0" TextWrapping="Wrap"
                                  ToolTip="The Master seat is centred at rest and is the F-key home. Set it by dropping a seat on the mini-map's centre cell, or with that seat's ⭐ Master button. If the designated seat's client isn't running, EveDeck temporarily centres another logged-in seat instead — that stand-in is never saved and snaps back as soon as the real master is detected."/>
+                      <!-- Which apply path this profile will actually take. Previously invisible: the
+                           choice is made at apply time from the layout's geometry plus the global
+                           preview toggle, so a dense Grid gave no hint that all but one client would
+                           be a thumbnail. -->
+                      <TextBlock Text="{Binding LayoutModeSummary}" FontSize="11"
+                                 Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0" TextWrapping="Wrap"
+                                 ToolTip="Preview mode runs every client at master resolution, parks all but the master off-screen, and draws them as live DWM thumbnails — the EVE-O Preview style arrangement. Flat mode instead resizes each client to its own slot and leaves them all on screen. EveDeck picks between them automatically: any layout with slots at two or more distinct positions uses previews while 'Enable live previews' is on."/>
+                      <TextBlock Text="{Binding LayoutModeWarning}" FontSize="11" FontWeight="SemiBold"
+                                 Visibility="{Binding HasLayoutModeWarning, Converter={StaticResource BoolToVisibility}}"
+                                 Foreground="{StaticResource WarningBrush}" Margin="0,5,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                   </DockPanel>
 
@@ -1281,6 +1291,7 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                       <ListBoxItem Content="Notifications"/>
                       <ListBoxItem Content="Comms"/>
                       <ListBoxItem Content="Config Profiles"/>
+                      <ListBoxItem Content="DPS Meter"/>
                     </ListBox>
                     <TextBlock x:Name="OptionsNoMatchText" Text="No settings match" Visibility="Collapsed"
                                Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"
@@ -1698,7 +1709,13 @@ Shows live thumbnail previews of background clients in the screen corners while 
 
                   <CheckBox Content="Enable live previews"
                             IsChecked="{Binding CornerOverlaysEnabled}"
-                            Margin="0,0,0,10"/>
+                            Margin="0,0,0,2"/>
+                  <!-- The default (on) is what gives EveDeck its EVE-O Preview style behaviour, and it
+                       applies to EVERY multi-position layout, not just the master-slot families. Users
+                       assumed a plain Grid tiled nine real windows, so spell out both sides here. -->
+                  <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="20,0,0,10">
+On (the default) any layout whose slots sit at two or more distinct positions runs in preview mode: your master client renders live at full size and every other client parks off-screen and appears as a live thumbnail. That includes the plain Grid layouts, not just Center Master and the other master-slot families. Off, EveDeck instead resizes every client to its own slot and leaves them all on screen -- which needs slots big enough for EVE to actually accept (about 1024x768 each). The Layouts tab shows which mode the selected profile will use.
+                  </TextBlock>
                   <CheckBox Content="Click a preview to bring that client to the center"
                             IsChecked="{Binding FocusPreviewOnClick}"
                             Margin="0,0,0,2"/>
@@ -2229,6 +2246,137 @@ Named snapshots of your whole setup: layout, character set, and all overlay appe
                               IsChecked="{Binding ApplyConfigProfileOnStartup}"
                               ToolTip="Applies after the startup layout profile, so a config profile always gets the last word."
                               Margin="0,0,0,10"/>
+                  </StackPanel>
+
+                  <!-- section 12: DPS Meter -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=12}">
+                    <TextBlock Text="DPS Meter" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,14" MaxWidth="640">
+A live damage readout on each preview, one per character -- the same idea as running a separate damage meter window for every client, without the extra windows. Numbers come from EVE's own combat and mining logs in Documents\EVE\logs\Gamelogs. Passive log reading only; nothing is ever sent into the game.
+                    </TextBlock>
+
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,14">
+                      <StackPanel>
+                        <CheckBox Content="Show a live DPS panel on each preview"
+                                  IsChecked="{Binding CornerOverlayShowDps}" Margin="0,0,0,10"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+                          <TextBlock Text="Average over" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                          <TextBox Width="52" Text="{Binding DpsWindowSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                   HorizontalContentAlignment="Center" FontSize="12"/>
+                          <TextBlock Text="sec" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="4,0,0,0"/>
+                          <TextBlock Text="(10 is the usual choice - rides out reloads without going stale)"
+                                     VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="8,0,0,0"/>
+                        </StackPanel>
+
+                        <CheckBox Content="Hide the panel while every row reads zero"
+                                  IsChecked="{Binding DpsHideWhenIdle}" Margin="0,0,0,2"
+                                  ToolTip="Keeps idle previews clean instead of carrying a permanent block of noughts over the thumbnail."/>
+                      </StackPanel>
+                    </Border>
+
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,14">
+                      <StackPanel>
+                        <TextBlock Text="Rows" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
+Each row's value is colour-coded: damage out white, damage in red, logistics green, cap warfare cyan, ore amber.
+                        </TextBlock>
+                        <WrapPanel>
+                          <CheckBox Content="Damage out" IsChecked="{Binding DpsShowDamageOut}" Margin="0,0,16,6" FontSize="12"/>
+                          <CheckBox Content="Damage in" IsChecked="{Binding DpsShowDamageIn}" Margin="0,0,16,6" FontSize="12"/>
+                          <CheckBox Content="Logistics" IsChecked="{Binding DpsShowLogistics}" Margin="0,0,16,6" FontSize="12"
+                                    ToolTip="Remote armor, shield and hull you repair onto someone else. Repairs you RECEIVE are not counted - this row is your own output."/>
+                          <CheckBox Content="Cap warfare" IsChecked="{Binding DpsShowCapacitor}" Margin="0,0,16,6" FontSize="12"
+                                    ToolTip="Capacitor you transmit out, plus energy neutralized and drained with a nos."/>
+                          <CheckBox Content="Mining" IsChecked="{Binding DpsShowMining}" Margin="0,0,16,6" FontSize="12"
+                                    ToolTip="Ore mined, in UNITS per minute rather than m3. EVE's log records the units and the ore name but never its volume, so m3 would need a per-ore lookup table that silently goes wrong every time a new ore is added. Asteroid residue is excluded; critical mining successes are included."/>
+                        </WrapPanel>
+                      </StackPanel>
+                    </Border>
+
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,14">
+                      <StackPanel>
+                        <TextBlock Text="Placement" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                          <TextBlock Text="Position" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                          <ComboBox Width="150" FontSize="12" SelectedValuePath="Tag"
+                                    SelectedValue="{Binding DpsPanelAnchor}"
+                                    ToolTip="Which part of the preview tile the panel sits in. Keep it clear of wherever your character labels sit.">
+                            <ComboBoxItem Tag="TopLeft" Content="Top left"/>
+                            <ComboBoxItem Tag="TopCenter" Content="Top center"/>
+                            <ComboBoxItem Tag="TopRight" Content="Top right"/>
+                            <ComboBoxItem Tag="MiddleLeft" Content="Middle left"/>
+                            <ComboBoxItem Tag="Center" Content="Center"/>
+                            <ComboBoxItem Tag="MiddleRight" Content="Middle right"/>
+                            <ComboBoxItem Tag="BottomLeft" Content="Bottom left"/>
+                            <ComboBoxItem Tag="BottomCenter" Content="Bottom center"/>
+                            <ComboBoxItem Tag="BottomRight" Content="Bottom right"/>
+                          </ComboBox>
+                          <TextBlock Text="Inset" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="12,0,6,0"/>
+                          <TextBox Width="46" Text="{Binding DpsPanelInset, UpdateSourceTrigger=PropertyChanged}"
+                                   HorizontalContentAlignment="Center" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                          <TextBlock Text="Scale" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                          <Slider Minimum="0.4" Maximum="3" Value="{Binding DpsPanelScale}" Width="150" VerticalAlignment="Center"
+                                  IsSnapToTickEnabled="True" TickFrequency="0.1"
+                                  ToolTip="Overall size of the panel. Separate from the badge/chrome scale, because this block is dense text that usually wants to be smaller than the rest of the chrome."/>
+                          <TextBlock Text="{Binding DpsPanelScale, StringFormat={}{0:0.0}x}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                        </StackPanel>
+                      </StackPanel>
+                    </Border>
+
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,14">
+                      <StackPanel>
+                        <TextBlock Text="Text" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                          <TextBlock Text="Font" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                          <Button Content="Choose font..." Click="DpsPanelFontPick_Click" Padding="6,3" Margin="0,0,8,0" FontSize="12"/>
+                          <TextBlock Text="{Binding DpsPanelFontSummary}" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                          <Border Width="24" Height="24" Margin="8,0,0,0" CornerRadius="4"
+                                  Background="{Binding DpsPanelTextBrush}"
+                                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                  ToolTip="Colour of the row labels. The values themselves stay colour-coded per row."/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                          <TextBlock Text="Style" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                          <CheckBox Content="Bold" IsChecked="{Binding DpsPanelBold}" Margin="0,0,16,0" FontSize="12"/>
+                          <CheckBox Content="Italic" IsChecked="{Binding DpsPanelItalic}" Margin="0,0,16,0" FontSize="12"/>
+                          <CheckBox Content="Drop shadow" IsChecked="{Binding DpsPanelDropShadow}" Margin="0,0,16,0" FontSize="12"/>
+                          <CheckBox Content="Outline" IsChecked="{Binding DpsPanelOutline}" FontSize="12"/>
+                        </StackPanel>
+                      </StackPanel>
+                    </Border>
+
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,14">
+                      <StackPanel>
+                        <TextBlock Text="Background" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                          <TextBlock Text="Color" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                          <Border Width="24" Height="24" Margin="0,0,8,0" CornerRadius="4"
+                                  Background="{Binding DpsPanelBackgroundBrush}"
+                                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                          <Button Content="Pick Color..." Click="DpsPanelBackgroundColorPick_Click" Padding="6,3" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                          <TextBlock Text="Opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                          <Slider Minimum="0" Maximum="100" Value="{Binding DpsPanelBackgroundOpacity}" Width="150" VerticalAlignment="Center"
+                                  IsSnapToTickEnabled="True" TickFrequency="5"
+                                  ToolTip="0 makes the backdrop fully transparent, leaving just the text over the preview."/>
+                          <TextBlock Text="{Binding DpsPanelBackgroundOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                          <TextBlock Text="Corner radius" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                          <TextBox Width="46" Text="{Binding DpsPanelCornerRadius, UpdateSourceTrigger=PropertyChanged}"
+                                   HorizontalContentAlignment="Center" FontSize="12"/>
+                        </StackPanel>
+                      </StackPanel>
+                    </Border>
                   </StackPanel>
                 </Grid>
               </ScrollViewer>
