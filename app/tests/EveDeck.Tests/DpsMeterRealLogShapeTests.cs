@@ -248,39 +248,67 @@ public class DpsMeterRealLogShapeTests
         var svc = new DpsMeterService(60);
         svc.Ingest("Pilot", MinedOre(1000, "Veldspar", BaseTime), BaseTime);   // 0.1  -> 100 m3
         svc.Ingest("Pilot", MinedOre(10, "Arkonor", BaseTime), BaseTime);      // 16.0 -> 160 m3
+        svc.Ingest("Pilot", MinedOre(10, "Zeolites", BaseTime), BaseTime);     // 10.0 -> 100 m3
 
-        Assert.Equal(260.0, svc.GetReading("Pilot").MiningM3PerMinute, 6);
+        Assert.Equal(360.0, svc.GetReading("Pilot").MiningM3PerMinute, 6);
     }
 
-    // Variant adjectives and grade suffixes are richness tiers, not different minerals.
+    // Volumes are ESI's, spot-checked across every family the table is meant to cover. MOON ORES ARE
+    // 10 m3 -- an earlier hand-written table claimed 0.1 for all of them, a hundredfold error on the
+    // ore most people actually mine, which is why these are pinned explicitly.
     [Theory]
     [InlineData("Veldspar", 0.1)]
-    [InlineData("Concentrated Veldspar", 0.1)]
-    [InlineData("Glistening Zeolites", 0.1)]
-    [InlineData("Brimful Sylvite", 0.1)]
-    [InlineData("Twinkling Euxenite", 0.1)]
-    [InlineData("Arkonor", 16.0)]
-    [InlineData("Dark Ochre", 8.0)]
     [InlineData("Omber III-Grade", 0.6)]
     [InlineData("Kernite II-Grade", 1.2)]
-    public void OreVariantsResolveToTheirBaseVolume(string ore, double m3PerUnit)
+    [InlineData("Dark Ochre", 8.0)]
+    [InlineData("Arkonor", 16.0)]
+    [InlineData("Mercoxit", 40.0)]
+    [InlineData("Zeolites", 10.0)]              // moon, ubiquitous
+    [InlineData("Glistening Zeolites", 10.0)]
+    [InlineData("Brimful Sylvite", 10.0)]
+    [InlineData("Twinkling Euxenite", 10.0)]    // moon, common
+    [InlineData("Chromite", 10.0)]              // moon, uncommon
+    [InlineData("Loparite", 10.0)]              // moon, exceptional
+    [InlineData("Talassonite", 16.0)]           // Pochven
+    [InlineData("Bezdnacine", 16.0)]            // Pochven
+    [InlineData("Griemeer", 0.8)]               // newer nullsec ore
+    [InlineData("Kylixium", 1.2)]
+    [InlineData("Mordunium", 0.1)]
+    [InlineData("Ueganite", 5.0)]
+    public void OreVolumesMatchEsi(string ore, double m3PerUnit)
     {
         var svc = new DpsMeterService(60);
         svc.Ingest("Pilot", MinedOre(100, ore, BaseTime), BaseTime);
 
         Assert.Equal(100 * m3PerUnit, svc.GetReading("Pilot").MiningM3PerMinute, 6);
+        Assert.Empty(svc.UnknownOres);
     }
 
-    // An ore with no volume on record must still produce a figure, and must announce itself so the
-    // estimate is visible rather than silently baked into a number read as exact.
-    [Fact]
-    public void UnknownOreFallsBackAndIsReported()
+    // EVE renders variant names ESI does not list as their own types -- "Argil Kylixium" and "Kaolin
+    // Kylixium" both appear in real mining logs and neither is an ESI type name. They are ordinary
+    // Kylixium, and must resolve through the base mineral rather than falling back to an estimate.
+    [Theory]
+    [InlineData("Argil Kylixium")]
+    [InlineData("Kaolin Kylixium")]
+    public void UnlistedVariantsResolveThroughTheBaseMineral(string ore)
     {
         var svc = new DpsMeterService(60);
-        svc.Ingest("Pilot", MinedOre(100, "Argil Kylixium", BaseTime), BaseTime);
+        svc.Ingest("Pilot", MinedOre(100, ore, BaseTime), BaseTime);
+
+        Assert.Equal(120.0, svc.GetReading("Pilot").MiningM3PerMinute, 6);
+        Assert.Empty(svc.UnknownOres);
+    }
+
+    // An ore the table cannot resolve at all must still produce a figure, and must announce itself so
+    // the estimate is visible rather than silently baked into a number read as exact.
+    [Fact]
+    public void UnresolvableOreFallsBackAndIsReported()
+    {
+        var svc = new DpsMeterService(60);
+        svc.Ingest("Pilot", MinedOre(100, "Fictional Unobtainium", BaseTime), BaseTime);
 
         Assert.Equal(10.0, svc.GetReading("Pilot").MiningM3PerMinute, 6);
-        Assert.Contains("Kylixium", svc.UnknownOres);
+        Assert.Contains("Fictional Unobtainium", svc.UnknownOres);
     }
 
     [Fact]
@@ -290,6 +318,22 @@ public class DpsMeterRealLogShapeTests
         svc.Ingest("Pilot", MinedOre(100, "Glistening Zeolites", BaseTime), BaseTime);
 
         Assert.Empty(svc.UnknownOres);
+    }
+
+    // Compressed ore is manufactured, never mined, and carries a DIFFERENT volume to the raw ore
+    // (compressed Veldspar is 0.15 against Veldspar's 0.1, compressed Kylixium 0.012 against 1.2).
+    // Those figures must never have entered the table: had they done so they would have overwritten
+    // or fought with the real ore's entry. Such a name can still resolve through the base-mineral
+    // fallback, which is harmless -- it yields the RAW ore's volume, and a mining log never names a
+    // compressed type in the first place.
+    [Fact]
+    public void CompressedVolumesNeverEnteredTheTable()
+    {
+        Assert.True(OreVolumes.TryGet("Compressed Veldspar", out var veld));
+        Assert.Equal(0.1, veld, 6);      // raw Veldspar, not the 0.15 compressed figure
+
+        Assert.True(OreVolumes.TryGet("Compressed Kylixium", out var kyl));
+        Assert.Equal(1.2, kyl, 6);       // raw Kylixium, not the 0.012 compressed figure
     }
 
     // Trailing markup after the ore name must not be absorbed into it -- otherwise a perfectly known

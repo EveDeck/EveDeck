@@ -100,52 +100,15 @@ public sealed class DpsMeterService
         @"\(mining\).*?You mined(?: an additional)?.*?>([0-9]+)<.*?> units of (?:<[^>]*>)*([^<\r\n]+)",
         RegexOptions.Compiled);
 
-    // Cubic metres per UNIT. EVE's log gives units and the ore's name but never its volume, so the
-    // conversion has to live here. Keyed by the mineral word (see OreKey), which is stable across
-    // every yield variant -- "Glistening Zeolites", "Brimful Zeolites" and plain "Zeolites" are the
-    // same rock at different richness and share a volume.
-    //
-    // Values are the long-stable published volumes. If a number here is wrong the readout is
-    // confidently wrong, which is worse than being absent -- so anything not listed is NOT silently
-    // guessed at; it falls back to DefaultOreVolume and its name is recorded in UnknownOres so it can
-    // be surfaced and corrected rather than quietly skewing the figure.
-    private static readonly Dictionary<string, double> OreVolumes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        // Classic asteroid ores
-        ["Veldspar"] = 0.1,     ["Scordite"] = 0.15,   ["Pyroxeres"] = 0.3,
-        ["Plagioclase"] = 0.35, ["Omber"] = 0.6,       ["Kernite"] = 1.2,
-        ["Jaspet"] = 2.0,       ["Hemorphite"] = 3.0,  ["Hedbergite"] = 3.0,
-        ["Gneiss"] = 5.0,       ["Ochre"] = 8.0,       // "Dark Ochre"
-        ["Crokite"] = 16.0,     ["Spodumain"] = 16.0,  ["Bistot"] = 16.0,
-        ["Arkonor"] = 16.0,     ["Mercoxit"] = 40.0,
-
-        // Moon ores. Every rarity tier (ubiquitous through exceptional) shares the same unit volume.
-        ["Bitumens"] = 0.1,     ["Coesite"] = 0.1,     ["Sylvite"] = 0.1,     ["Zeolites"] = 0.1,
-        ["Cobaltite"] = 0.1,    ["Euxenite"] = 0.1,    ["Scheelite"] = 0.1,   ["Titanite"] = 0.1,
-        ["Chromite"] = 0.1,     ["Otavite"] = 0.1,     ["Sperrylite"] = 0.1,  ["Vanadinite"] = 0.1,
-        ["Carnotite"] = 0.1,    ["Cinnabar"] = 0.1,    ["Pollucite"] = 0.1,   ["Zircon"] = 0.1,
-        ["Loparite"] = 0.1,     ["Monazite"] = 0.1,    ["Xenotime"] = 0.1,    ["Ytterbite"] = 0.1,
-    };
-
-    // Used for any ore not in the table above. 0.1 is the single most common unit volume in EVE (every
-    // moon ore plus Veldspar), so it is the least-wrong stand-in -- but a fallback is a guess, which is
-    // why the ore's name goes into UnknownOres for the caller to report.
+    // Volumes live in OreVolumes, generated from ESI. Anything it cannot resolve converts at this
+    // rate and has its name recorded, because an estimate that looks identical to a measurement is
+    // the worst of both -- see UnknownOres.
     private const double DefaultOreVolume = 0.1;
 
-    // Ore names seen that had no table entry. Read by the view-model so it can log them once; a wrong
-    // or missing volume is otherwise completely invisible in the finished number.
+    // Ore names seen that OreVolumes could not resolve. Read by the view-model so it can log them
+    // once; a missing volume is otherwise completely invisible in the finished number.
     private readonly HashSet<string> _unknownOres = new(StringComparer.OrdinalIgnoreCase);
     public IReadOnlyCollection<string> UnknownOres => _unknownOres;
-
-    // "Omber III-Grade" -> Omber (the grade is a quality tier, not a different mineral).
-    // "Glistening Zeolites" / "Argil Kylixium" -> the mineral is the last word; anything before it is
-    // a yield-variant adjective.
-    internal static string OreKey(string oreName)
-    {
-        var parts = (oreName ?? "").Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0) return "";
-        return parts[^1].EndsWith("-Grade", StringComparison.OrdinalIgnoreCase) ? parts[0] : parts[^1];
-    }
 
     private readonly Dictionary<string, List<Sample>> _samplesByCharacter =
         new(StringComparer.OrdinalIgnoreCase);
@@ -206,11 +169,11 @@ public sealed class DpsMeterService
             // Converted to m3 here, at ingest, rather than at read time: the ore name is only
             // available on the line itself, and a window can mix ores with different volumes, so a
             // single conversion applied to the summed units afterwards would be wrong.
-            var key = OreKey(mineMatch.Groups[2].Value);
-            if (!OreVolumes.TryGetValue(key, out var volume))
+            var oreName = mineMatch.Groups[2].Value.Trim();
+            if (!OreVolumes.TryGet(oreName, out var volume))
             {
                 volume = DefaultOreVolume;
-                if (key.Length > 0) _unknownOres.Add(key);
+                if (oreName.Length > 0) _unknownOres.Add(oreName);
             }
 
             category = MeterCategory.Mining;
