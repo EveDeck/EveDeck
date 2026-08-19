@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Media;
 using System.Windows.Threading;
 using EveDeck.Models;
+using EveDeck.Services;
 using Application = System.Windows.Application;
 
 namespace EveDeck.ViewModels;
@@ -21,6 +22,38 @@ public sealed partial class MainWindowViewModel
             Save();
         }
     }
+
+    public bool AbyssModeAutoArm
+    {
+        get => _settings.AbyssModeAutoArm;
+        set
+        {
+            if (_settings.AbyssModeAutoArm == value) return;
+            _settings.AbyssModeAutoArm = value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    public int CombatToastCooldownSeconds
+    {
+        get => _settings.CombatToastCooldownSeconds;
+        set
+        {
+            var clamped = Math.Clamp(value, CombatAlertThrottle.MinCooldownSeconds, CombatAlertThrottle.MaxCooldownSeconds);
+            if (_settings.CombatToastCooldownSeconds == clamped) return;
+            _settings.CombatToastCooldownSeconds = clamped;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    // Abyss Mode is on when the user pinned it on, OR while auto-arm is enabled and somebody is in
+    // unnamed space. Derived on read rather than stored, so there is no separate piece of state to
+    // keep in sync with _unnamedSpaceByCharacter -- entering and leaving the abyss already maintains
+    // that dictionary for the location pill.
+    private bool AbyssSuppressionActive =>
+        _settings.AbyssModeEnabled || (_settings.AbyssModeAutoArm && _unnamedSpaceByCharacter.Count > 0);
 
     public bool ToastsAboveOverlays
     {
@@ -119,11 +152,13 @@ public sealed partial class MainWindowViewModel
             // (SuppressSoundInAbyss, true by default) -- Abyssal Deadspace can put up to three
             // characters under continuous, expected damage simultaneously. A rule can opt out (e.g.
             // Warp scramble) to stay audible even mid-run, since that's a rare, high-stakes event.
-            if (rule.PlaySound && !(rule.SuppressSoundInAbyss && _settings.AbyssModeEnabled)) SystemSounds.Exclamation.Play();
+            if (rule.PlaySound && !(rule.SuppressSoundInAbyss && AbyssSuppressionActive)) SystemSounds.Exclamation.Play();
             if (seat is not null)
             {
-                QueueCombatAlertToast(seat, rule.Name);
+                // Glow first and unconditionally: it is the per-event, real-time signal and is never
+                // throttled. Only the toast goes through the rate limiter.
                 TriggerCombatGlow(seat);
+                QueueCombatAlertToast(seat, rule.Name);
             }
         }
         else
@@ -174,7 +209,23 @@ public sealed partial class MainWindowViewModel
 
     private void RefreshSystemPills()
     {
+        NoteAbyssAutoArmState();
         if (_settings.CornerOverlayShowSystem && CornerOverlaysLive) RefreshAllPills();
+    }
+
+    // Auto-arm is silent state that changes what alerts do, so each transition is logged once --
+    // "why did the chime stop" is otherwise unanswerable from the log. Every mutation of
+    // _unnamedSpaceByCharacter already refreshes the pills, so this rides along with that.
+    private bool _abyssAutoArmed;
+
+    private void NoteAbyssAutoArmState()
+    {
+        var armed = _settings.AbyssModeAutoArm && _unnamedSpaceByCharacter.Count > 0;
+        if (armed == _abyssAutoArmed) return;
+        _abyssAutoArmed = armed;
+        Log.Info(armed
+            ? $"Abyss Mode auto-armed ({_unnamedSpaceByCharacter.Count} character(s) in unnamed space): glow-event sounds suppressed."
+            : "Abyss Mode auto-disarmed: no character in unnamed space.");
     }
 
     // Asks ESI where a character in unnamed space actually is. Fires once per entry, not on a timer,
@@ -257,15 +308,20 @@ public sealed partial class MainWindowViewModel
 
     // Rapid-fire FlashOnTile events (sustained incoming damage can log several hits a second, often
     // across multiple seats at once) collapse into one toast per short window instead of spamming a
-    // toast per hit -- the sound still plays per-event for real-time feedback; only the toast is throttled.
-    private readonly List<string> _pendingCombatAlerts = new();
+    // toast per hit -- the glow still pulses per-event for real-time feedback; only the toast is
+    // throttled. The bundle window alone was not enough on a real Abyssal run: see CombatAlertThrottle
+    // for the duplicate-row and repeat-forever failures it fixes.
+    private readonly CombatAlertThrottle _combatAlertThrottle = new();
     private readonly HashSet<SlotAssignment> _pendingCombatSeats = new();
     private DispatcherTimer? _combatAlertBundleTimer;
     private static readonly TimeSpan CombatAlertBundleWindow = TimeSpan.FromSeconds(2);
 
     private void QueueCombatAlertToast(SlotAssignment seat, string ruleName)
     {
-        _pendingCombatAlerts.Add($"{ruleName} — {seat.Label}");
+        _combatAlertThrottle.Cooldown = TimeSpan.FromSeconds(_settings.CombatToastCooldownSeconds);
+        if (!_combatAlertThrottle.TryQueue(ruleName, $"#{seat.SlotNumber}", $"{ruleName} — {seat.Label}", DateTime.UtcNow))
+            return; // already shown for this seat inside the cooldown -- the glow already fired
+
         _pendingCombatSeats.Add(seat);
         if (_combatAlertBundleTimer is not null) return; // a window is already open; this alert rides along
 
@@ -274,12 +330,11 @@ public sealed partial class MainWindowViewModel
         {
             timer.Stop();
             _combatAlertBundleTimer = null;
-            var messages = _pendingCombatAlerts.ToList();
+            var messages = _combatAlertThrottle.Flush();
             // Only attribute the card to a seat when the whole bundle came from that one seat -- a
             // multi-seat bundle (a fleet getting hit at once) has no single face or click target,
             // so it falls back to the plain accent card.
             var seats = _pendingCombatSeats.ToList();
-            _pendingCombatAlerts.Clear();
             _pendingCombatSeats.Clear();
             if (messages.Count == 0) return;
             var title = messages.Count == 1 ? "Combat alert" : $"Combat alert ({messages.Count})";

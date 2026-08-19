@@ -281,6 +281,20 @@ public sealed class AppSettings
     // permanent per-rule setting, since the user still wants the sound during normal play.
     public bool AbyssModeEnabled { get; set; }
 
+    // Arms Abyss Mode by itself whenever a tracked character is in space EVE will not name, which
+    // in practice means Abyssal Deadspace (see LocalUnnamedSystem in MainWindowViewModel.ChatAlerts
+    // for the 7156-chatlog measurement behind "in practice"), and disarms it when they filament
+    // back out. The manual toggle above still forces it on regardless. On by default: forgetting to
+    // flip the switch before a run is exactly when the suppression is needed, and the worst case for
+    // a false positive is a missed chime, not a missed alert -- the toast and the glow both stay.
+    public bool AbyssModeAutoArm { get; set; } = true;
+
+    // Minimum seconds between combat-alert toasts for the same rule on the same seat. The tile glow
+    // is unaffected and still pulses per event; this only throttles the persistent card, which
+    // otherwise re-raises every bundle window for as long as damage keeps landing. 0 disables the
+    // cooldown (bundle-level deduplication still applies).
+    public int CombatToastCooldownSeconds { get; set; } = 15;
+
     // Toast notifications assert the topmost slot ahead of the corner-overlay surfaces AND any
     // Overlay Allow List app, so an alert is never buried behind a preview tile or a docked
     // Discord/Mumble window. Off means toasts take their chances in the topmost band like any other

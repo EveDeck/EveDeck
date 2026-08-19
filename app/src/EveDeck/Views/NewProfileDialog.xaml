@@ -7,16 +7,54 @@
         ResizeMode="NoResize"
         SizeToContent="WidthAndHeight"
         Background="#12161D">
-  <StackPanel Margin="18" MinWidth="300">
+  <StackPanel Margin="18" MinWidth="380" MaxWidth="440">
     <TextBlock Text="New Custom Profile" Foreground="#EAF2FF" FontSize="15" FontWeight="SemiBold"/>
-    <TextBlock Text="How many seats for this layout? You'll place each on your monitors next."
+    <TextBlock Text="How many seats for this layout?"
                Foreground="#8CA0B8" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,12"/>
     <StackPanel Orientation="Horizontal">
       <TextBlock Text="Seats" Foreground="#C9D6E8" VerticalAlignment="Center" Margin="0,0,10,0"/>
       <ComboBox x:Name="CountCombo" Width="80"/>
     </StackPanel>
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-      <Button Content="Create &amp; Place" Click="OnOk" Padding="12,5" Margin="0,0,8,0" FontWeight="SemiBold"/>
+
+    <TextBlock Text="Layout style" Foreground="#EAF2FF" FontSize="13" FontWeight="SemiBold" Margin="0,16,0,0"/>
+
+    <RadioButton x:Name="MasterPreviewRadio" GroupName="Style" Foreground="#C9D6E8" Margin="0,8,0,0" IsChecked="True">
+      <StackPanel>
+        <TextBlock Text="Master + previews (two monitors)" Foreground="#C9D6E8" FontWeight="SemiBold"/>
+        <TextBlock Text="One seat fills the monitor you play on; the rest tile as preview thumbnails on a second screen (a tablet, a side monitor). Click a preview or press its hotkey to swap that seat into the master rect."
+                   Foreground="#8CA0B8" FontSize="11" TextWrapping="Wrap" MaxWidth="380" Margin="0,2,0,0"/>
+      </StackPanel>
+    </RadioButton>
+
+    <Grid x:Name="MonitorPanel" Margin="24,8,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="Master on" Foreground="#C9D6E8" VerticalAlignment="Center" Margin="0,0,10,6"/>
+      <ComboBox Grid.Row="0" Grid.Column="1" x:Name="MasterMonitorCombo" Margin="0,0,0,6"/>
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="Previews on" Foreground="#C9D6E8" VerticalAlignment="Center" Margin="0,0,10,0"/>
+      <ComboBox Grid.Row="1" Grid.Column="1" x:Name="PreviewMonitorCombo"/>
+    </Grid>
+
+    <TextBlock x:Name="SameMonitorNote"
+               Text="Both pickers are on the same monitor, so the previews will tile on top of the master rect. Pick two different monitors, or move them apart afterwards with Edit on monitor."
+               Foreground="#F59E0B" FontSize="11" TextWrapping="Wrap" MaxWidth="380" Margin="24,6,0,0" Visibility="Collapsed"/>
+
+    <RadioButton x:Name="EvenGridRadio" GroupName="Style" Foreground="#C9D6E8" Margin="0,12,0,0">
+      <StackPanel>
+        <TextBlock Text="Even grid (one monitor)" Foreground="#C9D6E8" FontWeight="SemiBold"/>
+        <TextBlock Text="Equal-sized slots you place yourself in the on-monitor editor. No slot is bigger than the others, so the master rect is picked by position until you resize one."
+                   Foreground="#8CA0B8" FontSize="11" TextWrapping="Wrap" MaxWidth="380" Margin="0,2,0,0"/>
+      </StackPanel>
+    </RadioButton>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+      <Button x:Name="OkButton" Content="Create" Click="OnOk" Padding="12,5" Margin="0,0,8,0" FontWeight="SemiBold"/>
       <Button Content="Cancel" Click="OnCancel" Padding="12,5"/>
     </StackPanel>
   </StackPanel>

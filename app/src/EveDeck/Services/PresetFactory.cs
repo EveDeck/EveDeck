@@ -208,6 +208,58 @@ public static class PresetFactory
         return profile;
     }
 
+    // The multi-monitor arrangement people actually ask for: ONE dominant master rect filling the
+    // monitor you look at, and the other seats tiled as previews on a second screen (a tablet over
+    // spacedesk, a side monitor, whatever). Whichever seat is master renders live in the master rect
+    // and the rest are preview thumbnails you click to swap in.
+    //
+    // Hand-building this is where users get stuck, and the failure is silent: the master slot is
+    // GEOMETRY (see MainWindowViewModel.PickCenterSlot -- the biggest rect wins), so drawing every
+    // slot the same size leaves nothing dominant and the master lands on an arbitrary tile by the
+    // tie-break. A generated layout is dominant by construction: the master owns a whole monitor.
+    //
+    // Slot 1 is the master by convention (lowest number, easiest to point at in docs); the previews
+    // are slots 2..count tiled over the preview monitor with the same grid math as a plain Grid
+    // preset, translated to that monitor's origin.
+    public static LayoutProfile CreateMasterPreviewProfile(
+        string name,
+        string masterMonitorId, WindowRect masterBounds,
+        string previewMonitorId, WindowRect previewBounds,
+        int count)
+    {
+        count = Math.Clamp(count, 1, 15);
+        var profile = new LayoutProfile { Name = name, Category = "Custom" };
+
+        var master = Slot(1, masterBounds.X, masterBounds.Y, masterBounds.Width, masterBounds.Height, "Master");
+        master.MonitorId = masterMonitorId;
+        profile.Slots.Add(master);
+
+        // Master seat defaults to the seat that starts in the master slot, so the profile arrives
+        // already answering "who is centered at rest" instead of leaving it to the geometry fallback.
+        profile.MasterSeat = 1;
+        if (count == 1) return profile;
+
+        var previews = new LayoutProfile
+        {
+            TemplateWidth = previewBounds.Width,
+            TemplateHeight = previewBounds.Height,
+            TemplateCount = count - 1
+        };
+        PopulateGridSlots(previews);
+
+        var slotNumber = 2;
+        foreach (var tile in previews.Slots)
+        {
+            var slot = Slot(slotNumber, previewBounds.X + tile.X, previewBounds.Y + tile.Y,
+                            tile.Width, tile.Height, $"Preview {slotNumber - 1}");
+            slot.MonitorId = previewMonitorId;
+            profile.Slots.Add(slot);
+            slotNumber++;
+        }
+
+        return profile;
+    }
+
     // Clamp a family template's TemplateWidth/Height/Count to the curated dropdown options (in case a
     // saved profile predates a change to those options), then rebuild its Slots from scratch.
     public static void RegenerateFamilySlots(LayoutProfile profile)

@@ -997,7 +997,22 @@
                                       BorderThickness="1"
                                       CornerRadius="2"
                                       Opacity="0.9">
-                                <TextBlock Text="{Binding DisplayText}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" FontSize="11"/>
+                                <Border.Style>
+                                  <Style TargetType="Border">
+                                    <Style.Triggers>
+                                      <DataTrigger Binding="{Binding IsMaster}" Value="True">
+                                        <Setter Property="Background" Value="#2E1F52"/>
+                                        <Setter Property="BorderBrush" Value="#A78BFA"/>
+                                        <Setter Property="BorderThickness" Value="2"/>
+                                      </DataTrigger>
+                                    </Style.Triggers>
+                                  </Style>
+                                </Border.Style>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                  <TextBlock Text="{Binding DisplayText}" HorizontalAlignment="Center" FontWeight="Bold" FontSize="11"/>
+                                  <TextBlock Text="MASTER" HorizontalAlignment="Center" FontSize="8" FontWeight="Bold" Foreground="#C4B5FD"
+                                             Visibility="{Binding IsMaster, Converter={StaticResource BoolToVisibility}}"/>
+                                </StackPanel>
                               </Border>
                             </DataTemplate>
                           </ItemsControl.ItemTemplate>
@@ -1010,6 +1025,23 @@
                                    FontSize="11"
                                    TextWrapping="Wrap"
                                    Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding MasterSlotSummary}"
+                                   Foreground="#C4B5FD"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Margin="0,8,0,0"/>
+                        <TextBlock Text="{Binding MasterSlotWarning}"
+                                   Foreground="{StaticResource WarningBrush}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"
+                                   Margin="0,6,0,0"
+                                   Visibility="{Binding HasMasterSlotWarning, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0">
+                          Master on one monitor, previews on another? Use <Run Foreground="{StaticResource TextBrush}">New</Run> and pick
+                          <Run Foreground="{StaticResource TextBrush}">Master + previews</Run> -- it builds the layout across two screens for you.
+                          Built-in presets are single-monitor and cannot do this.
+                        </TextBlock>
                       </StackPanel>
                     </Grid>
                   </Border>
@@ -1018,6 +1050,7 @@
                   <DataGrid Grid.Row="2" ItemsSource="{Binding ActiveProfileSlots}" IsReadOnly="{Binding SelectedProfileIsBuiltIn}">
                     <DataGrid.Columns>
                       <DataGridTextColumn Header="Slot" Binding="{Binding SlotNumber}" Width="55"/>
+                      <DataGridCheckBoxColumn Header="Master" Binding="{Binding IsMasterSlot, Mode=OneWay}" Width="60" IsReadOnly="True"/>
                       <DataGridTextColumn Header="Label" Binding="{Binding Label, UpdateSourceTrigger=PropertyChanged}" Width="130"/>
                       <DataGridTextColumn Header="Monitor" Binding="{Binding MonitorId, UpdateSourceTrigger=PropertyChanged}" Width="120"/>
                       <DataGridTextColumn Header="X" Binding="{Binding X, UpdateSourceTrigger=PropertyChanged}" Width="75"/>
@@ -2148,6 +2181,18 @@ Reads gamelogs (Documents\EVE\logs\Gamelogs) for combat, warp scrambles, fleet i
                         <CheckBox Content="Abyss Mode (suppress Glow-event sounds during runs)" FontSize="12" Margin="0,10,0,0"
                                   IsChecked="{Binding AbyssModeEnabled, UpdateSourceTrigger=PropertyChanged}"
                                   ToolTip="Silences event sounds for rules with 'Silence in Abyss' checked. Rules without it (e.g., Warp scramble) stay audible."/>
+                        <CheckBox FontSize="12" Margin="0,6,0,0"
+                                  IsChecked="{Binding AbyssModeAutoArm, UpdateSourceTrigger=PropertyChanged}"
+                                  ToolTip="Turns Abyss Mode on by itself while any tracked character is in space EVE will not name (Abyssal Deadspace), and off again when they filament out. The checkbox above still forces it on.">
+                          <TextBlock Text="Arm Abyss Mode automatically while a character is in the abyss" TextWrapping="Wrap" MaxWidth="580"/>
+                        </CheckBox>
+                        <DockPanel Margin="0,10,0,0">
+                          <TextBlock DockPanel.Dock="Left" Text="Repeat combat toasts at most every" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <TextBlock DockPanel.Dock="Right" Text="s" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                          <TextBox Text="{Binding CombatToastCooldownSeconds, UpdateSourceTrigger=LostFocus}"
+                                   Width="56" Padding="6,4" FontSize="12" HorizontalAlignment="Left"
+                                   ToolTip="Per seat, per rule. The tile glow still pulses on every event -- this only limits how often the persistent toast card comes back while damage keeps landing. 0 turns the cooldown off."/>
+                        </DockPanel>
                         <CheckBox Content="Toasts above overlay tiles and allow-listed apps" FontSize="12" Margin="0,6,0,0"
                                   IsChecked="{Binding ToastsAboveOverlays, UpdateSourceTrigger=PropertyChanged}"
                                   ToolTip="Keeps alert toasts visible above previews and allow-listed apps."/>

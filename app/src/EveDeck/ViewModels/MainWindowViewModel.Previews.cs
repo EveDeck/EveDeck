@@ -17,9 +17,29 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(LayoutModeSummary));
         OnPropertyChanged(nameof(LayoutModeWarning));
         OnPropertyChanged(nameof(HasLayoutModeWarning));
+        OnPropertyChanged(nameof(MasterSlotSummary));
+        OnPropertyChanged(nameof(MasterSlotWarning));
+        OnPropertyChanged(nameof(HasMasterSlotWarning));
 
         LayoutPreviewSlots.Clear();
         if (SelectedProfile is null || SelectedProfile.Slots.Count == 0) return;
+
+        // Which rect is master is invisible in a table of coordinates, and it is the single thing
+        // people get wrong when building a master + previews layout by hand -- so the preview marks it.
+        var masterSlot = CenterSlotNumber;
+
+        // Stamp the same answer onto the slot rows behind the table's Master column. LayoutSlot is a
+        // plain POCO with no change notification, so the grid is only re-bound when the answer
+        // actually moves -- doing it every rebuild would reset the grid mid-edit for nothing.
+        var masterMoved = false;
+        foreach (var slot in SelectedProfile.Slots)
+        {
+            var isMaster = slot.SlotNumber == masterSlot;
+            if (slot.IsMasterSlot == isMaster) continue;
+            slot.IsMasterSlot = isMaster;
+            masterMoved = true;
+        }
+        if (masterMoved) OnPropertyChanged(nameof(ActiveProfileSlots));
 
         var minX = SelectedProfile.Slots.Min(s => s.X);
         var minY = SelectedProfile.Slots.Min(s => s.Y);
@@ -41,6 +61,7 @@ public sealed partial class MainWindowViewModel
                 SlotNumber = slot.SlotNumber,
                 DisplayText = string.Join("/", group.Select(s => s.SlotNumber)),
                 Label = string.IsNullOrWhiteSpace(slot.Label) ? $"Slot {slot.SlotNumber}" : slot.Label,
+                IsMaster = group.Any(s => s.SlotNumber == masterSlot),
                 X = (slot.X - minX) * scale + 8,
                 Y = (slot.Y - minY) * scale + 8,
                 Width = Math.Max(18, slot.Width * scale),

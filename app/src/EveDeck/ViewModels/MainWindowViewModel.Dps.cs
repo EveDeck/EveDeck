@@ -19,7 +19,12 @@ namespace EveDeck.ViewModels;
 public sealed partial class MainWindowViewModel
 {
     private readonly DpsMeterService _dpsMeter = new();
-    private readonly DispatcherTimer _dpsTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    // 250ms, not the 1s this started at. The readout is a rolling average over DpsWindowSeconds, so
+    // a once-a-second repaint stacked another second of staleness on top of a window that is already
+    // deliberately smoothed, and the panel visibly stepped rather than moved. Redrawing four times a
+    // second is cheap: the tick only sums the already-ingested samples per visible seat (single
+    // digits), and ingest itself is untouched -- it still runs off the log watcher's own thread.
+    private readonly DispatcherTimer _dpsTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private bool _dpsWired;
 
     // Colour per row. Damage out is the neutral bright one; incoming damage borrows the same red the

@@ -188,6 +188,59 @@ public sealed partial class MainWindowViewModel
             .First().SlotNumber;
     }
 
+    // True when no slot is CLEARLY the biggest, i.e. PickCenterSlot had to fall back to its centroid
+    // tie-break. Same 1% band as PickCenterSlot, deliberately: this answers "did geometry actually
+    // decide, or did the tie-break?" for exactly the rule that runs.
+    //
+    // This is the failure mode behind "I set my master and nothing moves to my main monitor": someone
+    // draws four equal rects across two screens, no rect is dominant, and the master lands wherever
+    // the tie-break puts it -- with nothing in the UI ever saying so.
+    internal static bool IsMasterAmbiguous(IEnumerable<LayoutSlot> slots)
+    {
+        var list = slots as IList<LayoutSlot> ?? slots.ToList();
+        if (list.Count < 2) return false;
+
+        var maxArea = list.Max(s => (long)s.Width * s.Height);
+        if (maxArea <= 0) return false;
+
+        return list.Count(s => (long)s.Width * s.Height >= maxArea * 99 / 100) > 1;
+    }
+
+    // Plain-language answer to "which slot is the master rect, and why that one" for the Layouts tab.
+    public string MasterSlotSummary
+    {
+        get
+        {
+            if (SelectedProfile is null || SelectedProfile.Slots.Count == 0) return "";
+            var master = CenterSlotNumber;
+            if (SelectedProfile.Slots.Count == 1)
+                return $"Slot {master} is the only slot, so it is the master.";
+
+            var slot = SelectedProfile.Slots.FirstOrDefault(s => s.SlotNumber == master);
+            var size = slot is null ? "" : $" ({slot.Width}x{slot.Height})";
+            return $"Master slot: {master}{size} - the biggest slot in the layout. Whichever seat is "
+                 + "master renders live there; every other slot is a preview thumbnail you click (or "
+                 + "hotkey) to swap into it.";
+        }
+    }
+
+    // Shown when the master rect was decided by the tie-break rather than by being genuinely biggest.
+    public string MasterSlotWarning
+    {
+        get
+        {
+            if (SelectedProfile is null || SelectedProfile.Slots.Count < 2) return "";
+            if (!IsMasterAmbiguous(SelectedProfile.Slots)) return "";
+
+            return $"Warning: no slot is clearly the biggest, so the master rect fell to slot "
+                 + $"{CenterSlotNumber} by position rather than by size. The master is always the "
+                 + "LARGEST slot -- to put it on a particular monitor, make that slot bigger than the "
+                 + "others (Edit on monitor, then drag its edges out to fill that screen).";
+        }
+    }
+
+    public bool HasMasterSlotWarning => MasterSlotWarning.Length > 0;
+
     // The MASTER is a SEAT (character/account), not a position: whichever seat the user designated as
     // master is centered at rest and is the F-key "home". Independent of geometry, so setting a corner
     // seat (e.g. a corner seat in slot 1) as master simply centers that account — it never demotes
@@ -462,16 +515,36 @@ public sealed partial class MainWindowViewModel
 
     // ── Profile CRUD ───────────────────────────────────────────────────────────
 
-    // New custom profile: ask for the account count, seed a grid of that many slots, then open the
-    // on-monitor editor so the user places them visually right away.
+    // New custom profile: ask for the account count and the shape, then either GENERATE a master +
+    // previews arrangement across two monitors, or seed an even grid and open the on-monitor editor
+    // so the user places them visually right away.
     private void NewProfile()
     {
         var defaultCount = Windows.Count > 0 ? Math.Clamp(Windows.Count, 1, 15) : 4;
-        var dialog = new Views.NewProfileDialog(defaultCount)
+        var dialog = new Views.NewProfileDialog(defaultCount, Monitors.ToList(), LayoutTargetMonitorId)
         {
             Owner = System.Windows.Application.Current.MainWindow,
         };
         if (dialog.ShowDialog() != true) return;
+
+        // Master + previews arrives finished: the master rect already owns a whole monitor, so it is
+        // unambiguously the biggest slot and the previews are already tiled on the other screen.
+        // No trip through the on-monitor editor, because there is nothing left to place.
+        if (dialog.MasterPlusPreviews && dialog.MasterMonitor is { } masterMon && dialog.PreviewMonitor is { } previewMon)
+        {
+            var generated = PresetFactory.CreateMasterPreviewProfile(
+                UniqueProfileName("Master + Previews"),
+                masterMon.Id, masterMon.Bounds,
+                previewMon.Id, previewMon.Bounds,
+                dialog.AccountCount);
+            Profiles.Add(generated);
+            SelectedProfile = generated;
+            Save();
+            Log.Info($"Created '{generated.Name}': master fills {masterMon.DeviceName} "
+                   + $"({masterMon.Bounds.Width}x{masterMon.Bounds.Height}); {dialog.AccountCount - 1} preview "
+                   + $"slot(s) on {previewMon.DeviceName}. Apply Profile to arrange your clients.");
+            return;
+        }
 
         var monitor = Monitors.FirstOrDefault(m => m.Id == LayoutTargetMonitorId)
             ?? Monitors.FirstOrDefault(m => m.IsPrimary)

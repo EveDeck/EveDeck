@@ -16,5 +16,11 @@ public sealed class LayoutSlot
     // user dragging a seat card onto a mini-map corner; ignored for the center slot (master sits there).
     public int? HomeSeat { get; set; }
 
+    // Display-only marker for the slot table: true for whichever slot is currently the master rect.
+    // NOT persisted and never read back as truth -- the master is always re-derived from geometry by
+    // MainWindowViewModel.PickCenterSlot, and this is only stamped on for the UI to show it.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsMasterSlot { get; set; }
+
     public WindowRect ToRect() => new() { X = X, Y = Y, Width = Width, Height = Height };
 }
