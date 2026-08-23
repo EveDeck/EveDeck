@@ -28,6 +28,22 @@ public sealed class LayoutProfile
     // Swap groups partition profile slots into independent swap rings. Empty = single legacy group (all slots).
     public ObservableCollection<SwapGroup> SwapGroups { get; set; } = new();
 
+    // Per-profile override of the GLOBAL "enable live previews" toggle, deciding which of the two
+    // apply paths this layout takes:
+    //   ""         -> Auto: follow the global CornerOverlaysEnabled setting (the legacy behaviour, so
+    //                 every profile saved before this field keeps doing exactly what it did).
+    //   "Previews" -> always preview mode: master live, the rest are thumbnails parked off-screen.
+    //   "Windows"  -> always flat mode: every client is a real window at its own slot rect.
+    //
+    // Per PROFILE rather than per character set, even though the request was per set: a set already
+    // binds a layout (see CharacterSet.LayoutProfileId), so this composes with that automatically,
+    // and "how this arrangement renders" is a property of the arrangement. A dense preview grid and
+    // a 4-up real-window grid are different layouts, not one layout in two moods.
+    //
+    // Note "Windows" cannot rescue a layout whose slots are below EVE's minimum window size -- EVE
+    // clamps those and they overlap. LayoutModeWarning surfaces that; this flag does not silence it.
+    public string PreviewModeOverride { get; set; } = "";
+
     // When true, this profile fits itself into the monitor WORK AREA (excluding the taskbar) instead of
     // the full monitor bounds at apply time — useful for center-master grids so the bottom row clears the
     // taskbar. Per-profile so full-screen and taskbar-aware variants can coexist. See ResolveLayoutAnchor.
@@ -76,6 +92,7 @@ public sealed class LayoutProfile
     {
         var clone = new LayoutProfile { Name = name ?? $"{Name} Copy", IsBuiltIn = false, Category = "Custom", IsFamilyTemplate = false };
         clone.MasterSeat = MasterSeat;
+        clone.PreviewModeOverride = PreviewModeOverride;
         clone.AvoidTaskbar = AvoidTaskbar;
         clone.CaptureMonitorX = CaptureMonitorX;
         clone.CaptureMonitorY = CaptureMonitorY;

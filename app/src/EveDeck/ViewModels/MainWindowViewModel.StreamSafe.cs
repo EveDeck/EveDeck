@@ -35,7 +35,7 @@ public sealed partial class MainWindowViewModel
     private void ApplyStreamSafeChange()
     {
         CloseInfoFlyout();
-        if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) RefreshAllPills();
+        if (PreviewModeActive && CornerOverlaysLive) RefreshAllPills();
     }
 
     // Hotkey action: flip stream-safe mode. Display-only (masks what the overlay shows); never forwards

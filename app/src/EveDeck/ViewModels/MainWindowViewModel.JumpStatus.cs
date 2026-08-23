@@ -73,7 +73,7 @@ public sealed partial class MainWindowViewModel
             // Rebuild so the label surface (which the badges draw on) gets created if it didn't
             // already exist purely for labels/the info button -- same reasoning as the
             // CornerOverlayInfoButtonEnabled toggle.
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
         }
     }
 

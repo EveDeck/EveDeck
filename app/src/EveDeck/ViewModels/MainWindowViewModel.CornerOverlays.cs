@@ -350,8 +350,9 @@ public sealed partial class MainWindowViewModel
     {
         StopCornerOverlays();
 
-        if (!_settings.CornerOverlaysEnabled) return;
-        if (SelectedProfile is null || !SelectedProfile.SupportsCornerGrid) return;
+        // Keep the explicit null test as well as the mode check: PreviewModeFor rejects null, but the
+        // compiler cannot see through it and the rest of this method dereferences SelectedProfile.
+        if (SelectedProfile is null || !PreviewModeFor(SelectedProfile)) return;
 
         EnsureValidMasterSeat();
 
@@ -839,7 +840,10 @@ public sealed partial class MainWindowViewModel
         var group = FindGroupForSeat(seat);
         if (group is null) { Log.Warn($"Seat {seat} is not in any swap group."); return; }
 
-        if (!_settings.CornerOverlaysEnabled)
+        // A layout rendering as real windows swaps by MOVING the windows, not by re-pointing
+        // thumbnails -- so the flat path has to cover a forced-Windows layout too, not just the
+        // case where previews are globally off.
+        if (!PreviewModeFor(SelectedProfile))
         {
             CenterSeatFlatInGroup(group, seat);
             return;

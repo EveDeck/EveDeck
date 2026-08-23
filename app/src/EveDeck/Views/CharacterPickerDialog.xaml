@@ -1,0 +1,70 @@
+<Window x:Class="EveDeck.Views.CharacterPickerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Choose Characters"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="ToolWindow"
+        ResizeMode="CanResize"
+        Width="460" Height="560" MinWidth="380" MinHeight="360"
+        Background="#12161D">
+  <Grid Margin="18">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0">
+      <TextBlock x:Name="HeadingText" Text="Choose Characters" Foreground="#EAF2FF" FontSize="15" FontWeight="SemiBold"/>
+      <TextBlock Text="Tick the characters that belong in this set. Seats are built to match: ticked characters keep the seat they already have, new ones are added at the end, and unticked ones lose their seat. Every character you have ever linked is listed, so nothing needs re-authorising in a browser."
+                 Foreground="#8CA0B8" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,10"/>
+    </StackPanel>
+
+    <DockPanel Grid.Row="1" Margin="0,0,0,8">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button Content="All" Click="OnSelectAll" Padding="10,3" FontSize="11" Margin="6,0,0,0"/>
+        <Button Content="None" Click="OnSelectNone" Padding="10,3" FontSize="11" Margin="4,0,0,0"/>
+      </StackPanel>
+      <TextBox x:Name="FilterBox" Foreground="#EAF2FF" Background="#1A2029" BorderBrush="#2A3442"
+               Padding="6,4" FontSize="12" TextChanged="OnFilterChanged"
+               ToolTip="Filter the list by character name."/>
+    </DockPanel>
+
+    <Border Grid.Row="2" BorderBrush="#2A3442" BorderThickness="1" CornerRadius="4" Padding="2">
+      <ListBox x:Name="CharacterList" Background="Transparent" BorderThickness="0"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.ItemContainerStyle>
+          <Style TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="2"/>
+          </Style>
+        </ListBox.ItemContainerStyle>
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Foreground="#C9D6E8" Padding="6,0,0,0" VerticalContentAlignment="Center">
+              <StackPanel Orientation="Horizontal">
+                <Border Width="28" Height="28" CornerRadius="3" Margin="0,2,8,2" Background="#1A2029" ClipToBounds="True">
+                  <Image Source="{Binding Portrait.Image}" Stretch="UniformToFill"/>
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                  <TextBlock Text="{Binding CharacterName}" Foreground="#EAF2FF" FontSize="12"/>
+                  <TextBlock Text="{Binding StatusNote}" Foreground="#8CA0B8" FontSize="10"/>
+                </StackPanel>
+              </StackPanel>
+            </CheckBox>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Border>
+
+    <TextBlock x:Name="SummaryText" Grid.Row="3" Foreground="#8CA0B8" FontSize="11"
+               TextWrapping="Wrap" Margin="0,8,0,0"/>
+
+    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button x:Name="OkButton" Content="Apply" Click="OnOk" Padding="12,5" Margin="0,0,8,0" FontWeight="SemiBold"/>
+      <Button Content="Cancel" Click="OnCancel" Padding="12,5"/>
+    </StackPanel>
+  </Grid>
+</Window>

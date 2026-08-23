@@ -55,7 +55,7 @@ public sealed partial class MainWindowViewModel
             Save();
             // Rebuild the overlay so badges appear/disappear immediately (the badge lives on the label
             // surface, whose existence now also depends on this toggle -- see StartCornerOverlays).
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
         }
     }
 
@@ -72,7 +72,7 @@ public sealed partial class MainWindowViewModel
             _settings.CornerOverlayChromeScale = clamped;
             OnPropertyChanged();
             Save();
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
         }
     }
 

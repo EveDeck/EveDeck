@@ -26,7 +26,7 @@ public sealed partial class MainWindowViewModel
         // Corner overlay mode: all clients go to master resolution; non-master windows park off-screen.
         // Only profiles that actually form a grid use it; single/stacked layouts fall through to plain
         // window placement ("copy") even with corner overlays globally enabled.
-        if (_settings.CornerOverlaysEnabled && SelectedProfile.SupportsCornerGrid)
+        if (PreviewModeFor(SelectedProfile))
         {
             await ApplyCornerOverlayLayout();
             return;

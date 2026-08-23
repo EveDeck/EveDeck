@@ -221,6 +221,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         // ── Views ─────────────────────────────────────────────────
         SelectedProfile = Profiles.FirstOrDefault(p => p.Id == _settings.ActiveProfileId) ?? Profiles.FirstOrDefault();
+        // Covers the no-profiles case, where the setter above short-circuits and never refreshes.
+        RefreshCharacterSetLayoutNames();
 
         ProfilesView = CollectionViewSource.GetDefaultView(Profiles);
         ProfilesView.SortDescriptions.Add(new SortDescription(nameof(LayoutProfile.GroupOrder), ListSortDirection.Ascending));
@@ -296,6 +298,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         InitLaunchGroups();
         InitChatAlerts();
         InitConfigProfiles();
+        InitCharacterRoster();
         InitDowntime();
 
         // After InitConfigProfiles (which wires the commands) and after the startup LAYOUT profile
@@ -813,6 +816,73 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private const int MinUsableClientWidth = 1024;
     private const int MinUsableClientHeight = 768;
 
+    // THE decision: does this profile render as live previews, or as real windows?
+    //
+    // Every gate that used to read _settings.CornerOverlaysEnabled directly now goes through here,
+    // so the global toggle and the per-profile override can never disagree about which apply path
+    // ran. A layout with no override behaves exactly as it did before this existed.
+    internal bool PreviewModeFor(LayoutProfile? profile)
+    {
+        // No override can conjure previews out of a layout whose slots all sit at one position --
+        // there is nothing to surround a centre rect with. That constraint is geometric, not a
+        // preference, so it is checked first.
+        if (profile is null || !profile.SupportsCornerGrid) return false;
+
+        return profile.PreviewModeOverride switch
+        {
+            "Windows"  => false,
+            "Previews" => true,
+            _          => _settings.CornerOverlaysEnabled
+        };
+    }
+
+    public bool PreviewModeActive => PreviewModeFor(SelectedProfile);
+
+    // Bound to the Layouts tab picker. Stored as a string on the profile rather than an enum so the
+    // settings JSON stays readable and an unknown value degrades to Auto instead of throwing.
+    public string SelectedProfilePreviewMode
+    {
+        get => SelectedProfile?.PreviewModeOverride switch
+        {
+            "Windows"  => "Real windows",
+            "Previews" => "Live previews",
+            _          => "Follow global setting"
+        };
+        set
+        {
+            if (SelectedProfile is null) return;
+            var stored = value switch
+            {
+                "Real windows"  => "Windows",
+                "Live previews" => "Previews",
+                _               => ""
+            };
+            if (SelectedProfile.PreviewModeOverride == stored) return;
+            SelectedProfile.PreviewModeOverride = stored;
+            OnPropertyChanged();
+            RaiseLayoutModeDependents();
+            Save();
+
+            // Rebuild the overlay surfaces to match the new decision immediately -- StartCornerOverlays
+            // tears down first and then bails when this profile is now flat, which is exactly the
+            // teardown a switch to "Real windows" needs.
+            if (CornerOverlaysLive) StartCornerOverlays();
+            Log.Info($"Layout '{SelectedProfile.Name}' render mode: {value}.");
+        }
+    }
+
+    public IReadOnlyList<string> PreviewModeOptions { get; } =
+        new[] { "Follow global setting", "Live previews", "Real windows" };
+
+    internal void RaiseLayoutModeDependents()
+    {
+        OnPropertyChanged(nameof(PreviewModeActive));
+        OnPropertyChanged(nameof(SelectedProfilePreviewMode));
+        OnPropertyChanged(nameof(LayoutModeSummary));
+        OnPropertyChanged(nameof(LayoutModeWarning));
+        OnPropertyChanged(nameof(HasLayoutModeWarning));
+    }
+
     // One authoritative answer to "will this profile show live previews or real windows, and why".
     // Which of the two apply paths runs (ApplyCornerOverlayLayout vs ApplyLayout) was previously
     // invisible in the UI -- it is decided at apply time from SupportsCornerGrid plus the global
@@ -829,10 +899,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 return $"Flat mode - all {n} clients render live. Previews need slots at two or more "
                      + "distinct positions; every slot in this layout sits at the same one.";
 
-            if (!CornerOverlaysEnabled)
-                return $"Flat mode - all {n} clients render live, each resized to its own slot. Turn on "
-                     + $"\"Enable live previews\" in Options > Previews to render the master live and the "
-                     + $"other {n - 1} as preview thumbnails instead.";
+            if (!PreviewModeActive)
+                return SelectedProfile.PreviewModeOverride == "Windows"
+                    ? $"Flat mode - all {n} clients render live as real windows, each resized to its own "
+                    + "slot. This layout is set to \"Real windows\", so the global live-preview setting "
+                    + "is ignored for it."
+                    : $"Flat mode - all {n} clients render live, each resized to its own slot. Turn on "
+                    + $"\"Enable live previews\" in Options > Previews, or set this layout to \"Live "
+                    + $"previews\", to render the master live and the other {n - 1} as thumbnails instead.";
 
             return $"Preview mode - the master seat renders live in slot {CenterSlotNumber}; the other "
                  + $"{n - 1} are live preview thumbnails, and their clients park off-screen at master "
@@ -848,7 +922,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         get
         {
             if (SelectedProfile is null || SelectedProfile.Slots.Count == 0) return "";
-            if (SelectedProfile.SupportsCornerGrid && CornerOverlaysEnabled) return "";
+            if (PreviewModeActive) return "";
 
             var tooSmall = SelectedProfile.Slots
                 .Select(ResolvePlacementRect)
@@ -860,8 +934,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return $"Warning: {tooSmall.Count} of this layout's {SelectedProfile.Slots.Count} slots are "
                  + $"smaller than EVE's minimum window size ({MinUsableClientWidth}x{MinUsableClientHeight}); "
                  + $"the smallest is {smallest.Width}x{smallest.Height}. In flat mode those clients are "
-                 + "resized to fit and EVE will clamp them, so they will overlap. Use live previews for "
-                 + "this many clients, or a layout with fewer slots.";
+                 + "resized to fit and EVE will clamp them, so they will overlap. Give this layout bigger "
+                 + "slots (spread them across more than one monitor if need be), switch it to live "
+                 + "previews, or use a layout with fewer slots.";
         }
     }
 
@@ -1259,6 +1334,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             // This toggle is half of what decides preview vs flat mode, so the Layouts-tab readout
             // has to follow it -- otherwise it keeps advertising the mode that was in effect before.
             RebuildLayoutPreview();
+            RaiseLayoutModeDependents();
             if (!value) StopCornerOverlays();
             Save();
         }
@@ -1273,7 +1349,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _settings.CornerOverlayShowLabel = value;
             OnPropertyChanged();
             Save();
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
         }
     }
 
@@ -1352,7 +1428,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _settings.CornerOverlayShowSlotNumber = value;
             OnPropertyChanged();
             Save();
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) RefreshAllPills();
+            if (PreviewModeActive && CornerOverlaysLive) RefreshAllPills();
         }
     }
 
@@ -1365,7 +1441,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _settings.CornerOverlayShowSystem = value;
             OnPropertyChanged();
             Save();
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) RefreshAllPills();
+            if (PreviewModeActive && CornerOverlaysLive) RefreshAllPills();
         }
     }
 
@@ -1377,7 +1453,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             var clamped = Math.Clamp(value, 6.0, 72.0);
             if (Math.Abs(_settings.CornerOverlayLabelFontSize - clamped) < 0.1) return;
             _settings.CornerOverlayLabelFontSize = clamped; OnPropertyChanged(); Save();
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
         }
     }
 
@@ -1390,7 +1466,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _settings.CornerOverlayLabelStyle = value;
             OnPropertyChanged();
             Save();
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
         }
     }
 
@@ -1419,7 +1495,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(CornerOverlayLabelFontSize));
         OnPropertyChanged(nameof(LabelFontSummary));
         Save();
-        if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+        if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
     }
 
     // Applies (or clears, when args are null) a single seat's label font overrides. Rebuilds overlays.
@@ -1429,7 +1505,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         seat.LabelFontSize = sizeDip.HasValue ? Math.Clamp(sizeDip.Value, 6.0, 72.0) : null;
         seat.LabelColor = string.IsNullOrWhiteSpace(colorHex) ? null : colorHex;
         Save();
-        if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+        if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
     }
 
     // One-line summary of the MASTER label font for the Options tab — shows the concrete effective
@@ -1461,7 +1537,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(colorHex)) _settings.CornerOverlayLabelColorMaster = colorHex;
         OnPropertyChanged(nameof(MasterLabelFontSummary));
         Save();
-        if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+        if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
     }
 
     // Clears the global MASTER label font override so it inherits the normal default again.
@@ -1472,7 +1548,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _settings.CornerOverlayLabelColorMaster = "";
         OnPropertyChanged(nameof(MasterLabelFontSummary));
         Save();
-        if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+        if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
     }
 
     // Applies (or clears, when args are null) a single seat's MASTER label font overrides.
@@ -1482,7 +1558,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         seat.LabelFontSizeMaster = sizeDip.HasValue ? Math.Clamp(sizeDip.Value, 6.0, 72.0) : null;
         seat.LabelColorMaster = string.IsNullOrWhiteSpace(colorHex) ? null : colorHex;
         Save();
-        if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+        if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
     }
 
     // -- Label style toggles (bold/italic/drop shadow/outline) --------------------------------
@@ -1511,7 +1587,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void SaveAndRefreshOverlays()
     {
         Save();
-        if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+        if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
     }
 
     public bool LabelBold
@@ -1867,7 +1943,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         seat.LabelColorMaster = labelColorHex;
         _lastFrameHandle = 0;
         Save();
-        if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+        if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
     }
 
     // Last main-window position; persisted by the view on close and restored on launch.
@@ -2028,7 +2104,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _settings.HoverZoomAnchor = chosen;
             OnPropertyChanged();
             Save();
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
         }
     }
 
@@ -2069,7 +2145,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _settings.CornerOverlayLabelAnchor = chosen;
             OnPropertyChanged();
             Save();
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
         }
     }
 
@@ -2085,7 +2161,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _settings.CornerOverlayLabelAnchorMaster = chosen;
             OnPropertyChanged();
             Save();
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
         }
     }
 
@@ -2099,7 +2175,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _settings.CornerOverlayLabelInset = clamped;
             OnPropertyChanged();
             Save();
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
         }
     }
 
@@ -2229,7 +2305,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         SwitchToCharacterSet(_settings.CharacterSets[oneBasedIndex - 1].Id);
     }
 
-    private void SwitchToCharacterSet(string targetId)
+    // applyLayout=false is for callers that are going to place windows themselves afterwards --
+    // ConfigProfile.Apply picks its OWN layout after switching the set. Without the opt-out its
+    // apply would collide with this one and lose: ApplyActiveProfile is async and drops re-entrant
+    // calls via _applyInProgress, so the set's layout would silently win over the config profile's.
+    private void SwitchToCharacterSet(string targetId, bool applyLayout = true)
     {
         if (targetId == _settings.ActiveCharacterSetId) return;
         var target = _settings.CharacterSets.FirstOrDefault(s => s.Id == targetId);
@@ -2249,14 +2329,39 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Hotkeys.Clear();
         foreach (var h in target.Hotkeys) Hotkeys.Add(h);
 
+        // Sets carry their layout too, so switching one moves the windows as well as the seats.
+        // Degrades the same way ConfigProfile.Apply does: an empty or dangling reference means
+        // "keep the current layout" rather than throwing or blanking the selection.
+        var switchedLayout = false;
+        if (!string.IsNullOrWhiteSpace(target.LayoutProfileId))
+        {
+            var layout = _settings.Profiles.FirstOrDefault(p => p.Id == target.LayoutProfileId);
+            if (layout is null)
+                Log.Warn($"Character set '{target.Name}' references a layout profile that no longer exists; keeping the current one.");
+            else if (!ReferenceEquals(layout, SelectedProfile))
+            {
+                SelectedProfile = layout;
+                switchedLayout = true;
+            }
+        }
+
         HotkeysChanged?.Invoke(this, EventArgs.Empty);
         SyncMasterSlot();
         UpdatePositionCodes();
         RaiseIdentityDependents();
+        RefreshCharacterSetLayoutNames();
         OnPropertyChanged(nameof(ActiveCharacterSet));
         OnPropertyChanged(nameof(ActiveCharacterSetId));
+        OnPropertyChanged(nameof(ActiveSetLayout));
         Save();
         Log.Info($"Switched to character set '{target.Name}'.");
+
+        // Placed last so the seats/hotkeys above are already live when the windows start moving.
+        if (switchedLayout && applyLayout)
+        {
+            Log.Info($"Applying layout '{SelectedProfile?.Name}' bound to character set '{target.Name}'.");
+            ApplyActiveProfile();
+        }
     }
 
     private void SnapshotLiveToActiveSet()
@@ -2267,6 +2372,49 @@ public sealed partial class MainWindowViewModel : ObservableObject
         foreach (var a in Assignments) active.Assignments.Add(a);
         active.Hotkeys.Clear();
         foreach (var h in Hotkeys) active.Hotkeys.Add(h);
+        // Auto-track the layout the same way seats and hotkeys are tracked: whatever profile was
+        // selected while this set was active IS this set's layout. Keeps legacy sets (empty binding)
+        // from needing a one-time manual pick before the feature does anything.
+        if (SelectedProfile is not null) active.LayoutProfileId = SelectedProfile.Id;
+    }
+
+    // The active set's bound layout, surfaced as a picker in the Character Sets panel so the rule
+    // ("this set flies this layout") is visible rather than something the user has to infer from a
+    // switch that silently rearranges their screen. Setting it re-points the live selection too --
+    // for the ACTIVE set those are by definition the same thing under auto-tracking.
+    public LayoutProfile? ActiveSetLayout
+    {
+        get
+        {
+            var active = ActiveCharacterSet;
+            if (active is null || string.IsNullOrWhiteSpace(active.LayoutProfileId)) return SelectedProfile;
+            return _settings.Profiles.FirstOrDefault(p => p.Id == active.LayoutProfileId) ?? SelectedProfile;
+        }
+        set
+        {
+            if (value is null) return;
+            var active = ActiveCharacterSet;
+            if (active is not null) active.LayoutProfileId = value.Id;
+            if (!ReferenceEquals(value, SelectedProfile)) SelectedProfile = value;
+            RefreshCharacterSetLayoutNames();
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    // Resolve each set's layout id to a name for its button tooltip. Cheap enough to just redo the
+    // whole list whenever anything moves rather than tracking which single set changed.
+    internal void RefreshCharacterSetLayoutNames()
+    {
+        foreach (var set in _settings.CharacterSets)
+        {
+            var id = set.Id == _settings.ActiveCharacterSetId && SelectedProfile is not null
+                ? SelectedProfile.Id
+                : set.LayoutProfileId;
+            set.LayoutDisplayName = string.IsNullOrWhiteSpace(id)
+                ? "Keeps the current layout"
+                : _settings.Profiles.FirstOrDefault(p => p.Id == id)?.Name ?? "Missing layout";
+        }
     }
 
     private void AddCharacterSet()
@@ -2275,12 +2423,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         var newSet = new Models.CharacterSet
         {
-            Name = $"Set {_settings.CharacterSets.Count + 1}"
+            Name = $"Set {_settings.CharacterSets.Count + 1}",
+            // Seeded from the current layout, matching the seat/hotkey cloning below: "add a set"
+            // means "another set like this one", not "a set that rearranges my screen".
+            LayoutProfileId = SelectedProfile?.Id ?? ""
         };
         // Clone seat structure (same slot numbers/labels) but clear window assignments.
         foreach (var a in Assignments)
         {
-            newSet.Assignments.Add(new SlotAssignment
+            var seat = new SlotAssignment
             {
                 SlotNumber = a.SlotNumber,
                 Label = a.Label,
@@ -2290,7 +2441,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 LabelFontSize = a.LabelFontSize,
                 LabelColor = a.LabelColor,
                 NeverMinimize = a.NeverMinimize
-            });
+            };
+            // Carry the ESI links across. Tokens were always global (EsiTokenStore keys them by
+            // character id), so copying the linkage costs nothing and spares the user re-running the
+            // browser login for characters the app is already authorised for. Deselect the ones this
+            // set does not need with "Choose Characters".
+            foreach (var character in a.EsiCharacters)
+                seat.EsiCharacters.Add(new EsiCharacter
+                {
+                    CharacterId = character.CharacterId,
+                    CharacterName = character.CharacterName
+                });
+            foreach (var window in a.AssignedWindows)
+                seat.AssignedWindows.Add(new SlotWindowEntry { Title = window.Title });
+            newSet.Assignments.Add(seat);
         }
         // Clone hotkey bindings unbound (user should configure them per set).
         foreach (var h in Hotkeys)
@@ -2407,6 +2571,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 UpdatePositionCodes();
                 RebuildLayoutPreview();
                 RaiseCommandStates();
+                RefreshCharacterSetLayoutNames();
+                RaiseLayoutModeDependents();
+                OnPropertyChanged(nameof(ActiveSetLayout));
             }
         }
     }
@@ -2439,7 +2606,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // In corner-overlay mode with live occupancy, each seat card shows WHERE THAT SEAT'S
         // WINDOW CURRENTLY IS on screen: "Master" if centered, or the corner's geometric arrow.
         // This is correct even after swaps (e.g. Seat 1 sent to BL still shows ↙, not ↖).
-        if (_settings.CornerOverlaysEnabled && _cornerSeatByGroup.Count > 0)
+        if (PreviewModeActive && _cornerSeatByGroup.Count > 0)
         {
             // Build a merged seat->currentPosition map across all groups.
             var seatToPosition = new Dictionary<int, int>();
@@ -2563,7 +2730,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Log.Info($"Setup complete: {clientCount} client(s) on '{mon?.DeviceName ?? "?"}', profile '{profile?.Name ?? "none"}'.");
 
         // Rebuild corner occupancy with the new master and restart overlays so hover-peek works immediately.
-        if (_settings.CornerOverlaysEnabled)
+        if (PreviewModeActive)
         {
             ResetCornerOccupancy();
             UpdatePositionCodes();
@@ -2801,7 +2968,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void OnPortraitCacheChanged()
     {
         RaiseIdentityDependents();
-        if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) RefreshAllPills();
+        if (PreviewModeActive && CornerOverlaysLive) RefreshAllPills();
     }
 
     public void Cleanup()

@@ -84,13 +84,20 @@ public sealed partial class MainWindowViewModel
     private void AssignWindowToSlot(object? parameter)
     {
         if (parameter is not SlotAssignment assignment) return;
-        if (SelectedWindow is null)
+
+        // Capture the selection ONCE. Every mutation below fires OnAssignedWindowsChanged, which calls
+        // WindowsView.Refresh(); the view filters out assigned windows, so the row being assigned drops
+        // out of the list, the ListBox clears its SelectedItem, and the two-way binding writes
+        // SelectedWindow = null underneath this method. Re-reading the property after the Add therefore
+        // returned null and crashed. Nothing here may touch SelectedWindow again.
+        var window = SelectedWindow;
+        if (window is null)
         {
             Log.Warn("Select a detected window before assigning it to a slot.");
             return;
         }
 
-        var title = SelectedWindow.Title;
+        var title = window.Title;
 
         if (assignment.AssignedWindows.Any(e => e.Title.Equals(title, StringComparison.OrdinalIgnoreCase)))
         {
@@ -108,15 +115,15 @@ public sealed partial class MainWindowViewModel
         assignment.AssignedWindows.Add(new SlotWindowEntry
         {
             Title = title,
-            LastProcessId = SelectedWindow.ProcessId,
-            LastHandleHex = SelectedWindow.HandleHex
+            LastProcessId = window.ProcessId,
+            LastHandleHex = window.HandleHex
         });
 
         // 2f — Auto-label slot from EVE character name when slot still has default name.
-        TryAutoLabelSlot(assignment, SelectedWindow);
+        TryAutoLabelSlot(assignment, window);
 
         if (assignment.IsTopmost)
-            _windowService.SetWindowTopmost(SelectedWindow.Handle, IsEveWindowForeground());
+            _windowService.SetWindowTopmost(window.Handle, IsEveWindowForeground());
 
         Log.Info($"Added '{title}' to slot {assignment.SlotNumber} ({assignment.Label}).");
         Save();
@@ -144,13 +151,33 @@ public sealed partial class MainWindowViewModel
         var assignment = new SlotAssignment { SlotNumber = nextSlotNumber, Label = $"Slot {nextSlotNumber}" };
         Assignments.Add(assignment);
 
-        foreach (var profile in Profiles.Where(p => !p.IsBuiltIn && !p.Slots.Any(s => s.SlotNumber == nextSlotNumber)))
+        EnsureProfileSlotsFor(nextSlotNumber, assignment.Label);
+
+        SelectedAssignment = assignment;
+        Save();
+        OnPropertyChanged(nameof(Assignments));
+        OnPropertyChanged(nameof(ActiveProfileSlots));
+        RebuildLayoutPreview();
+        Log.Info($"Added slot {nextSlotNumber}.");
+    }
+
+    // Give every custom layout a slot for this seat number, cloned off its last slot, so a seat that
+    // was just created can actually be placed instead of silently sitting wherever it already was.
+    // Built-in profiles are read-only, and family templates regenerate their slots from TemplateCount
+    // (see PresetFactory.RegenerateFamilySlots), so neither is touched here.
+    //
+    // Shared by AddSlot and the character-roster picker, which can add several seats at once -- they
+    // must provision slots identically or a seat's placement would depend on how it was created.
+    internal void EnsureProfileSlotsFor(int slotNumber, string label)
+    {
+        foreach (var profile in Profiles.Where(p => !p.IsBuiltIn && !p.IsFamilyTemplate
+                                                    && !p.Slots.Any(s => s.SlotNumber == slotNumber)))
         {
             var template = profile.Slots.OrderBy(s => s.SlotNumber).LastOrDefault();
             profile.Slots.Add(new LayoutSlot
             {
-                SlotNumber = nextSlotNumber,
-                Label = assignment.Label,
+                SlotNumber = slotNumber,
+                Label = label,
                 MonitorId = template?.MonitorId ?? "",
                 X = template?.X ?? 0,
                 Y = template?.Y ?? 0,
@@ -159,13 +186,6 @@ public sealed partial class MainWindowViewModel
                 Borderless = template?.Borderless ?? true
             });
         }
-
-        SelectedAssignment = assignment;
-        Save();
-        OnPropertyChanged(nameof(Assignments));
-        OnPropertyChanged(nameof(ActiveProfileSlots));
-        RebuildLayoutPreview();
-        Log.Info($"Added slot {nextSlotNumber}.");
     }
 
     private void DeleteSelectedSlot()
@@ -313,8 +333,9 @@ public sealed partial class MainWindowViewModel
     }
 
     // 2f — Populate slot label from EVE character name when slot still has default "Slot N" label.
-    private static void TryAutoLabelSlot(SlotAssignment slot, EveWindowInfo window)
+    private static void TryAutoLabelSlot(SlotAssignment slot, EveWindowInfo? window)
     {
+        if (window is null) return;
         var isDefault = string.IsNullOrEmpty(slot.Label)
             || slot.Label.Equals($"Slot {slot.SlotNumber}", StringComparison.Ordinal);
         if (!isDefault) return;
@@ -690,7 +711,7 @@ public sealed partial class MainWindowViewModel
                            or nameof(SlotAssignment.ZoomFactor))
         {
             ScheduleAutoSave();
-            if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
         }
     }
 

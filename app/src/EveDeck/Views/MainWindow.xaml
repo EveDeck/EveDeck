@@ -478,7 +478,9 @@
                   <!-- Character Set switcher -->
                   <DockPanel Grid.Row="0" Margin="0,0,0,8">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                      <Button Content="+ Set" Command="{Binding AddCharacterSetCommand}" Padding="7,3" FontSize="11" ToolTip="Add a new character set with the same layout and hotkeys."/>
+                      <Button Content="Characters…" Command="{Binding ChooseSetCharactersCommand}" Padding="7,3" FontSize="11" Margin="0,0,4,0"
+                              ToolTip="Pick which of your linked characters belong in the active set. Seats are built to match. Every character you have ever linked is offered, so no set ever needs a second browser login."/>
+                      <Button Content="+ Set" Command="{Binding AddCharacterSetCommand}" Padding="7,3" FontSize="11" ToolTip="Add a new character set with the same layout, seats, characters and hotkeys."/>
                       <Button Content="Delete" Command="{Binding DeleteCharacterSetCommand}" Padding="7,3" FontSize="11" Margin="4,0,0,0" Style="{StaticResource DangerButton}" ToolTip="Delete the active character set"/>
                     </StackPanel>
                     <StackPanel VerticalAlignment="Center">
@@ -494,7 +496,8 @@
                                             Content="{Binding Name}"
                                             IsChecked="{Binding IsActive, Mode=OneWay}"
                                             Command="{Binding DataContext.SwitchCharacterSetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            CommandParameter="{Binding}">
+                                            CommandParameter="{Binding}"
+                                            ToolTip="{Binding LayoutDisplayName, StringFormat='Layout: {0}'}">
                                 <ToggleButton.Style>
                                   <Style TargetType="ToggleButton">
                                     <Setter Property="Cursor" Value="Hand"/>
@@ -534,6 +537,15 @@
                           </DataTemplate>
                         </ItemsControl.ItemTemplate>
                       </ItemsControl>
+                      <!-- Sets carry a layout, and switching one rearranges the screen. That rule has to be
+                           visible here or the rearrangement reads as a bug rather than the feature. -->
+                      <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <TextBlock Text="Layout for this set:" FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}" Margin="0,0,5,0"/>
+                        <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding ActiveSetLayout, Mode=TwoWay}"
+                                  DisplayMemberPath="Name" FontSize="11" MinWidth="150" MinHeight="0" Padding="5,2"
+                                  ToolTip="The layout this character set flies. Switching to another set selects and applies that set's layout, so your windows move with your seats."/>
+                      </StackPanel>
                     </StackPanel>
                   </DockPanel>
 
@@ -566,6 +578,13 @@
                       <TextBlock Text="{Binding LayoutModeWarning}" FontSize="11" FontWeight="SemiBold"
                                  Visibility="{Binding HasLayoutModeWarning, Converter={StaticResource BoolToVisibility}}"
                                  Foreground="{StaticResource WarningBrush}" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                      <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="This layout renders as:" FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}" Margin="0,0,5,0"/>
+                        <ComboBox ItemsSource="{Binding PreviewModeOptions}" SelectedItem="{Binding SelectedProfilePreviewMode, Mode=TwoWay}"
+                                  FontSize="11" MinWidth="160" MinHeight="0" Padding="5,2"
+                                  ToolTip="Overrides the global 'Enable live previews' setting for THIS layout only. Real windows keeps every client on screen at its own slot size, which is what you want for a grid you actually play in; Live previews renders only the master live and the rest as thumbnails. Because a character set carries its layout, this is effectively per set."/>
+                      </StackPanel>
                     </StackPanel>
                   </DockPanel>
 

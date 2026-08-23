@@ -33,6 +33,16 @@ public sealed class EsiTokenStore
 
     public bool Has(long characterId) => Get(characterId) is not null;
 
+    // Every character that currently holds a grant, newest-authorised last. Feeds the global
+    // character roster: a token IS the proof a character was linked at some point, so the roster
+    // can be derived from these plus whatever the sets already reference, instead of being a
+    // fourth thing to persist and keep in sync.
+    public IReadOnlyList<EsiToken> All()
+    {
+        lock (_lock)
+            return _tokens.Values.ToList();
+    }
+
     public void Put(EsiToken token)
     {
         lock (_lock)

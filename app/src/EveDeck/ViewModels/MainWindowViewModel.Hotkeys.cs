@@ -401,7 +401,7 @@ public sealed partial class MainWindowViewModel
         if (positionId == 0) return; // no slot in that direction — silent no-op
 
         int seat;
-        if (_settings.CornerOverlaysEnabled && profile.SupportsCornerGrid)
+        if (PreviewModeFor(profile))
         {
             if (_centeredSeatByGroup.Count == 0) ResetCornerOccupancy();
             seat = OccupantAtPosition(positionId);

@@ -113,7 +113,7 @@ public sealed partial class MainWindowViewModel
         if (!string.IsNullOrWhiteSpace(profile.CharacterSetId))
         {
             if (_settings.CharacterSets.Any(s => s.Id == profile.CharacterSetId))
-                SwitchToCharacterSet(profile.CharacterSetId);
+                SwitchToCharacterSet(profile.CharacterSetId, applyLayout: false);
             else
                 Log.Warn($"Config profile '{profile.Name}' references a character set that no longer exists; keeping the current one.");
         }
@@ -136,8 +136,8 @@ public sealed partial class MainWindowViewModel
         // view-model property that would normally have raised change notifications and rebuilt the
         // overlay. Refresh the bindings and rebuild the surfaces so the new look actually shows.
         RaiseAllOverlayAppearanceChanged();
-        if (_settings.CornerOverlaysEnabled && CornerOverlaysLive) StartCornerOverlays();
-        else if (!_settings.CornerOverlaysEnabled && CornerOverlaysLive) StopCornerOverlays();
+        if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
+        else if (!PreviewModeActive && CornerOverlaysLive) StopCornerOverlays();
         ApplyActiveProfile();
 
         OnPropertyChanged(nameof(ActiveConfigProfileId));
