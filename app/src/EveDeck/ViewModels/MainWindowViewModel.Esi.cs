@@ -37,6 +37,62 @@ public sealed partial class MainWindowViewModel
         });
     }
 
+    // Writes every linked character's grant to a passphrase-encrypted file. This exists because the
+    // at-rest store is DPAPI CurrentUser-bound: a reinstalled OS is a new user profile, so the file
+    // on disk becomes undecryptable and EVERY character has to be re-linked by hand. An export taken
+    // beforehand turns that into a restore.
+    public void ExportEsiTokens(string path, string passphrase)
+    {
+        try
+        {
+            var count = TokenStore.Export(path, passphrase);
+            if (count == 0)
+            {
+                Log.Warn("No linked ESI characters to export.");
+                MessageBox.Show("There are no linked ESI characters to export.",
+                    "Export Character Links", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            Log.Info($"Exported {count} ESI character link(s) to {path}.");
+            MessageBox.Show(
+                $"Exported {count} character link(s).\n\nKeep this file and its passphrase somewhere safe -- together they can use your characters' ESI scopes, and without the passphrase the file cannot be recovered.",
+                "Export Character Links", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"ESI character-link export failed: {ex}");
+            MessageBox.Show($"Export failed: {ex.Message}", "Export Character Links",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    // Restores grants from an ExportEsiTokens file, re-encrypting them under this machine's DPAPI key.
+    public void ImportEsiTokens(string path, string passphrase)
+    {
+        try
+        {
+            var count = TokenStore.Import(path, passphrase);
+
+            // An imported grant is a working token, so it is exactly the fix a needs-reauth park is
+            // waiting on -- same reasoning as ReauthEsiCharacter. Without this the restored
+            // characters stay blocked until restart.
+            foreach (var token in TokenStore.All())
+                EsiClientShared.ClearReauth(token.CharacterId);
+
+            Log.Info($"Imported {count} ESI character link(s) from {path}.");
+            MessageBox.Show($"Imported {count} character link(s).",
+                "Import Character Links", MessageBoxButton.OK, MessageBoxImage.Information);
+            RaiseIdentityDependents();
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"ESI character-link import failed: {ex}");
+            MessageBox.Show($"Import failed: {ex.Message}", "Import Character Links",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private async void AddEsiCharacter(object? parameter)
     {
         if (parameter is not SlotAssignment slot) return;

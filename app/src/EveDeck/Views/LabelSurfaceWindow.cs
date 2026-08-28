@@ -238,8 +238,6 @@ internal sealed class LabelSurfaceWindow : Window
     {
         var tile = new System.Drawing.Rectangle(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height);
         var r = OverlayInfoButton.RectFor(tile, _chromeScale);
-        _canvas.Children.Remove(btn);          // keep it drawn last so it stays above the pill/glow
-        _canvas.Children.Add(btn);
         Canvas.SetLeft(btn, r.X / _dpiScale);
         Canvas.SetTop(btn, r.Y / _dpiScale);
         btn.Width = r.Width / _dpiScale;
@@ -251,7 +249,7 @@ internal sealed class LabelSurfaceWindow : Window
         var glyph = new TextBlock
         {
             Text = "i",
-            Foreground = new SolidColorBrush(Color.FromRgb(0xE5, 0xE7, 0xEB)),
+            Foreground = new SolidColorBrush(Colors.White),
             FontFamily = new FontFamily("Segoe UI"),
             FontWeight = FontWeights.Bold,
             FontSize = OverlayChrome.BadgeGlyphSize * chromeScale,
@@ -259,17 +257,33 @@ internal sealed class LabelSurfaceWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
             IsHitTestVisible = false,
         };
-        return new Border
+        var btn = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(0xB0, 0x0D, 0x11, 0x17)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
-            BorderThickness = new Thickness(1),
+            // Near-opaque backdrop, a full-strength ring and a drop shadow. At the old 69%-alpha fill
+            // and 50%-white hairline the badge washed out completely over bright EVE UI (station
+            // interiors, the map, a hostile-red overview) -- it is a 20px affordance that has to stay
+            // findable against arbitrary game content behind it, so it carries its own contrast
+            // instead of borrowing it from whatever happens to be underneath.
+            Background = new SolidColorBrush(Color.FromArgb(0xEE, 0x0D, 0x11, 0x17)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF)),
+            BorderThickness = new Thickness(1.5),
             CornerRadius = new CornerRadius(OverlayChrome.RadiusPill),
             Child = glyph,
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Colors.Black, BlurRadius = 4, ShadowDepth = 0, Opacity = 0.9,
+            },
             // The whole surface is input-transparent (WS_EX_TRANSPARENT); the click is hit-tested on
             // the tile surface underneath. This is purely a visual affordance.
             IsHitTestVisible = false,
         };
+        // Keep the badge above the pill, glow and DPS panel by DECLARING it, not by being added to
+        // the canvas last. The previous approach re-ordered the visual tree (Children.Remove then
+        // .Add) on every reposition -- and MovePill runs that on every mouse-move of a tile drag --
+        // which made the badge flicker as it was torn out of and pushed back into the live tree.
+        // Everything else on this canvas leaves ZIndex at the default 0.
+        System.Windows.Controls.Panel.SetZIndex(btn, 10);
+        return btn;
     }
 
     // Jump status: fatigue (amber) and jump-reactivation cooldown (cyan) countdowns.

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -902,6 +902,43 @@ public partial class MainWindow : Window
         };
         if (dlg.ShowDialog(this) == true)
             _viewModel.ImportSettings(dlg.FileName);
+    }
+
+    private void ExportEsiTokens_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export Character Links",
+            Filter = "EveDeck character links|*.edtok",
+            FileName = $"evedeck_characters_{DateTime.Now:yyyy-MM-dd}.edtok"
+        };
+        if (dlg.ShowDialog(this) != true) return;
+
+        var prompt = new PassphraseDialog(
+            "Export Character Links",
+            "Choose a passphrase for this file. It holds live ESI credentials, and there is no way to recover it if you forget the passphrase.",
+            "Export", confirm: true) { Owner = this };
+        if (prompt.ShowDialog() != true) return;
+
+        _viewModel.ExportEsiTokens(dlg.FileName, prompt.Passphrase);
+    }
+
+    private void ImportEsiTokens_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Import Character Links",
+            Filter = "EveDeck character links|*.edtok"
+        };
+        if (dlg.ShowDialog(this) != true) return;
+
+        var prompt = new PassphraseDialog(
+            "Import Character Links",
+            "Enter the passphrase this file was exported with.",
+            "Import", confirm: false) { Owner = this };
+        if (prompt.ShowDialog() != true) return;
+
+        _viewModel.ImportEsiTokens(dlg.FileName, prompt.Passphrase);
     }
 
     // Options-tab section search. Keyed by section index (matches the IndexToVisibility

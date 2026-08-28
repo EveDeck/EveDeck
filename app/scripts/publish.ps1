@@ -6,8 +6,8 @@
   resulting exe timestamp. Self-contained is the default the user runs day to day.
 
   Usage (from anywhere):
-    pwsh -NoProfile -ExecutionPolicy Bypass -File F:\EveDeck\app\scripts\publish.ps1
-    pwsh -NoProfile -ExecutionPolicy Bypass -File F:\EveDeck\app\scripts\publish.ps1 -RunTests
+    pwsh -NoProfile -ExecutionPolicy Bypass -File D:\EveDeck\app\scripts\publish.ps1
+    pwsh -NoProfile -ExecutionPolicy Bypass -File D:\EveDeck\app\scripts\publish.ps1 -RunTests
 #>
 [CmdletBinding()]
 param([switch]$RunTests)

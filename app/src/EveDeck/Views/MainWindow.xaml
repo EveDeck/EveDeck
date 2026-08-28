@@ -2022,6 +2022,19 @@ EveDeck snapshots your settings on every launch, keeping 5 from today plus 1 per
                         MinWidth="140"
                         ToolTip="Load settings from a JSON file and restart EveDeck"/>
               </StackPanel>
+
+              <TextBlock Text="ESI Character Links" FontWeight="SemiBold" FontSize="12" Margin="0,18,0,6"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
+Your EVE SSO links are encrypted to this Windows user account, so they are NOT included in a settings export and do not survive reinstalling Windows or moving to a new PC. Export them to a passphrase-protected file to carry them across, or you will have to re-link every character by hand.
+              </TextBlock>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <Button Content="Export character links..." Click="ExportEsiTokens_Click"
+                        MinWidth="170" Margin="0,0,8,0"
+                        ToolTip="Save all linked ESI characters to an encrypted file"/>
+                <Button Content="Import character links..." Click="ImportEsiTokens_Click"
+                        MinWidth="170"
+                        ToolTip="Restore linked ESI characters from an encrypted export file"/>
+              </StackPanel>
                   </StackPanel>
                   <!-- section 5: Hotkey Behavior -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=5}">
