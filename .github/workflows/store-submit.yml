@@ -72,24 +72,25 @@ jobs:
             -PublishDir "$PWD\publish-ci" `
             -OutFile "$PWD\publish-msix\EveDeck-Store-v${{ steps.ver.outputs.version }}.msix"
 
-      - name: Setup Microsoft Store Developer CLI
-        uses: microsoft/microsoft-store-apppublisher@v1.1
-
-      - name: Configure Microsoft Store Developer CLI
-        run: >
-          msstore reconfigure
-          --tenantId ${{ secrets.PARTNER_CENTER_TENANT_ID }}
-          --sellerId ${{ secrets.PARTNER_CENTER_SELLER_ID }}
-          --clientId ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
-          --clientSecret ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
-
-      # `msstore publish` creates/updates the app's submission with this MSIX and commits it (unless
-      # --noCommit). --appId names the app so no prior `msstore init` is needed; --inputFile points at
-      # the exact package (so the CLI doesn't try to detect/build a project from the path argument).
+      # Submits straight to the Store submission REST API rather than through the `msstore` CLI.
+      #
+      # The CLI cannot do this job: `msstore publish` detects a PROJECT type (.NET MAUI, Flutter,
+      # PWA, Electron, ...) and drives packaging itself, and a plain WPF csproj is not one it
+      # implements, so it exits with "We could not find a project publisher for the project at ..."
+      # regardless of arguments. Its `msstore submission` subcommands can read and rewrite a draft's
+      # JSON but have no way to upload a package. Verified against the live listing 2026-08-28.
+      #
+      # PARTNER_CENTER_SELLER_ID is consequently unused here -- it was only ever a CLI config field.
+      # It stays a secret so the CLI route remains available if that gap is ever closed.
       - name: Submit the MSIX
         shell: pwsh
+        env:
+          PARTNER_CENTER_TENANT_ID: ${{ secrets.PARTNER_CENTER_TENANT_ID }}
+          PARTNER_CENTER_CLIENT_ID: ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
+          PARTNER_CENTER_CLIENT_SECRET: ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
+          STORE_PRODUCT_ID: ${{ secrets.STORE_PRODUCT_ID }}
         run: |
           $msix = (Get-ChildItem "$PWD\publish-msix\*.msix" | Select-Object -First 1).FullName
-          Write-Host "Submitting $msix"
-          $noCommit = if ("${{ inputs.commit }}" -eq "true") { @() } else { @("--noCommit") }
-          msstore publish "$PWD\publish-msix" --inputFile $msix --appId ${{ secrets.STORE_PRODUCT_ID }} @noCommit --verbose
+          $commit = @{}
+          if ("${{ inputs.commit }}" -eq "true") { $commit = @{ Commit = $true } }
+          & app/scripts/submit-store.ps1 -MsixPath $msix @commit
