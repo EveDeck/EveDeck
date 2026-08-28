@@ -79,8 +79,23 @@ try {
     if (-not (Test-Path $stageAssets)) { New-Item -ItemType Directory -Path $stageAssets -Force | Out-Null }
     Copy-Item "$assetsSource\*" $stageAssets -Force
 
+    $stagedManifest = Join-Path $stage "AppxManifest.xml"
     (Get-Content $manifestSource -Raw).Replace("__VERSION__", $packageVersion) |
-        Set-Content (Join-Path $stage "AppxManifest.xml") -Encoding utf8
+        Set-Content $stagedManifest -Encoding utf8
+
+    # Parse the GENERATED manifest before handing it to makeappx. A malformed manifest is already on
+    # disk by this point, so makeappx only ever reports it as a line/column in a file that lives in a
+    # temp dir the build then deletes -- which is how a stray "--" inside an XML comment (illegal in
+    # XML, and an easy thing to type) silently broke every Store package for weeks while the release
+    # itself stayed green. Fail here instead, naming the SOURCE file the author can actually edit.
+    try {
+        [xml](Get-Content $stagedManifest -Raw) | Out-Null
+    }
+    catch {
+        throw ("Generated AppxManifest.xml is not valid XML: {0}`n" -f $_.Exception.Message) +
+              "Fix the template at $manifestSource. Common cause: a '--' inside an XML comment, " +
+              "which XML forbids (the parser expects the comment to end as '-->')."
+    }
 
     $outDir = Split-Path $OutFile -Parent
     if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir -Force | Out-Null }

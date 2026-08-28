@@ -150,7 +150,12 @@ jobs:
         # Not attached to the GitHub Release for the same reason: a .msix nobody can install would
         # only generate confused issues. It is uploaded as a workflow artifact for manual
         # submission instead.
-        continue-on-error: true
+        #
+        # NOT continue-on-error. It used to be, and that is precisely how a malformed AppxManifest
+        # (an illegal "--" inside an XML comment) broke every Store package for weeks: the step
+        # failed, the job still reported success, and the only trace was a "No files were found with
+        # the provided path" annotation that the release notes taught us to ignore. Store users sat
+        # on 1.2x.x as a result. A packaging break must now turn the release red.
         run: |
           & app/scripts/pack-msix.ps1 `
             -Version ${{ steps.ver.outputs.version }} `
@@ -159,11 +164,12 @@ jobs:
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v4
-        continue-on-error: true
         with:
           name: msix-store-package
           path: publish-msix/*.msix
-          if-no-files-found: warn
+          # error, not warn: "no files found" was the symptom that got normalised as background
+          # noise while the Store package was silently missing from every release.
+          if-no-files-found: error
           retention-days: 90
 
       - name: Scan release files with VirusTotal
