@@ -16,4 +16,8 @@ public sealed class UtilityOverlaySlot
 
     // Uniform size scale for TalkerOverlayWindow's corner-grip resize (100 = normal size).
     public int ScalePercent { get; set; } = 100;
+
+    // Panel collapsed to just its channel-name bar (talker roster hidden). Toggled by the
+    // panel's minimize button; persists like position/scale so it stays how the user left it.
+    public bool Collapsed { get; set; }
 }

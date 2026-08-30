@@ -10,6 +10,21 @@
         ShowActivated="False"
         SizeToContent="WidthAndHeight"
         MinWidth="180">
+  <Window.Resources>
+    <!-- Minimize / close boxes in the header. Same visual language as LockToggle's unchecked
+         state (transparent box, muted border) so the three chrome buttons read as one cluster. -->
+    <Style x:Key="TalkerChromeButton" TargetType="Button">
+      <Setter Property="Width" Value="20"/>
+      <Setter Property="Height" Value="18"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+      <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="Padding" Value="0"/>
+    </Style>
+  </Window.Resources>
   <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
           BorderThickness="1" CornerRadius="8" Padding="10,7"
           MouseLeftButtonDown="Root_MouseLeftButtonDown">
@@ -21,8 +36,10 @@
     <Grid>
     <StackPanel>
       <DockPanel Margin="0,0,0,5">
-        <ToggleButton x:Name="LockToggle" DockPanel.Dock="Right"
-                      Width="20" Height="18" Margin="8,0,0,0"
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                    VerticalAlignment="Top" Margin="8,0,0,0">
+        <ToggleButton x:Name="LockToggle"
+                      Width="20" Height="18"
                       Click="LockToggle_Click"
                       ToolTip="Lock position">
           <ToggleButton.Style>
@@ -44,6 +61,13 @@
             </Style>
           </ToggleButton.Style>
         </ToggleButton>
+          <Button x:Name="CollapseButton" Style="{StaticResource TalkerChromeButton}"
+                  Margin="4,0,0,0" FontSize="11" Click="CollapseButton_Click"
+                  Content="&#xE921;" ToolTip="Collapse to the channel bar"/>
+          <Button x:Name="CloseButton" Style="{StaticResource TalkerChromeButton}"
+                  Margin="4,0,0,0" FontSize="11" Click="CloseButton_Click"
+                  Content="&#xE8BB;" ToolTip="Hide until EveDeck restarts"/>
+        </StackPanel>
         <StackPanel Orientation="Horizontal">
           <TextBlock Text="&#xE767;" FontFamily="Segoe MDL2 Assets" FontSize="11"
                      Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -52,6 +76,7 @@
         </StackPanel>
       </DockPanel>
 
+      <StackPanel x:Name="CollapsibleBody">
       <ItemsControl ItemsSource="{Binding TalkerRows}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
@@ -102,6 +127,7 @@
           </Style>
         </TextBlock.Style>
       </TextBlock>
+      </StackPanel>
     </StackPanel>
 
     <!-- Resize grip: same visual language as the old chrome's corner grip. Dragging scales the
@@ -110,7 +136,7 @@
          content any more readable. Inset (Margin 3,3, not flush) so the Border's CornerRadius=8
          clip doesn't cut into the hit-test area the way a flush corner square would; sized 14x14
          (not 10x10) to stay comfortably clickable, matching the old chrome's grip size. -->
-    <Rectangle Width="14" Height="14" Fill="{StaticResource AccentBrush}"
+    <Rectangle x:Name="ResizeGrip" Width="14" Height="14" Fill="{StaticResource AccentBrush}"
                HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,3,3"
                Cursor="SizeNWSE"
                MouseLeftButtonDown="ResizeGrip_MouseLeftButtonDown"/>

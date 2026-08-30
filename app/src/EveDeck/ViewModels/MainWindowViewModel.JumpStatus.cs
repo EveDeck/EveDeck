@@ -35,8 +35,12 @@ public sealed partial class MainWindowViewModel
     // Local render tick. Costs no network at all: it re-renders the countdowns from cached deadlines.
     private readonly DispatcherTimer _jumpDisplayTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
-    // Deadlines, not text -- see the class comment. Null means "not active".
-    private sealed record JumpBadgeState(DateTimeOffset? FatigueUntil, DateTimeOffset? ReactivationUntil)
+    // Deadlines, not text -- see the class comment. Null means "not active". CharacterId is the
+    // character these deadlines belong to: the cache is keyed by screen position, but a position's
+    // occupant rotates under it (master swap, corner cycle, layout re-apply, a different alt logging
+    // into the same seat), so the paint path checks this against the current occupant and discards a
+    // mismatch rather than showing the previous pilot's countdown on whoever rotated in.
+    private sealed record JumpBadgeState(long CharacterId, DateTimeOffset? FatigueUntil, DateTimeOffset? ReactivationUntil)
     {
         public bool FatigueActive(DateTimeOffset now) => FatigueUntil is { } u && u > now;
         public bool ReactivationActive(DateTimeOffset now) => ReactivationUntil is { } u && u > now;
@@ -158,12 +162,28 @@ public sealed partial class MainWindowViewModel
         var live = JumpBadgeTargetLive(position);
         _jumpStatusByPosition.TryGetValue(position, out var state);
 
+        // Occupancy drifts under the position key. A stale entry from the previous occupant would
+        // keep painting that pilot's countdown here until the next 30s ESI poll rewrote the slot;
+        // drop it as soon as the occupant no longer matches, and let the poll refill it.
+        if (state is not null && state.CharacterId != OccupantCharacterId(position))
+        {
+            _jumpStatusByPosition.Remove(position);
+            state = null;
+        }
+
         var fatigue = live && state?.FatigueActive(now) == true;
         var reactivation = live && state?.ReactivationActive(now) == true;
         _labelSurface.SetJumpLine(position,
             fatigue ? $"F {FormatBadgeCountdown(state!.FatigueUntil!.Value - now)}" : null,
             reactivation ? $"R {FormatBadgeCountdown(state!.ReactivationUntil!.Value - now)}" : null);
     }
+
+    // The character currently linked to a position's occupant seat, resolved the same way the ESI
+    // poll keys its fetch (running alt from the window title, else the seat's primary). 0 when
+    // nothing resolves -- which never equals a real CharacterId, so a cached badge for a seat that
+    // has since emptied counts as stale too.
+    private long OccupantCharacterId(int position)
+        => ResolveSeatCharacter(OccupantAtPosition(position))?.CharacterId ?? 0;
 
     // -- Local display tick -----------------------------------------------------------------------
 
@@ -230,7 +250,7 @@ public sealed partial class MainWindowViewModel
                     reactivationUntil = lastJump + TimeSpan.FromMinutes(10 - level);
                 }
 
-                _jumpStatusByPosition[position] = new JumpBadgeState(fatigueUntil, reactivationUntil);
+                _jumpStatusByPosition[position] = new JumpBadgeState(character.CharacterId, fatigueUntil, reactivationUntil);
                 PaintJumpBadges(position, rect, DateTimeOffset.UtcNow);
             }
             catch (Exception ex)

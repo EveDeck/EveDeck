@@ -40,6 +40,7 @@ public partial class TalkerOverlayWindow : Window
         ContentScale.ScaleX = scale;
         ContentScale.ScaleY = scale;
         ApplyOpacity();
+        ApplyCollapsed();
     }
 
     public void ApplyOpacity()
@@ -60,6 +61,30 @@ public partial class TalkerOverlayWindow : Window
         if (_slot is null) return;
         _slot.Locked = LockToggle.IsChecked == true;
         _onPersist?.Invoke();
+    }
+
+    // Minimize: collapse to just the channel-name bar (SizeToContent shrinks the window to match,
+    // same as the resize grip's scale changes do). Persisted so it reopens the way it was left.
+    private void CollapseButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_slot is null) return;
+        _slot.Collapsed = !_slot.Collapsed;
+        ApplyCollapsed();
+        _onPersist?.Invoke();
+    }
+
+    // Close: hide for this session only. The Mumble bridge and the TalkerOverlayEnabled setting
+    // stay as they are, so the panel comes back on the next EveDeck launch (or by toggling the
+    // Comms > "Enabled" checkbox off and on again now).
+    private void CloseButton_Click(object sender, RoutedEventArgs e) => Hide();
+
+    private void ApplyCollapsed()
+    {
+        var collapsed = _slot?.Collapsed == true;
+        CollapsibleBody.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        ResizeGrip.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        // MDL2: ChromeMaximize (restore) when collapsed, ChromeMinimize when expanded.
+        CollapseButton.Content = collapsed ? "" : "";
     }
 
     // Dragging the grip scales the whole panel uniformly (LayoutTransform, so SizeToContent
