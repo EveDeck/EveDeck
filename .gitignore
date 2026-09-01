@@ -32,3 +32,13 @@ site/
 # Stray working copies of the logo dropped in the repo root — the canonical
 # app icon/logo assets live under app/src/EveDeck.
 /ChatGPT Image *.png
+
+# Stray screenshots, recordings and scratch notes dropped in the repo root.
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/notes-*.txt
+
+# Microsoft Store certification support bundles — carry publisher identity details.
+app/cert-report-*.zip
