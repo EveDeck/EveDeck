@@ -126,6 +126,18 @@ public sealed class AppSettings
     // character is selected) -- no memory reading, no injection.
     public bool HidePreviewsAtLoginScreen { get; set; } = true;
 
+    // Briefly drop every corner preview when a client enters a heavy modal / loading state -- the
+    // character creator, boarding or undocking a capital, a session-change loading screen -- where
+    // that client's own GPU/VRAM use spikes hardest. Detected by the client's window title going
+    // characterless (plain "EVE", the same title-only signal as HidePreviewsAtLoginScreen; no memory
+    // reading, no injection) and holding a few seconds, so a quick ESC-menu tap does not trip it.
+    // Also fires when EveDeck sees a burst of DWM composition-change broadcasts, the signature of a
+    // GPU driver reset (TDR). Stopping DWM from compositing every preview thumbnail during that
+    // window hands the GPU back some headroom; previews return on their own once the client is back
+    // to normal. On by default -- it costs a few seconds of blank previews and guards against a
+    // black-screened client plus a driver reset.
+    public bool SuspendPreviewsUnderGpuLoad { get; set; } = true;
+
     // Global default label font/size/color for the MASTER (centered, near-full-size) seat's pill.
     // Empty/null = inherit the normal CornerOverlayLabelFontFamily/FontSize/LabelColor above, so
     // this is a no-op until explicitly customized. Per-seat overrides on SlotAssignment

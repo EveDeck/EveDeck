@@ -98,6 +98,7 @@ public static class ConfigProfileService
         nameof(AppSettings.HidePreviewsOnFocusLoss),
         nameof(AppSettings.HidePreviewsOnFocusLossDelaySeconds),
         nameof(AppSettings.HidePreviewsAtLoginScreen),
+        nameof(AppSettings.SuspendPreviewsUnderGpuLoad),
         nameof(AppSettings.HoverZoomAnchor),
 
         // Active-window frame

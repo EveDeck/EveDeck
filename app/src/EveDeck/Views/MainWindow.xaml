@@ -1870,6 +1870,11 @@ Preview tiles shrink the whole client window. To read them better: raise UI Scal
                             ToolTip="A client at login shows nothing useful in its preview."
                             Margin="0,0,0,6"/>
 
+                  <CheckBox Content="Briefly hide all previews while a client is loading or under heavy GPU load"
+                            IsChecked="{Binding SuspendPreviewsUnderGpuLoad}"
+                            ToolTip="The character creator, boarding a capital, or a loading screen can spike the GPU. Previews drop for a few seconds, then return on their own. Also backs off after a graphics-driver reset."
+                            Margin="0,0,0,6"/>
+
                   <CheckBox Content="Hide all previews while EVE is not in focus"
                             IsChecked="{Binding HidePreviewsOnFocusLoss}"
                             ToolTip="Alt-tab to another app and previews hide; switch back to EVE and they return instantly."

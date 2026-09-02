@@ -179,6 +179,15 @@ internal sealed class TileSurfaceWindow : WinForms.Form
 
         _capturePump.Tick += (_, _) =>
         {
+            // Service a coalesced composition-change re-registration (WndProc only sets a flag).
+            // While the storm guard's cool-off is active the flag is held, not dropped -- one clean
+            // re-register once the driver has settled.
+            if (_sourceRefreshPending && !_stormGuard.InBackoff(DateTime.UtcNow))
+            {
+                _sourceRefreshPending = false;
+                RefreshAllSources();
+            }
+
             // A zoomed tile can now grow over master's screen area, so a topmost-pinned master (or
             // anything else re-asserting its own topmost state, e.g. EVE's own window management)
             // can win the z-order race against a single one-shot reassertion made when the zoom
@@ -222,6 +231,21 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     private const int WmDwmCompositionChanged = 0x031E;
     private const int WmDisplayChange = 0x007E;
 
+    // Set by WndProc when a composition-change broadcast arrives; serviced (coalesced) by the capture
+    // pump so a burst of them collapses to one re-registration instead of one per message. A GPU
+    // driver reset fires these in a rapid burst.
+    private bool _sourceRefreshPending;
+
+    // Detects that burst and imposes a cool-off during which RefreshAllSources does nothing -- see
+    // CompositionStormGuard. 3 re-registrations within 10s looks like a TDR; back off for 30s.
+    private readonly Services.CompositionStormGuard _stormGuard =
+        new(stormCount: 3, window: TimeSpan.FromSeconds(10), backoff: TimeSpan.FromSeconds(30));
+
+    // Raised on the UI thread when the guard above trips. The view-model responds by dropping the
+    // corner previews entirely for a short cool-off (so DWM isn't compositing five thumbnails while
+    // the driver recovers). Optional -- nothing breaks if it has no subscriber.
+    public event Action? GpuResetSuspected;
+
     // DWM can silently drop every live DwmRegisterThumbnail/WGC registration at once -- sleep/wake,
     // a resolution or monitor-topology change, an RDP session connect/disconnect, or a GPU driver
     // reset (TDR) all leave the previously-registered sources stale, so every tile goes solid black
@@ -235,18 +259,30 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     protected override void WndProc(ref WinForms.Message m)
     {
         base.WndProc(ref m);
-        if (m.Msg == WmDwmCompositionChanged || m.Msg == WmDisplayChange) RefreshAllSources();
+        // Don't re-register synchronously per message -- a GPU driver reset fires these in a burst.
+        // The capture pump coalesces the burst into a single RefreshAllSources and honours the
+        // storm-guard cool-off.
+        if (m.Msg == WmDwmCompositionChanged || m.Msg == WmDisplayChange) _sourceRefreshPending = true;
     }
 
     // Re-runs SetSource for every currently-assigned tile, forcing a full unregister+reregister of
-    // its DWM thumbnail or WGC capture session. Deliberately only called from the WndProc hook above
-    // (a genuinely rare system event), never on a timer -- an unconditional periodic re-register is
-    // exactly what caused the historical "previews randomly refresh" bug (see
-    // project-thumbnail-random-refresh memory): unregister+reregister is visibly a brief blink, so it
-    // must stay event-driven, not polled.
+    // its DWM thumbnail. Driven only by a composition-change broadcast (via _sourceRefreshPending,
+    // coalesced in the capture pump) -- never an unconditional periodic re-register, which is exactly
+    // what caused the historical "previews randomly refresh" bug (see project-thumbnail-random-refresh
+    // memory): unregister+reregister is visibly a brief blink, so it must stay event-driven.
+    // If the broadcasts arrive in a storm (a GPU driver reset), skip the re-register and let the
+    // view-model drop the previews for a cool-off instead of hammering a recovering driver.
     private void RefreshAllSources()
     {
         if (_sources.Count == 0) return;
+
+        if (_stormGuard.RegisterRefreshAndDetectStorm(DateTime.UtcNow))
+        {
+            Log?.Invoke("Rapid DWM composition changes -- likely a GPU driver reset. Holding off preview re-registration for 30s.");
+            GpuResetSuspected?.Invoke();
+            return;
+        }
+
         Log?.Invoke("DWM composition change detected -- re-registering all corner preview sources.");
         foreach (var (position, hwnd) in _sources.ToArray())
             SetSource(position, hwnd);

@@ -2093,6 +2093,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    public bool SuspendPreviewsUnderGpuLoad
+    {
+        get => _settings.SuspendPreviewsUnderGpuLoad;
+        set
+        {
+            if (_settings.SuspendPreviewsUnderGpuLoad == value) return;
+            _settings.SuspendPreviewsUnderGpuLoad = value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
     // Which point a hover-zoomed tile grows from. Baked into the surface, so changing it rebuilds.
     public string HoverZoomAnchor
     {

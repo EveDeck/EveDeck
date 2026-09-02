@@ -97,6 +97,19 @@ public sealed partial class MainWindowViewModel
     private DateTime? _focusLostSince;
     private bool _previewsHiddenByFocusLoss;
 
+    // SuspendPreviewsUnderGpuLoad state. Previews are force-hidden while UtcNow < _previewsGpuHoldUntil.
+    // That instant is pushed forward either by a client sitting in a characterless-title state (char
+    // creator / capital session change / loading -- see AnyClientInHeavyGpuState) or by
+    // TileSurfaceWindow.GpuResetSuspected firing (a driver TDR). _previewsHiddenByGpuHold is the
+    // applied state, so the SW_HIDE/SW_SHOW only runs on a transition. See UpdateGpuLoadHiding.
+    private DateTime? _previewsGpuHoldUntil;
+    private bool _previewsHiddenByGpuHold;
+    // A characterless title must persist this long to count as a real modal/loading state and not a
+    // quick ESC-menu tap; past the upper bound it is steady-state (logged off in place, idling in a
+    // menu) rather than a load spike, so stop holding.
+    private const int GpuHoldTitleDwellSeconds = 3;
+    private const int GpuHoldTitleSustainedSeconds = 180;
+
     // First-observed-offline timestamp per seat (SlotAssignment.SlotNumber), used by
     // OfflinePillTimeoutSeconds to hide an individual seat's offline pill after it's been
     // offline "too long". Updated once per tick in MaintainCornerOverlays, read (never mutated)
@@ -405,6 +418,7 @@ public sealed partial class MainWindowViewModel
         _tileSurface.InfoButtonsEnabled = _settings.CornerOverlayInfoButtonEnabled;
         _tileSurface.ChromeScale = Math.Clamp(_settings.CornerOverlayChromeScale, 1.0, 4.0);
         _tileSurface.InfoButtonClicked = OnInfoButtonClicked;
+        _tileSurface.GpuResetSuspected += OnGpuResetSuspected;
         _tileSurface.SetOpacity(_settings.CornerOverlayPreviewOpacity);
         _tileSurface.Show();
 
@@ -798,9 +812,12 @@ public sealed partial class MainWindowViewModel
         // it is already hidden and never shows itself.
         _focusLostSince = null;
         _previewsHiddenByFocusLoss = false;
+        _previewsGpuHoldUntil = null;
+        _previewsHiddenByGpuHold = false;
 
         try { _labelSurface?.Close(); } catch { } // window may already be closed
         _labelSurface = null;
+        if (_tileSurface is not null) _tileSurface.GpuResetSuspected -= OnGpuResetSuspected;
         try { _tileSurface?.Close(); } catch { } // window may already be closed
         _tileSurface = null;
         _cornerSourceHandles.Clear();
@@ -1604,6 +1621,61 @@ public sealed partial class MainWindowViewModel
     //
     // The delay exists because the foreground briefly leaves EVE during a seat swap and while dialogs
     // open; hiding instantly would flash the whole overlay off and back on during normal play.
+    // TileSurfaceWindow saw a burst of DWM composition-change broadcasts -- a GPU driver reset.
+    // Give the driver a flat cool-off with nothing to composite (re-registering thumbnails into a
+    // recovering driver is what produced a second reset 27s after the first, live 2026-09-02).
+    private void OnGpuResetSuspected()
+    {
+        if (!_settings.SuspendPreviewsUnderGpuLoad) return;
+        _previewsGpuHoldUntil = DateTime.UtcNow.AddSeconds(45);
+        Log.Warn("Graphics-driver reset suspected -- holding corner previews for 45s.");
+    }
+
+    // Extend / release the GPU-load preview hold. Mirrors UpdateFocusLossHiding: called every tick
+    // from MaintainCornerOverlays, before the suspended/focus-hidden early-return. The user's own
+    // Suspend Previews toggle already covers this case, so do nothing while it is on.
+    private void UpdateGpuLoadHiding()
+    {
+        if (_previewsSuspended) return;
+
+        if (_settings.SuspendPreviewsUnderGpuLoad && AnyClientInHeavyGpuState())
+            _previewsGpuHoldUntil = DateTime.UtcNow.AddSeconds(2); // trailing window past the state clearing
+
+        var wantHidden = _previewsGpuHoldUntil is { } until && DateTime.UtcNow < until;
+        if (wantHidden == _previewsHiddenByGpuHold) return;
+
+        _previewsHiddenByGpuHold = wantHidden;
+        if (wantHidden)
+        {
+            Log.Info("GPU under load (a client is loading or in a full-screen menu, or a driver reset was seen) -- holding corner previews.");
+            ShowOverlaySurfaces(false);
+        }
+        else
+        {
+            Log.Info("GPU load cleared -- resuming corner previews.");
+            _previewsGpuHoldUntil = null;
+            if (!_previewsHiddenByFocusLoss) ShowOverlaySurfaces(true);
+        }
+    }
+
+    // Any assigned EVE client whose window title has been characterless (plain "EVE", no
+    // " - Character" suffix) long enough to be a real modal/loading state -- the character creator,
+    // a capital session change, a loading screen -- rather than a quick ESC-menu tap. Reuses the
+    // per-refresh _characterlessSinceByPid dwell map (MainWindowViewModel.Clients.cs). Only PIDs we
+    // have already seen logged in count: a client that has never had a character is sitting idle at
+    // character-select, not spiking the GPU. Past GpuHoldTitleSustainedSeconds it is steady-state
+    // (logged off in place, idling in a menu), also not a spike.
+    private bool AnyClientInHeavyGpuState()
+    {
+        foreach (var (pid, since) in _characterlessSinceByPid)
+        {
+            if (!_lastKnownCharacterByPid.ContainsKey(pid)) continue;
+            var secs = (DateTime.UtcNow - since).TotalSeconds;
+            if (secs >= GpuHoldTitleDwellSeconds && secs <= GpuHoldTitleSustainedSeconds) return true;
+        }
+        return false;
+    }
+
     private void UpdateFocusLossHiding(bool eveOrEwcForeground)
     {
         // User-suspended previews stay hidden regardless of focus -- never re-show them here.
@@ -1700,9 +1772,10 @@ public sealed partial class MainWindowViewModel
         // Runs before the z-order/hover work below: while the overlay is hidden there is nothing to
         // keep on top and no tile for the cursor to be over.
         UpdateFocusLossHiding(eveOrEwcFg);
-        // Suspended or focus-hidden: nothing on screen to keep topmost, no tile for the cursor to be
-        // over, and no source liveness to push -- skip the rest of the tick.
-        if (_previewsHiddenByFocusLoss || _previewsSuspended) return;
+        UpdateGpuLoadHiding();
+        // Suspended, focus-hidden, or held for GPU load: nothing on screen to keep topmost, no tile
+        // for the cursor to be over, and no source liveness to push -- skip the rest of the tick.
+        if (_previewsHiddenByFocusLoss || _previewsSuspended || _previewsHiddenByGpuHold) return;
 
         // The overlay's own topmost/not-topmost state (ApplySurfaceZOrder, called on creation and from
         // event-driven triggers -- see that method for why it's gated on eveOrEwcFg) is not
