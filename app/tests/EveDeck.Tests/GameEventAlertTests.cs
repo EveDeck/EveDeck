@@ -80,7 +80,9 @@ public class GameEventAlertTests
     public void Defaults_WarpDisruption_IsGlowAndAudibleInAbyss()
     {
         var rule = GameEventRule.Defaults().First(r => r.Name == "Warp disruption");
-        Assert.Equal("warp disruptor attempt", rule.Pattern);
+        // EVE logs "Warp disruption attempt"; "warp disruptor attempt" matched zero real lines
+        // (see GameEventRuleDefaultsRealLogTests).
+        Assert.Equal("warp disruption attempt", rule.Pattern);
         Assert.True(rule.FlashOnTile);
         Assert.False(rule.SuppressSoundInAbyss);
     }

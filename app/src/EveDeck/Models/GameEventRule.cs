@@ -78,18 +78,25 @@ public sealed class GameEventRule : ObservableObject
     // a scramble attempt is a distinct "you may not be able to escape" event worth its own rule with
     // sound that survives Abyss Mode, rather than being buried in Combat's glow-only, sound-silenced
     // stream of hits. "Warp disruption" is the long-point sibling module (Warp Disruptor vs Warp
-    // Scrambler) -- its pattern is inferred by analogy to the verified "warp scramble attempt" wording
-    // rather than confirmed against a real log line, since EVE's own wording for it wasn't in the
-    // sample. Both patterns are plain user-editable text (see the Pattern property doc) if either
-    // turns out to not match the client's actual logged wording.
+    // Scrambler); EVE logs it as "Warp disruption attempt" (verified against the real archive, 2026-09,
+    // ~7.7k lines; the earlier "warp disruptor attempt" guess matched zero). Scram and disrupt log
+    // near-identical lines -- you only tell them apart in-game by whether your MWD is cut -- so the two
+    // rules exist to cover both wordings, not to distinguish the modules.
+    //
+    // Every Pattern here was match-counted against ~1.58M real gamelog lines (see
+    // GameEventRuleDefaultsRealLogTests). Two are deliberately loose and kept by user preference:
+    // "Asteroid depleted" (Pattern "depleted") in practice matches the "(mining) Additional N units
+    // depleted from asteroid as residue" cycle line, and "Mining crystal" (Pattern "crystal") matches
+    // almost nothing in gamelogs -- both are silent (PlaySound = false), so a stray match only adds a
+    // line to the alert log. "Conversation" was "wants to talk" (zero matches) before 2026-09.
     public static IEnumerable<GameEventRule> Defaults() => new[]
     {
         new GameEventRule { Name = "Combat",            Pattern = "(combat)", FlashOnTile = true },
         new GameEventRule { Name = "Warp scramble",     Pattern = "warp scramble attempt", FlashOnTile = true, SuppressSoundInAbyss = false },
-        new GameEventRule { Name = "Warp disruption",   Pattern = "warp disruptor attempt", FlashOnTile = true, SuppressSoundInAbyss = false },
+        new GameEventRule { Name = "Warp disruption",   Pattern = "warp disruption attempt", FlashOnTile = true, SuppressSoundInAbyss = false },
         new GameEventRule { Name = "Asteroid depleted", Pattern = "depleted", PlaySound = false },
         new GameEventRule { Name = "Mining crystal",    Pattern = "crystal",  PlaySound = false },
         new GameEventRule { Name = "Fleet invite",      Pattern = "join their fleet", SuppressWhenFocused = false },
-        new GameEventRule { Name = "Conversation",      Pattern = "wants to talk", SuppressWhenFocused = false },
+        new GameEventRule { Name = "Conversation",      Pattern = "is inviting you to a conversation", SuppressWhenFocused = false },
     };
 }
