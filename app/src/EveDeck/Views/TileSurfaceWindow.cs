@@ -1,3 +1,4 @@
+using System.Linq;
 using EveDeck.Services;
 using EveDeck.Utilities;
 using WinForms = System.Windows.Forms;
@@ -69,24 +70,41 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     private readonly HashSet<int> _preventedPositions = new();               // positions showing a plain placeholder, no live capture
     private readonly int _physX, _physY, _physWidth, _physHeight;
 
-    // REMOVED 2026-07-21: Windows.Graphics.Capture + Vortice Direct3D11/Direct2D1 per-frame GPU
-    // capture. It was introduced 2026-07-18 for sharper previews, but on a VRAM-heavy setup (EVE in
-    // DX12 with upscaling + frame generation across several clients) it caused escalating failures
-    // over three sessions: a leaked capture frame pool, then GetHbitmap "lack of memory" failures
-    // with an EVE client going white/needing force-close while docking, and finally a full machine
-    // hard-lock requiring a reboot. Standing up a second D3D11 device and pulling per-frame GPU
-    // textures alongside several DX12 clients is simply too much GPU/VRAM contention.
+    // DWM thumbnails (DwmRegisterThumbnail) are THE DEFAULT preview path, same as EVE-O Preview and
+    // EVE-APM Preview: DWM already composites every one of those windows, so a registered thumbnail
+    // costs essentially no extra GPU -- no second device, no per-frame texture, nothing to starve
+    // the game of.
     //
-    // We now do what EVE-O Preview and EVE-APM Preview do: DwmRegisterThumbnail ONLY. DWM is already
-    // running and already compositing every one of those windows, so a registered thumbnail costs
-    // essentially no extra GPU -- there is no second device, no per-frame texture, and nothing to
-    // starve the game of. Those tools are proven at this for years and their previews are crisp.
-    // ScreenshotCaptureSession (PrintWindow, ~1fps) stays as the last-resort fallback for windows DWM
-    // can't thumbnail at all (some RDP/virtual-display setups) -- it's plain GDI, no GPU device.
+    // HISTORY: Windows.Graphics.Capture + Vortice Direct3D11/Direct2D1 per-frame GPU capture was the
+    // preview path from 2026-07-18 to 2026-07-21, then removed after three escalating failures on a
+    // VRAM-heavy setup (EVE in DX12 with upscaling + frame generation across ~5 clients): a leaked
+    // capture frame pool, then GetHbitmap "lack of memory" with an EVE client going white while
+    // docking, then a full machine hard-lock. A second D3D11 device + per-frame GPU textures
+    // alongside several DX12 clients was too much VRAM contention.
+    //
+    // 2026-09: WGC is back as an OPT-IN alternative (UseWgcCapture, off by default) that fixes what
+    // made the original unsafe: ONE shared D3D11 device (not per-tile), no Direct2D / no on-GPU
+    // compositing (capture -> CPU readback -> GDI, like the screenshot path), reused staging texture
+    // + a per-frame-rate cap, a free-VRAM floor check before it will start (WgcCaptureDevice), and a
+    // hard fallback -- any WGC fault demotes that tile to a DWM thumbnail (TryWgcSource /
+    // DemoteFaultedWgcTiles). See Services\Wgc and the project-wgc-removed-dwm-only memory.
+    //
+    // ScreenshotCaptureSession (PrintWindow, ~1fps, plain GDI) stays as the last-resort fallback for
+    // windows DWM can't thumbnail at all (some RDP/virtual-display setups).
     private readonly Dictionary<int, ITileCaptureSession> _captureSessions = new();
     // Only drives the PrintWindow fallback's ~1fps refresh and the zoom-active z-order re-assert --
     // DWM thumbnails composite themselves and need no pump at all, which is why this can be slow now.
+    // Steps up to ~66ms only while a WgcTileCaptureSession is live (see the pump Tick handler).
     private readonly WinForms.Timer _capturePump = new() { Interval = 250 };
+
+    // Opt-in: try Windows.Graphics.Capture for local tiles before DWM (crisper at small sizes). Set
+    // by the overlay VM from settings. Any WGC failure -- init, VRAM floor, or a frame error later
+    // -- demotes that tile to a DWM thumbnail; see TryWgcSource / DemoteFaultedWgcTiles. DWM stays
+    // the default and the safe path.
+    // Fields, not properties: WFO1000 requires DesignerSerializationVisibility on public settable
+    // properties of a component; a plain field sidesteps it (same as SnapGridPx below).
+    public bool UseWgcCapture;
+    public int WgcMaxFps = 15;
 
     // Reused across Redraws instead of allocating a full-surface (~14MB at 2560x1440) bitmap every
     // frame -- that churn was part of the graphics-driver pressure behind the GetHbitmap "lack of
@@ -187,6 +205,17 @@ internal sealed class TileSurfaceWindow : WinForms.Form
             // rather than trying to guarantee we always go last relative to whatever else is
             // repinning topmost. Gated to zoom-active only; SetZ() is a no-op cost otherwise avoided.
             if (_zoomedPosition >= 0) SetZ();
+
+            // WGC tiles deliver real motion; step the pump up while any are live, and swap any that
+            // faulted (device lost, VRAM, frame error) back to a DWM thumbnail.
+            var wgcLive = false;
+            var wgcFaulted = false;
+            foreach (var s in _captureSessions.Values)
+                if (s is Services.Wgc.WgcTileCaptureSession w) { wgcLive = true; if (w.Faulted) wgcFaulted = true; }
+            var wantInterval = wgcLive ? 66 : 250;
+            if (_capturePump.Interval != wantInterval) _capturePump.Interval = wantInterval;
+            if (wgcFaulted) DemoteFaultedWgcTiles();
+
             // Only recomposite when a capture session actually produced a NEW frame this tick.
             // Previously this redrew unconditionally at ~15fps whenever any capture session existed,
             // which meant a full-surface (up to 2560x1440x4 = ~14MB) bitmap allocation + GetHbitmap
@@ -315,8 +344,13 @@ internal sealed class TileSurfaceWindow : WinForms.Form
             return;
         }
 
-        // DWM thumbnail is THE preview path (same as EVE-O Preview / EVE-APM Preview) -- see the
-        // _captureSessions field comment for why the GPU-capture path was removed entirely.
+        // Opt-in: try Windows.Graphics.Capture first (crisper at small sizes). It refuses to start
+        // if VRAM is tight and demotes itself to DWM on any later fault, so DWM stays the floor.
+        if (UseWgcCapture && TryWgcSource(position, sourceHwnd, rect))
+            return;
+
+        // DWM thumbnail is the default preview path (same as EVE-O Preview / EVE-APM Preview) -- see
+        // the _captureSessions field comment for the GPU-capture history.
         if (!RegisterThumbnail(position, sourceHwnd, rect))
         {
             // DWM couldn't thumbnail this window -- some RDP/remote-desktop sessions and certain
@@ -337,6 +371,49 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     {
         if (!_captureSessions.Remove(position, out var session)) return;
         session.Dispose();
+    }
+
+    // Try to stand up a WGC capture session for a local tile. Returns true and installs it only if
+    // it came up clean; on any fault it disposes it and returns false so the caller uses DWM.
+    private bool TryWgcSource(int position, nint sourceHwnd, Drawing.Rectangle rect)
+    {
+        Services.Wgc.WgcTileCaptureSession wgc;
+        try { wgc = new Services.Wgc.WgcTileCaptureSession(sourceHwnd, WgcMaxFps, msg => Log?.Invoke(msg)); }
+        catch (Exception ex) { Log?.Invoke($"tile {position}: WGC session ctor threw ({ex.Message}); using DWM"); return false; }
+
+        if (wgc.Faulted)
+        {
+            Log?.Invoke($"tile {position}: WGC unavailable ({wgc.FaultReason}); using DWM");
+            wgc.Dispose();
+            return false;
+        }
+
+        _captureSessions[position] = wgc;
+        _hiddenTiles.Remove(position);
+        Redraw();
+        return true;
+    }
+
+    // A WgcTileCaptureSession that faulted after install (device lost, VRAM pressure, frame error).
+    // Swap each one for a DWM thumbnail (or the PrintWindow fallback) for its tile.
+    private void DemoteFaultedWgcTiles()
+    {
+        var faulted = _captureSessions
+            .Where(kv => kv.Value is Services.Wgc.WgcTileCaptureSession { Faulted: true })
+            .Select(kv => kv.Key)
+            .ToArray();
+
+        foreach (var position in faulted)
+        {
+            StopCaptureSession(position);
+            if (!_tiles.TryGetValue(position, out var rect)) continue;
+            var hwnd = _sources.GetValueOrDefault(position);
+            if (hwnd == 0 || _preventedPositions.Contains(position)) { Redraw(); continue; }
+            if (!RegisterThumbnail(position, hwnd, rect))
+                _captureSessions[position] = new ScreenshotCaptureSession(hwnd, msg => Log?.Invoke(msg));
+            _hiddenTiles.Remove(position);
+            Redraw();
+        }
     }
 
     private bool RegisterThumbnail(int position, nint sourceHwnd, Drawing.Rectangle dest)
