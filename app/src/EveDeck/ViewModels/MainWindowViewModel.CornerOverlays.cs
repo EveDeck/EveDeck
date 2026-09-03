@@ -387,8 +387,10 @@ public sealed partial class MainWindowViewModel
             // Never size the tile surface to EXACTLY the monitor. A monitor-exact topmost layered
             // window is treated by DWM as a fullscreen surface, so its registered DWM thumbnails stop
             // compositing -- the previews go blank while the pills (on the differently-sized label
-            // window) still draw. Shrinking a few px (same AvoidExactMonitorMatch mitigation used for
-            // the master window) is imperceptible and keeps every tile rect inside the surface.
+            // window) still draw. AvoidExactMonitorMatch (the same mitigation used for the master
+            // window) takes a single pixel off the height, which is enough to stop the surface being
+            // monitor-exact while leaving it full monitor width -- so a tile sitting flush against
+            // the right edge is no longer clipped by the mitigation itself.
             var surf = AvoidExactMonitorMatch(new WindowRect
             {
                 X = monitor.Bounds.X, Y = monitor.Bounds.Y,

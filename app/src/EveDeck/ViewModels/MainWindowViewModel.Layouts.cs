@@ -920,17 +920,24 @@ public sealed partial class MainWindowViewModel
     // area), Windows can route it through a presentation path that bypasses normal desktop
     // composition for that screen region -- confirmed empirically: preview tiles and labels are
     // genuinely topmost in the window z-order (HWND_TOPMOST, verified via a live z-order dump) yet
-    // fail to visually render over a pixel-exact-to-monitor borderless master window. Shrinking by a
-    // few px is the standard mitigation (defeats whatever heuristic decides a borderless window
-    // "is" fullscreen) and is visually imperceptible against a 1500px+ display.
+    // fail to visually render over a pixel-exact-to-monitor borderless master window. Making the
+    // window stop covering the monitor exactly is the standard mitigation -- it defeats whatever
+    // heuristic decides a borderless window "is" fullscreen.
+    //
+    // One pixel, off the height only. The window is equally non-exact whether it is 1px or 4px
+    // short, but taking 4px off BOTH axes was costly and visible: it left a strip of desktop down
+    // the right edge of an otherwise full-width master, and it silently turned a deliberately
+    // work-area-sized layout (2560x1408, drawn to clear the taskbar) into 2560x1408 -> 2556x1404.
+    // Trimming the height alone keeps the master at full monitor width, and 1px off the bottom is
+    // imperceptible on a 1400px+ display.
     private WindowRect AvoidExactMonitorMatch(WindowRect r)
     {
-        const int shrink = 4;
+        const int shrink = 1;
         var matchesMonitor = Monitors.Any(m =>
             (m.Bounds.X == r.X && m.Bounds.Y == r.Y && m.Bounds.Width == r.Width && m.Bounds.Height == r.Height) ||
             (m.WorkArea.X == r.X && m.WorkArea.Y == r.Y && m.WorkArea.Width == r.Width && m.WorkArea.Height == r.Height));
         return matchesMonitor
-            ? new WindowRect { X = r.X, Y = r.Y, Width = r.Width - shrink, Height = r.Height - shrink }
+            ? new WindowRect { X = r.X, Y = r.Y, Width = r.Width, Height = r.Height - shrink }
             : r;
     }
 
