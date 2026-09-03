@@ -139,8 +139,9 @@ public sealed class AppSettings
     public bool SuspendPreviewsUnderGpuLoad { get; set; } = true;
 
     // Global default label font/size/color for the MASTER (centered, near-full-size) seat's pill.
-    // Empty/null = inherit the normal CornerOverlayLabelFontFamily/FontSize/LabelColor above, so
-    // this is a no-op until explicitly customized. Per-seat overrides on SlotAssignment
+    // Empty/null = inherit the normal CornerOverlayLabelFontFamily/FontSize/LabelColor above.
+    // These ship populated rather than empty, so the MASTER pill differs from the rest out of
+    // the box. Per-seat overrides on SlotAssignment
     // (LabelFontFamilyMaster etc.) take precedence over these when set.
     public string CornerOverlayLabelFontFamilyMaster { get; set; } = "Acens";
     public double? CornerOverlayLabelFontSizeMaster { get; set; } = 27.0;
@@ -151,7 +152,7 @@ public sealed class AppSettings
     // soft black shadow behind its plain-text name for legibility over bright video (this used to be
     // hardcoded); true preserves that exact look with no action needed, and additionally lets "Pill"
     // style labels opt in too (harmless there since Pill text already sits on an opaque dark chip).
-    // Outline draws a black stroke around the glyphs; off by default (a new, purely additive look).
+    // Outline draws a black stroke around the glyphs; on by default alongside DropShadow.
     public bool CornerOverlayLabelBold { get; set; } = true;
     public bool CornerOverlayLabelItalic { get; set; } = false;
     public bool CornerOverlayLabelDropShadow { get; set; } = true;
@@ -397,8 +398,8 @@ public sealed class AppSettings
     public int OfflineOverlayTimeoutSeconds { get; set; } = 5;
 
     // Hides a seat's "Name · offline" pill after it has been continuously offline for this many
-    // seconds. 0 = hide immediately (no offline text ever shown). -1 (default) = never hide,
-    // preserving the original always-on behavior. Independent of OfflineOverlayTimeoutSeconds,
+    // seconds. 0 (default) = hide immediately, so no offline text is ever shown. -1 = never
+    // hide, the original always-on behavior. Independent of OfflineOverlayTimeoutSeconds,
     // which only tears down the WHOLE overlay once EVERY seat is offline at once.
     public int OfflinePillTimeoutSeconds { get; set; } = 0;
 
