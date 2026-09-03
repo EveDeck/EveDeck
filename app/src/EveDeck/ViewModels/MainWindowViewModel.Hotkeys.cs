@@ -536,7 +536,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(HasHotkeyTargetWarning));
     }
 
-    // ── Subscriptions ──────────────────────────
+    // ── Subscriptions ──────────────────────────────────────────────────────────────────────────
 
     private void SubscribeToHotkeyChanges()
     {
