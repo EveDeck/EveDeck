@@ -502,7 +502,6 @@ public sealed partial class MainWindowViewModel
         ApplySurfaceZOrder();
         _frameTimer.Start();
         StartJumpStatus();
-        StartDpsMeter();
     }
 
     // Position tolerance when checking whether a window is "where we think it is". A couple of pixels
@@ -830,7 +829,6 @@ public sealed partial class MainWindowViewModel
         // Only the rendering stops. The meter's accumulated samples are keyed by character, not by
         // position, so they survive an overlay rebuild -- clearing them would blank every readout for
         // a full window's worth of seconds after any settings tweak.
-        StopDpsMeter();
 
         if (!_settings.ActiveFrameEnabled) _frameTimer.Stop();
     }

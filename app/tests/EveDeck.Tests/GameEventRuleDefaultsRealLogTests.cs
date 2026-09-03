@@ -57,7 +57,7 @@ public class GameEventRuleDefaultsRealLogTests
         "(None) Hostile Pilot is inviting you to a conversation.";
 
     // "depleted"  1,562 matches -- ALL of them this residue-cycle line, never a rock being mined
-    // out (EVE does not log that). Verbatim shape (cf. DpsMeterRealLogShapeTests.MiningResidue).
+    // out (EVE does not log that). Verbatim shape from the real log archive.
     private const string MiningResidue = Stamp +
         "(mining) <color=0x77ffffff>Additional <font size=12><color=#ffff454b>73" +
         "<color=0x77ffffff><font size=10> units depleted from asteroid as residue";
