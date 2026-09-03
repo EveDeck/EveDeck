@@ -48,7 +48,11 @@ public static class HotkeyDefaults
         // Per-slot swap-into-master hotkeys: rotate slot N's character into the master slot and
         // the master's character down into corner N. Core fast-switch mechanic, but ships unbound
         // like the rest of the Move/Swap group to keep the out-of-box gesture set small.
-        for (var i = 1; i <= 4; i++)
+        // Ranges to 5 like FocusSlot/MoveActiveToSlot/SwapActiveWithSlot above: stopping at 4 left
+        // seat 5 with no way to reach master by hotkey on a five-seat layout, while every other
+        // per-slot action covered it. The handler was always generic (it parses the trailing digit),
+        // so only the declaration was missing.
+        for (var i = 1; i <= 5; i++)
             bindings.Add(new HotkeyBinding { ActionId = $"SwapSlotWithMaster{i}", DisplayName = $"Swap slot {i} into master slot", Modifiers = 0, VirtualKey = 0, GestureText = "" });
 
         // Direction-based focus hotkeys: each maps to the slot at that screen position in the active

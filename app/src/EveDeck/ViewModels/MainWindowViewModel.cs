@@ -2468,7 +2468,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 seat.AssignedWindows.Add(new SlotWindowEntry { Title = window.Title });
             newSet.Assignments.Add(seat);
         }
-        // Clone hotkey bindings unbound (user should configure them per set).
+        // Clone hotkey bindings fully -- gesture, enabled state and character target included -- so a
+        // new set starts as a working copy of the current one rather than a set of dead keys. (This
+        // used to clone them unbound, which is why sets created by older builds can have every
+        // "Switch to character" action enabled and bound but pointing at nobody.)
         foreach (var h in Hotkeys)
             newSet.Hotkeys.Add(new HotkeyBinding
             {
