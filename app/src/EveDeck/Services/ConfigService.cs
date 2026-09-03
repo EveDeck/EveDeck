@@ -247,23 +247,7 @@ public sealed class ConfigService
             settings.ActiveProfileId = settings.Profiles.FirstOrDefault()?.Id ?? "";
         }
 
-        if (settings.Hotkeys.Count == 0)
-        {
-            settings.Hotkeys = new ObservableCollection<HotkeyBinding>(HotkeyDefaults.Create());
-        }
-        else
-        {
-            var existingActions = settings.Hotkeys.Select(h => h.ActionId).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var binding in HotkeyDefaults.Create())
-            {
-                if (!existingActions.Contains(binding.ActionId))
-                    settings.Hotkeys.Add(binding);
-            }
-
-            PruneRetiredHotkeys(settings.Hotkeys);
-        }
-
-        ReorderCharacterHotkeysFirst(settings.Hotkeys);
+        MigrateHotkeyList(settings.Hotkeys);
 
         // Add newly-introduced default game-event rules for existing users whose GameEventRules
         // predates them (matched by Name, not Pattern -- a user may have edited a default rule's
@@ -287,9 +271,42 @@ public sealed class ConfigService
             settings.ActiveCharacterSetId = settings.CharacterSets[0].Id;
         }
 
+        // Every character set carries its OWN hotkey list, and switching sets replaces the live
+        // collection wholesale (SwitchToCharacterSet), so a set saved before an action existed stays
+        // stale forever: the new action is in HotkeyDefaults and in settings.Hotkeys, yet silently
+        // absent from the Hotkeys tab whenever that set is active. SwapSlotWithMaster5 shipped
+        // exactly this way. Run the same additive merge over every set's list.
+        foreach (var set in settings.CharacterSets)
+            MigrateHotkeyList(set.Hotkeys);
+
         // Mark the active set so the UI toggle buttons show it as selected.
         foreach (var s in settings.CharacterSets)
             s.IsActive = s.Id == settings.ActiveCharacterSetId;
+    }
+
+    // Bring a stored hotkey list up to date with HotkeyDefaults: add actions introduced since it was
+    // saved, drop retired ones, and float the character-switch rows to the top. Purely additive for
+    // anything the user already bound -- an existing row's gesture, target and enabled flag are
+    // never touched, since the merge only ever appends actions whose ActionId is missing.
+    private static void MigrateHotkeyList(ObservableCollection<HotkeyBinding> hotkeys)
+    {
+        if (hotkeys.Count == 0)
+        {
+            foreach (var binding in HotkeyDefaults.Create()) hotkeys.Add(binding);
+        }
+        else
+        {
+            var existingActions = hotkeys.Select(h => h.ActionId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var binding in HotkeyDefaults.Create())
+            {
+                if (!existingActions.Contains(binding.ActionId))
+                    hotkeys.Add(binding);
+            }
+
+            PruneRetiredHotkeys(hotkeys);
+        }
+
+        ReorderCharacterHotkeysFirst(hotkeys);
     }
 
     // The "Switch to character" hotkeys are the most-used rows, so surface them at the top of the

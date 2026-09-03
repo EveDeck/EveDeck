@@ -503,7 +503,40 @@ public sealed partial class MainWindowViewModel
         Save();
     }
 
-    // ── Subscriptions ──────────────────────────────────────────────────────────
+    // Character-switch bindings act on a TargetCharacter, and hotkeys are stored PER CHARACTER SET.
+    // Switching to a set whose switch targets were never filled in leaves keys that are bound,
+    // enabled, and completely inert -- indistinguishable in the grid from working ones, since the
+    // Key Combo column shows a gesture either way and only the Character cell is blank. Surface it
+    // rather than let the user conclude their hotkeys broke (see the derived-state rule in
+    // CLAUDE.md, same shape as MasterSlotWarning).
+    public string HotkeyTargetWarning
+    {
+        get
+        {
+            var bound = Hotkeys.Count(h => h.IsCharacterSwitch && !string.IsNullOrWhiteSpace(h.GestureText));
+            if (bound == 0) return "";
+            var dead = Hotkeys.Count(h => h.IsCharacterSwitch
+                                          && h.Enabled
+                                          && !string.IsNullOrWhiteSpace(h.GestureText)
+                                          && string.IsNullOrWhiteSpace(h.TargetCharacter));
+            if (dead == 0) return "";
+
+            return $"Warning: {dead} of {bound} character-switch hotkeys have a key but no name in "
+                 + "the Character column, so pressing them does nothing. Hotkeys are saved per "
+                 + "character set -- pick a character for each one here, or switch back to the set "
+                 + "you configured them in.";
+        }
+    }
+
+    public bool HasHotkeyTargetWarning => HotkeyTargetWarning.Length > 0;
+
+    private void RaiseHotkeyTargetWarning()
+    {
+        OnPropertyChanged(nameof(HotkeyTargetWarning));
+        OnPropertyChanged(nameof(HasHotkeyTargetWarning));
+    }
+
+    // ── Subscriptions ──────────────────────────
 
     private void SubscribeToHotkeyChanges()
     {
@@ -514,6 +547,9 @@ public sealed partial class MainWindowViewModel
                 foreach (HotkeyBinding h in e.NewItems) h.PropertyChanged += OnHotkeyPropertyChanged;
             if (e.OldItems is not null)
                 foreach (HotkeyBinding h in e.OldItems) h.PropertyChanged -= OnHotkeyPropertyChanged;
+            // Covers Clear()+re-Add when a character set is switched in, which swaps the whole
+            // collection and is exactly when the targets can go missing.
+            RaiseHotkeyTargetWarning();
         };
     }
 
@@ -522,11 +558,14 @@ public sealed partial class MainWindowViewModel
         if (e.PropertyName == nameof(HotkeyBinding.Enabled))
         {
             Save();
+            RaiseHotkeyTargetWarning();
             HotkeysChanged?.Invoke(this, EventArgs.Empty);
         }
-        else if (e.PropertyName == nameof(HotkeyBinding.TargetCharacter))
+        else if (e.PropertyName == nameof(HotkeyBinding.TargetCharacter)
+                 || e.PropertyName == nameof(HotkeyBinding.GestureText))
         {
             Save();
+            RaiseHotkeyTargetWarning();
         }
     }
 }

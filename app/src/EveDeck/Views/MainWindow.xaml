@@ -1173,6 +1173,10 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                            Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
                 <TextBlock Text="Tip: Options → Hotkey Behavior controls whether hotkeys fire when EVE is not in focus."
                            Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding HotkeyTargetWarning}"
+                           Foreground="{StaticResource WarningBrush}" FontSize="11" FontWeight="SemiBold"
+                           Margin="0,6,0,0" TextWrapping="Wrap"
+                           Visibility="{Binding HasHotkeyTargetWarning, Converter={StaticResource BoolToVisibility}}"/>
               </StackPanel>
             </DockPanel>
 
