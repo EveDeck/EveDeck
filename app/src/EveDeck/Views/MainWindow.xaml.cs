@@ -941,16 +941,29 @@ public partial class MainWindow : Window
         _viewModel.ImportEsiTokens(dlg.FileName, prompt.Passphrase);
     }
 
-    // Options-tab section search. Keyed by section index (matches the IndexToVisibility
-    // ConverterParameter on each section StackPanel and the ListBoxItem order in OptionsMenu).
-    // Built lazily on first search rather than at window construction, since the whole Options
-    // tab subtree does not exist until the tab is first selected (TabControl's default template
-    // only realizes the SelectedContent -- see App.xaml's TabControl ControlTemplate).
-    private readonly Dictionary<int, string> _optionsSectionSearchText = new();
-    private bool _optionsSearchIndexBuilt;
+    // Sidebar section search, shared by the Options and Previews tabs. Keyed by section index
+    // (matches the IndexToVisibility ConverterParameter on each section StackPanel and the
+    // ListBoxItem order in that tab's menu). Built lazily on first search rather than at window
+    // construction, since a tab's subtree does not exist until the tab is first selected
+    // (TabControl's default template only realizes the SelectedContent -- see App.xaml's
+    // TabControl ControlTemplate). Each tab keeps its own index for that reason.
+    private sealed class SectionSearchIndex
+    {
+        public readonly Dictionary<int, string> Text = new();
+        public bool Built;
+    }
+
+    private readonly SectionSearchIndex _optionsSearch = new();
+    private readonly SectionSearchIndex _previewsSearch = new();
 
     private void OptionsSearchBox_TextChanged(object sender, TextChangedEventArgs e)
-        => ApplyOptionsSearchFilter();
+        => ApplySectionSearchFilter(_optionsSearch, OptionsSearchBox, OptionsMenu, OptionsSectionsHost, OptionsNoMatchText);
+
+    private void PreviewsSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        => ApplySectionSearchFilter(_previewsSearch, PreviewsSearchBox, PreviewsMenu, PreviewsSectionsHost, PreviewsNoMatchText);
+
+    private void PreviewsSearchBox_GotFocus(object sender, RoutedEventArgs e)
+        => _previewsSearch.Built = false;
 
     // Sections whose content is data-driven (Config Profiles, Character Names) change while the app
     // runs, so a once-only index goes stale -- a profile added mid-session was previously unfindable
@@ -962,64 +975,72 @@ public partial class MainWindow : Window
     // ConfigProfiles is a pass-through to _settings.ConfigProfiles, and importing settings replaces
     // that collection wholesale, which would leave the subscription bound to a dead instance.
     private void OptionsSearchBox_GotFocus(object sender, RoutedEventArgs e)
-        => _optionsSearchIndexBuilt = false;
+        => _optionsSearch.Built = false;
 
-    private void ApplyOptionsSearchFilter()
+    private static void ApplySectionSearchFilter(
+        SectionSearchIndex index,
+        System.Windows.Controls.TextBox searchBox,
+        System.Windows.Controls.ListBox menu,
+        System.Windows.Controls.Panel host,
+        System.Windows.Controls.TextBlock noMatch)
     {
-        EnsureOptionsSearchIndexBuilt();
+        EnsureSectionSearchIndexBuilt(index, menu, host);
 
-        var query = OptionsSearchBox.Text?.Trim() ?? string.Empty;
+        var query = searchBox.Text?.Trim() ?? string.Empty;
         if (query.Length == 0)
         {
-            foreach (var obj in OptionsMenu.Items)
+            foreach (var obj in menu.Items)
                 if (obj is ListBoxItem item) item.Visibility = Visibility.Visible;
-            OptionsMenu.Visibility = Visibility.Visible;
-            OptionsNoMatchText.Visibility = Visibility.Collapsed;
+            menu.Visibility = Visibility.Visible;
+            noMatch.Visibility = Visibility.Collapsed;
             return;
         }
 
         int? firstMatch = null;
         var matchCount = 0;
         var selectedStillVisible = false;
-        for (var i = 0; i < OptionsMenu.Items.Count; i++)
+        for (var i = 0; i < menu.Items.Count; i++)
         {
-            if (OptionsMenu.Items[i] is not ListBoxItem item) continue;
-            var isMatch = _optionsSectionSearchText.TryGetValue(i, out var text)
-                && text.Contains(query, StringComparison.OrdinalIgnoreCase);
+            if (menu.Items[i] is not ListBoxItem item) continue;
+            var isMatch = index.Text.TryGetValue(i, out var text)
+                          && text.Contains(query, StringComparison.OrdinalIgnoreCase);
             item.Visibility = isMatch ? Visibility.Visible : Visibility.Collapsed;
             if (!isMatch) continue;
             matchCount++;
             firstMatch ??= i;
-            if (i == OptionsMenu.SelectedIndex) selectedStillVisible = true;
+            if (i == menu.SelectedIndex) selectedStillVisible = true;
         }
 
         if (matchCount == 0)
         {
-            OptionsMenu.Visibility = Visibility.Collapsed;
-            OptionsNoMatchText.Visibility = Visibility.Visible;
+            menu.Visibility = Visibility.Collapsed;
+            noMatch.Visibility = Visibility.Visible;
             return;
         }
 
-        OptionsMenu.Visibility = Visibility.Visible;
-        OptionsNoMatchText.Visibility = Visibility.Collapsed;
+        menu.Visibility = Visibility.Visible;
+        noMatch.Visibility = Visibility.Collapsed;
 
         // If the currently displayed section fell out of the filtered set (or exactly one section
         // survives), jump to the first remaining match so the sidebar selection and the visible
         // right-hand panel never disagree.
         if (!selectedStillVisible && firstMatch.HasValue)
-            OptionsMenu.SelectedIndex = firstMatch.Value;
+            menu.SelectedIndex = firstMatch.Value;
     }
 
-    private void EnsureOptionsSearchIndexBuilt()
+    private static void EnsureSectionSearchIndexBuilt(
+        SectionSearchIndex index,
+        System.Windows.Controls.ListBox menu,
+        System.Windows.Controls.Panel host)
     {
-        if (_optionsSearchIndexBuilt) return;
-        _optionsSearchIndexBuilt = true;
+        if (index.Built) return;
+        index.Built = true;
         // Rebuild from scratch rather than overwriting in place, so a section whose content shrank
         // cannot leave harvested text behind and keep matching a query it no longer contains.
-        _optionsSectionSearchText.Clear();
+        index.Text.Clear();
 
-        var originalIndex = OptionsMenu.SelectedIndex;
-        for (var i = 0; i < OptionsSectionsHost.Children.Count; i++)
+        var originalIndex = menu.SelectedIndex;
+        for (var i = 0; i < host.Children.Count; i++)
         {
             // Force each section to Visible (one at a time) and run a layout pass before harvesting
             // it. A Collapsed element's subtree is never measured in WPF, so an ItemsControl inside a
@@ -1028,19 +1049,19 @@ public partial class MainWindow : Window
             // ItemContainerGenerator to run and its DataTemplate content would be invisible to a plain
             // VisualTreeHelper walk. This whole loop runs synchronously with no dispatcher yield, so
             // WPF never composites an intermediate frame -- no visible flicker from the cycling.
-            OptionsMenu.SelectedIndex = i;
-            OptionsSectionsHost.UpdateLayout();
+            menu.SelectedIndex = i;
+            host.UpdateLayout();
 
-            if (OptionsSectionsHost.Children[i] is not FrameworkElement section) continue;
+            if (host.Children[i] is not FrameworkElement section) continue;
             var sb = new StringBuilder();
-            if (i < OptionsMenu.Items.Count && OptionsMenu.Items[i] is ListBoxItem menuItem)
+            if (i < menu.Items.Count && menu.Items[i] is ListBoxItem menuItem)
                 sb.Append(menuItem.Content).Append(' ');
             HarvestOptionsSearchText(section, sb);
-            _optionsSectionSearchText[i] = sb.ToString();
+            index.Text[i] = sb.ToString();
         }
 
-        OptionsMenu.SelectedIndex = originalIndex;
-        OptionsSectionsHost.UpdateLayout();
+        menu.SelectedIndex = originalIndex;
+        host.UpdateLayout();
     }
 
     // Harvests user-visible strings from a section's visual subtree: TextBlock text, the Content of

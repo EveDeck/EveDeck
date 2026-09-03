@@ -905,7 +905,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     + "slot. This layout is set to \"Real windows\", so the global live-preview setting "
                     + "is ignored for it."
                     : $"Flat mode - all {n} clients render live, each resized to its own slot. Turn on "
-                    + $"\"Enable live previews\" in Options > Previews, or set this layout to \"Live "
+                    + $"\"Enable live previews\" on the Previews tab, or set this layout to \"Live "
                     + $"previews\", to render the master live and the other {n - 1} as thumbnails instead.";
 
             return $"Preview mode - the master seat renders live in slot {CenterSlotNumber}; the other "
