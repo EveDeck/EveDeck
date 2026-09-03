@@ -2986,6 +2986,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public void Cleanup()
     {
         PortraitCacheService.Instance.Changed -= OnPortraitCacheChanged;
+        // Stop the periodic timers first. OnClosed runs Cleanup(), Save() and a residual-window
+        // sweep in sequence, so a Tick landing mid-sequence would run Refresh() or a second Save()
+        // against half-torn-down state -- the same shape as the zombie process that used to
+        // survive tray > Exit.
+        _refreshTimer.Stop();
+        _autoSaveTimer.Stop();
         _portraitSweepTimer.Stop();
         _frameTimer.Stop();
         _seatHealthTimer.Stop();
