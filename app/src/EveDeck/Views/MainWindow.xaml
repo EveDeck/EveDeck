@@ -1969,7 +1969,6 @@ Apps listed here also show up as detected/assignable windows (Clients tab) so on
                       <ListBoxItem Content="EVE Launcher"/>
                       <ListBoxItem Content="Overlay Allow List"/>
                       <ListBoxItem Content="Notifications"/>
-                      <ListBoxItem Content="Comms"/>
                       <ListBoxItem Content="Config Profiles"/>
                       <ListBoxItem Content="DPS Meter"/>
                     </ListBox>
@@ -2349,44 +2348,9 @@ ESI checks for common parked-alt failures: podding and disconnects. Requires cha
                     </Border>
                   </StackPanel>
 
-                  <!-- section 9: Comms -->
+
+                  <!-- section 9: Config Profiles -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=9}">
-                    <TextBlock Text="Comms" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                    <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
-Mumble who-is-talking panel that matches EveDeck's look. Uses a small plugin inside your Mumble client. Drag it around and lock it to prevent accidental moves.
-                    </TextBlock>
-
-                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1" CornerRadius="6" Padding="14" MaxWidth="480">
-                      <StackPanel>
-                        <DockPanel>
-                          <CheckBox DockPanel.Dock="Right" Content="Enabled" IsChecked="{Binding TalkerOverlayEnabled}"/>
-                          <TextBlock Text="Talker Overlay (Mumble plugin)" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
-                        </DockPanel>
-                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0">
-Needs the EveDeck Talker Bridge plugin installed in Mumble (Configure > Plugins). Shows names and talking state only -- no audio or messages sent anywhere.
-                        </TextBlock>
-                        <TextBlock Text="{Binding TalkerOverlayStatus}" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
-                          <TextBlock Text="Opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}"/>
-                          <Slider Minimum="20" Maximum="100"
-                                  Value="{Binding TalkerOverlayOpacity}"
-                                  Width="180"
-                                  VerticalAlignment="Center"
-                                  IsSnapToTickEnabled="True"
-                                  TickFrequency="5"/>
-                          <TextBlock Text="{Binding TalkerOverlayOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                          <Button Content="Install plugin into Mumble" Command="{Binding InstallMumblePluginCommand}" Padding="10,4"/>
-                        </StackPanel>
-                        <TextBlock Text="{Binding MumblePluginInstallStatus}" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                      </StackPanel>
-                    </Border>
-                  </StackPanel>
-
-                  <!-- section 10: Config Profiles -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=10}">
                     <TextBlock Text="Config Profiles" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
 Named snapshots of your whole setup: layout, character set, and all overlay appearance settings. Switch between them from the tray icon. Layouts and character sets update all profiles that use them automatically.
@@ -2425,8 +2389,8 @@ Named snapshots of your whole setup: layout, character set, and all overlay appe
                               Margin="0,0,0,10"/>
                   </StackPanel>
 
-                  <!-- section 11: DPS Meter -->
-                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=11}">
+                  <!-- section 10: DPS Meter -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=10}">
                     <TextBlock Text="DPS Meter" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,14" MaxWidth="640">
 A live damage readout on each preview, one per character -- the same idea as running a separate damage meter window for every client, without the extra windows. Numbers come from EVE's own combat and mining logs in Documents\EVE\logs\Gamelogs. Passive log reading only; nothing is ever sent into the game.

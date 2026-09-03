@@ -1433,11 +1433,6 @@ public sealed partial class MainWindowViewModel
         if (_layoutEditorHwnd != 0) _windowService.SetWindowTopmost(_layoutEditorHwnd, true);
         BumpToastAboveEverything();
         _downtimeWindow?.SetZ(eveOrEwcFg); // rides along with the surfaces we just re-topped/dropped
-        // Same class of bug as the tile/label surfaces (see CenterSeatInGroup) -- a real EVE window
-        // gaining focus during a swap can climb above the talker overlay too. It already self-heals
-        // via a 1s timer (TalkerOverlayWindow.BringToTop), but re-asserting here too means it doesn't
-        // wait up to a full second to recover right after a swap.
-        _talkerWindow?.BringToTop();
     }
 
     // Re-asserts the toast window at the very top of the topmost band. Must run AFTER the surfaces'

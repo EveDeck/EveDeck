@@ -17,11 +17,6 @@ namespace EveDeck.Utilities;
 //     these are VIRTUALIZED -- the write appears to succeed, lands in the package's private hive,
 //     and the OS never sees it. Both are declared in AppxManifest.xml instead, so doing them here
 //     would be worse than useless: silently broken rather than obviously broken.
-//   * Writing into another application's %APPDATA% (installing the companion Mumble plugin). Same
-//     redirection, so Mumble would never find the plugin.
-//
-// Detection is GetCurrentPackageFullName, the documented way to ask this. It returns
-// APPMODEL_ERROR_NO_PACKAGE (15700) when the process has no package identity.
 internal static class PackagedAppInfo
 {
     private const int AppModelErrorNoPackage = 15700;

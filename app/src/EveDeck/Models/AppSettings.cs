@@ -403,10 +403,6 @@ public sealed class AppSettings
     // which only tears down the WHOLE overlay once EVERY seat is offline at once.
     public int OfflinePillTimeoutSeconds { get; set; } = 0;
 
-    // EveDeck-rendered Mumble talker overlay (fed by the EveDeck Mumble plugin over a named
-    // pipe). Only Enabled/Locked/X/Y/OpacityPercent are used -- the window owns its own size.
-    public UtilityOverlaySlot TalkerOverlay { get; set; } = new();
-
     // Profile Sync: manual character-id -> account (core_user) id overrides. Auto-pairing uses
     // file-mtime correlation, which the user can correct in the UI; corrections are kept here
     // so they survive restarts and stale mtimes.

@@ -308,11 +308,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Log.Info("EveDeck started.");
         _ = CheckForUpdateAsync();
         InitProfileCopy();
-        InitMumbleBridge();
     }
 
     partial void InitProfileCopy();
-    partial void InitMumbleBridge();
 
     private async Task CheckForUpdateAsync(bool manual = false)
     {
@@ -3002,7 +3000,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _launchGroupCts?.Cancel();
         StopChatAlerts();
         StopCornerOverlays();
-        StopTalkerOverlay();
         _downtimeTimer.Stop();
         HideDowntimeWindow();
         if (_frameOverlay is not null)
