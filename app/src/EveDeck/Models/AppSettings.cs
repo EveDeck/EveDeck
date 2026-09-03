@@ -120,16 +120,10 @@ public sealed class AppSettings
     // done with scheduling instead of frame caps.
     public bool EcoQosExemptNextInCycle { get; set; } = true;
 
-    // Hide a preview tile while its client is still sitting on the EVE login/character-select screen,
-    // where the thumbnail shows nothing useful. Mirrors EVE-O Preview's HidePreviewAtLoginScreen.
-    // Detection is by window title only (EVE titles the window "EVE" with no character name until a
-    // character is selected) -- no memory reading, no injection.
-    public bool HidePreviewsAtLoginScreen { get; set; } = true;
-
     // Briefly drop every corner preview when a client enters a heavy modal / loading state -- the
     // character creator, boarding or undocking a capital, a session-change loading screen -- where
     // that client's own GPU/VRAM use spikes hardest. Detected by the client's window title going
-    // characterless (plain "EVE", the same title-only signal as HidePreviewsAtLoginScreen; no memory
+    // characterless (plain "EVE", the same characterless-title signal; no memory
     // reading, no injection) and holding a few seconds, so a quick ESC-menu tap does not trip it.
     // Also fires when EveDeck sees a burst of DWM composition-change broadcasts, the signature of a
     // GPU driver reset (TDR). Stopping DWM from compositing every preview thumbnail during that

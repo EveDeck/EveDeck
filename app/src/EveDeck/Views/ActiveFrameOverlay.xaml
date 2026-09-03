@@ -10,6 +10,14 @@
         Left="-10000" Top="-10000"
         Width="100" Height="100">
   <Grid>
+    <!-- Underlay for the animated styles (Neon/BreathingGlow/Shimmer/Rainbow/ElectricArc): a blurred
+         stroke drawn beneath FrameOutline so it reads as a glow. Driven entirely from code. -->
+    <Path x:Name="FrameGlow" Fill="Transparent" Visibility="Collapsed"
+          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round">
+      <Path.Effect>
+        <BlurEffect x:Name="FrameGlowBlur" Radius="10" KernelType="Gaussian"/>
+      </Path.Effect>
+    </Path>
     <!-- Plain full-perimeter outline: Solid/Dashed/Dotted styles, and the base layer under the
          brackets for the combined "Snapshot + Full Frame" style. Drawn first/underneath so the
          (slightly thicker) brackets read clearly on top of it at the corners. Never blurred. -->

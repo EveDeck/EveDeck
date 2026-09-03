@@ -463,6 +463,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<MiniMapSlot> MiniMapSlots { get; } = new();
     public ObservableCollection<MonitorPreviewItem> MonitorPreviewItems { get; } = new();
     public event EventHandler? HotkeysChanged;
+    public event Action? OptionsOpenRequested;
 
     // ── Commands ───────────────────────────────────────────────────────────────
 
@@ -2075,18 +2076,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
             // Re-evaluate now: the previously-exempt client should get throttled (or un-throttled)
             // without waiting for the next foreground change.
             if (_settings.EcoQosBackgroundClients) ApplyProcessPriorities(_windowService.GetForegroundWindowHandle());
-            Save();
-        }
-    }
-
-    public bool HidePreviewsAtLoginScreen
-    {
-        get => _settings.HidePreviewsAtLoginScreen;
-        set
-        {
-            if (_settings.HidePreviewsAtLoginScreen == value) return;
-            _settings.HidePreviewsAtLoginScreen = value;
-            OnPropertyChanged();
             Save();
         }
     }

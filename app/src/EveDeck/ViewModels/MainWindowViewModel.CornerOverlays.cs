@@ -24,6 +24,7 @@ public sealed partial class MainWindowViewModel
     private LabelSurfaceWindow? _labelSurface;
     private readonly Dictionary<int, nint> _cornerSourceHandles = new();
     private readonly Dictionary<int, bool> _cornerPreventedState = new();
+    private readonly Dictionary<int, bool> _cornerLoginState = new();
     private readonly Dictionary<int, WindowRect> _cornerRects = new();
     // Each group's master/center rect in layouts where that area is the REAL EVE window rather than a
     // preview tile (the Center Master family) -- those positions get no _cornerRects entry, so this is
@@ -338,8 +339,8 @@ public sealed partial class MainWindowViewModel
     // long as the in-game ESC menu is open, and that is over in seconds.
     private const int CharacterlessTitleDwellSeconds = 10;
 
-    // True when an EVE client is genuinely still on the login/character-select screen. Backs
-    // AppSettings.HidePreviewsAtLoginScreen. The title alone cannot decide this: EVE drops the
+    // True when an EVE client is genuinely still on the login/character-select screen. Backs the
+    // "not logged in" pill badge (see LoginBadgeText). The title alone cannot decide this: EVE drops the
     // " - Character" suffix BOTH at character select and, transiently, whenever the in-game ESC menu
     // is open on a fully logged-in client (verified live -- the suffix returns the instant "Return to
     // game" is clicked). Treating the menu as "at login" blanked that client's preview every time the
@@ -686,6 +687,7 @@ public sealed partial class MainWindowViewModel
     private string PillTextForPosition(int position)
     {
         var occupant = OccupantAtPosition(position);
+        if (LoginBadgeText(occupant) is { } loginBadge) return loginBadge;
         var name = OverlayDisplayName(occupant);
         var code = CornerCode(position);
         var text = _settings.CornerOverlayShowSlotNumber && !string.IsNullOrEmpty(code) ? $"{code} · {name}" : name;
@@ -743,6 +745,17 @@ public sealed partial class MainWindowViewModel
         return name.Length > 0 ? $"{name} · offline" : "";
     }
 
+    // "not logged in" badge for a seat whose EVE client is still on the login/character-select
+    // screen. Null when the seat is past it or has no window. Title-only signal (see IsAtLoginScreen)
+    // -- no memory reading, no injection.
+    private string? LoginBadgeText(int seat)
+    {
+        var w = FindSeatWindow(seat);
+        if (w is null || !IsAtLoginScreen(w)) return null;
+        var name = OverlayDisplayName(seat);
+        return name.Length > 0 ? $"{name} · not logged in" : "not logged in";
+    }
+
     // Directional arrow for a live-overlay pill, scoped to the seat's own swap group and excluding
     // that group's center/master slot from the bounding box. A group's master can sit on a totally
     // different monitor/scale than its own ring (e.g. a full-monitor master + a same-monitor 2x2 alt
@@ -793,6 +806,7 @@ public sealed partial class MainWindowViewModel
     private string CenterPillTextForGroup(string groupId)
     {
         var centeredSeat = _centeredSeatByGroup.GetValueOrDefault(groupId, 0);
+        if (LoginBadgeText(centeredSeat) is { } loginBadge) return loginBadge;
         var name = OverlayDisplayName(centeredSeat);
         var text = _settings.CornerOverlayShowSlotNumber ? $"★ · {name}" : name;
         return AppendSystem(text, centeredSeat);
@@ -1907,14 +1921,20 @@ public sealed partial class MainWindowViewModel
                 continue;
             }
 
+            // Login-screen state drives the "not logged in" pill badge (see LoginBadgeText). The
+            // occupant's window handle does not change as it enters/leaves character select, so the
+            // desiredHandle != lastHandle guard below never catches that transition -- track it here
+            // and refresh the pill on the edge.
+            var atLoginScreen = IsAtLoginScreen(window);
+            _cornerLoginState.TryGetValue(position, out var wasAtLoginScreen);
+            if (atLoginScreen != wasAtLoginScreen)
+            {
+                _cornerLoginState[position] = atLoginScreen;
+                RefreshPositionPill(position);
+            }
+
             var hiddenAsActive = _settings.HideActiveSeatTile && window.Handle == fgHandle;
-            // Title-only detection (no memory reading, no injection): EVE titles a client's window
-            // plainly "EVE", with no " - Character Name" suffix, until a character has been selected
-            // past the login/character-select screen -- reuses CharacterNameFromTitle's existing
-            // "EVE - X" -> "X" parsing (MainWindowViewModel.Clients.cs) rather than a second rule, since
-            // a title with no prefix match comes back unchanged, i.e. still literally "EVE".
-            var hiddenAsLoginScreen = _settings.HidePreviewsAtLoginScreen && IsAtLoginScreen(window);
-            var desiredHandle = (hiddenAsActive || hiddenAsLoginScreen) ? 0 : window.Handle;
+            var desiredHandle = hiddenAsActive ? 0 : window.Handle;
             _cornerSourceHandles.TryGetValue(position, out var lastHandle);
             if (desiredHandle != lastHandle)
             {

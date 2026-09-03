@@ -1372,6 +1372,12 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                       <ComboBoxItem Tag="Solid" Content="Solid"/>
                       <ComboBoxItem Tag="Dashed" Content="Dashed"/>
                       <ComboBoxItem Tag="Dotted" Content="Dotted"/>
+                      <ComboBoxItem Tag="Neon" Content="Neon (pulsing glow)"/>
+                      <ComboBoxItem Tag="BreathingGlow" Content="Breathing glow"/>
+                      <ComboBoxItem Tag="Shimmer" Content="Shimmer"/>
+                      <ComboBoxItem Tag="Rainbow" Content="Rainbow"/>
+                      <ComboBoxItem Tag="ElectricArc" Content="Electric arc"/>
+                      <ComboBoxItem Tag="Zigzag" Content="Zigzag"/>
                     </ComboBox>
                   </StackPanel>
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
@@ -1761,11 +1767,6 @@ Preview tiles shrink the whole client window. To read them better: raise UI Scal
                   <TextBlock Text="To hide a single seat's preview permanently, use its 'Hide preview' checkbox on the Clients tab."
                              Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10"/>
 
-                  <CheckBox Content="Hide preview tiles while clients are at the login screen"
-                            IsChecked="{Binding HidePreviewsAtLoginScreen}"
-                            ToolTip="A client at login shows nothing useful in its preview."
-                            Margin="0,0,0,6"/>
-
                   <CheckBox Content="Briefly hide all previews while a client is loading or under heavy GPU load"
                             IsChecked="{Binding SuspendPreviewsUnderGpuLoad}"
                             ToolTip="The character creator, boarding a capital, or a loading screen can spike the GPU. Previews drop for a few seconds, then return on their own. Also backs off after a graphics-driver reset."
@@ -1908,7 +1909,7 @@ Apps listed here also show up as detected/assignable windows (Clients tab) so on
         </TabItem>
 
         <!-- ──────────────────── OPTIONS TAB ──────────────────── -->
-        <TabItem>
+        <TabItem x:Name="OptionsTabItem">
           <TabItem.Header>
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="13" Margin="0,0,7,0" VerticalAlignment="Center"/>

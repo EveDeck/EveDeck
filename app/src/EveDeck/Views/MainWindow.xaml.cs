@@ -61,6 +61,11 @@ public partial class MainWindow : Window
         _viewModel.HotkeysChanged += ViewModel_HotkeysChanged;
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
         _viewModel.UpdateBecameAvailable += version => ShowChangelogWindow(version);
+        _viewModel.OptionsOpenRequested += () => Dispatcher.BeginInvoke(new Action(() =>
+        {
+            ShowFromTray();
+            if (OptionsTabItem is not null) MainTabControl.SelectedItem = OptionsTabItem;
+        }));
         PreviewKeyDown += MainWindow_PreviewKeyDown;
         // A pending hotkey capture keeps ALL global hotkeys unregistered; abandon it if the user
         // clicks away to another app so the hotkeys come back (re-registered via IsCapturingHotkey).

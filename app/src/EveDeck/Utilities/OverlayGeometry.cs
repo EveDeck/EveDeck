@@ -38,6 +38,82 @@ public static class OverlayGeometry
         return geo;
     }
 
+    // Rectangular perimeter (x, y, w, h) walked as 4 edges in ~stepPx segments, each interior vertex
+    // pushed off the edge by amp*sin(t*7 + phase) along the edge normal -- a jagged "electric"
+    // outline for the ElectricArc active-frame style. Frozen before returning.
+    public static Geometry JaggedPerimeter(double x, double y, double w, double h, double amp, double phase, double stepPx = 9.0)
+    {
+        var corners = new[]
+        {
+            new System.Windows.Point(x, y),
+            new System.Windows.Point(x + w, y),
+            new System.Windows.Point(x + w, y + h),
+            new System.Windows.Point(x, y + h),
+        };
+        var geo = new StreamGeometry();
+        using (var g = geo.Open())
+        {
+            for (var i = 0; i < 4; i++)
+            {
+                var a = corners[i];
+                var c = corners[(i + 1) % 4];
+                var dx = c.X - a.X;
+                var dy = c.Y - a.Y;
+                var edgeLen = System.Math.Sqrt(dx * dx + dy * dy);
+                if (edgeLen < 1e-6) continue;
+                double ux = dx / edgeLen, uy = dy / edgeLen;
+                double nx = -uy, ny = ux;
+                g.BeginFigure(a, false, false);
+                for (var pos = stepPx; pos < edgeLen; pos += stepPx)
+                {
+                    var off = amp * System.Math.Sin(pos / stepPx * 7.0 + phase);
+                    g.LineTo(new System.Windows.Point(a.X + ux * pos + nx * off, a.Y + uy * pos + ny * off), true, false);
+                }
+                g.LineTo(c, true, false);
+            }
+        }
+        geo.Freeze();
+        return geo;
+    }
+
+    // Rectangular perimeter walked as a triangular zigzag wave, amplitude amp, wavelength ~waveLenPx,
+    // alternating outward/inward along the edge normal. Static (no phase). Frozen before returning.
+    public static Geometry ZigzagPerimeter(double x, double y, double w, double h, double amp, double waveLenPx = 14.0)
+    {
+        var corners = new[]
+        {
+            new System.Windows.Point(x, y),
+            new System.Windows.Point(x + w, y),
+            new System.Windows.Point(x + w, y + h),
+            new System.Windows.Point(x, y + h),
+        };
+        var geo = new StreamGeometry();
+        using (var g = geo.Open())
+        {
+            for (var i = 0; i < 4; i++)
+            {
+                var a = corners[i];
+                var c = corners[(i + 1) % 4];
+                var dx = c.X - a.X;
+                var dy = c.Y - a.Y;
+                var edgeLen = System.Math.Sqrt(dx * dx + dy * dy);
+                if (edgeLen < 1e-6) continue;
+                double ux = dx / edgeLen, uy = dy / edgeLen;
+                double nx = -uy, ny = ux;
+                g.BeginFigure(a, false, false);
+                var step = waveLenPx / 2.0;
+                for (var pos = step; pos < edgeLen; pos += step)
+                {
+                    var off = amp * (2.0 * System.Math.Abs(System.Math.Round(pos / waveLenPx) - pos / waveLenPx) - 0.5) * 2.0;
+                    g.LineTo(new System.Windows.Point(a.X + ux * pos + nx * off, a.Y + uy * pos + ny * off), true, false);
+                }
+                g.LineTo(c, true, false);
+            }
+        }
+        geo.Freeze();
+        return geo;
+    }
+
     // A plain full-perimeter rectangle outline, for the Solid/Dashed/Dotted active-frame styles --
     // the Snapshot style's corner brackets read as camera-viewfinder framing, these read as a
     // conventional border.

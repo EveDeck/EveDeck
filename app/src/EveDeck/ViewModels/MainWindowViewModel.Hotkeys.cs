@@ -108,6 +108,11 @@ public sealed partial class MainWindowViewModel
     //   evedeck://profile/Grid       — select + apply the named layout profile
     //   evedeck://set/2              — switch to character set 2
     //   evedeck://minimizeall        — minimize all EVE clients (skips protected seats)
+    //   evedeck://hotkeys/suspend    -- pause global hotkeys (panic pause)
+    //   evedeck://hotkeys/resume     -- resume global hotkeys
+    //   evedeck://previews/hide      -- suspend the live corner previews
+    //   evedeck://previews/show      -- resume the live corner previews
+    //   evedeck://options/open       -- bring EveDeck to the front on the Options tab
     public void HandleProtocolUrl(string url)
     {
         try
@@ -146,6 +151,25 @@ public sealed partial class MainWindowViewModel
                 case "minimizeall":
                     SafetyGuard.ThrowIfInputBroadcastAction("MinimizeAllClients");
                     MinimizeAllClients();
+                    break;
+                case "hotkey" or "hotkeys" when arg.Equals("suspend", StringComparison.OrdinalIgnoreCase):
+                    SafetyGuard.ThrowIfInputBroadcastAction("ToggleHotkeysSuspended");
+                    HotkeysSuspended = true;
+                    break;
+                case "hotkey" or "hotkeys" when arg.Equals("resume", StringComparison.OrdinalIgnoreCase):
+                    SafetyGuard.ThrowIfInputBroadcastAction("ToggleHotkeysSuspended");
+                    HotkeysSuspended = false;
+                    break;
+                case "previews" when arg.Equals("hide", StringComparison.OrdinalIgnoreCase):
+                    SafetyGuard.ThrowIfInputBroadcastAction("TogglePreviewsSuspended");
+                    PreviewsSuspended = true;
+                    break;
+                case "previews" when arg.Equals("show", StringComparison.OrdinalIgnoreCase):
+                    SafetyGuard.ThrowIfInputBroadcastAction("TogglePreviewsSuspended");
+                    PreviewsSuspended = false;
+                    break;
+                case "options" when arg.Length == 0 || arg.Equals("open", StringComparison.OrdinalIgnoreCase):
+                    OptionsOpenRequested?.Invoke();
                     break;
                 default:
                     Log.Warn($"Protocol: unknown command '{verb}' in {url}");
