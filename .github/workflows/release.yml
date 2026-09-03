@@ -24,7 +24,7 @@ jobs:
       installer_vt_clean: ${{ steps.vt.outputs.installer_vt_clean }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Extract version from tag
         id: ver
@@ -68,7 +68,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Setup .NET 8
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.x'
 
@@ -326,14 +326,14 @@ jobs:
     steps:
       # The website lives in its own repo (EveDeck-site); check it out to record the
       # release and deploy. RELEASES_REPO_TOKEN must have write access to EveDeck-site.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           repository: EveDeck/EveDeck-site
           token: ${{ secrets.RELEASES_REPO_TOKEN }}
           ref: main
 
       - name: Setup Node 22
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 

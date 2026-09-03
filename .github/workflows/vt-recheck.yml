@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout EveDeck-site
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: EveDeck/EveDeck-site
           token: ${{ secrets.RELEASES_REPO_TOKEN }}
@@ -33,7 +33,7 @@ jobs:
 
       - name: Setup Node 22
         if: steps.pending.outputs.found == 'true'
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
