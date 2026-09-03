@@ -38,7 +38,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout the tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.tag }}
 
@@ -51,7 +51,7 @@ jobs:
           echo "version=$v" >> $env:GITHUB_OUTPUT
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.x'   # matches release.yml; the runner supplies the .NET 10 SDK for the build
 
