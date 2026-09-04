@@ -49,9 +49,11 @@ for exactly this reason. Do not port that piece from any of these tools regardle
 
 ## EVE-X Preview
 
-- A fork line of EVE-O Preview (EVE forums thread); MIT lineage from the EVE-O base.
-- Verify the specific fork repo's own LICENSE before adapting any of its *own* additions.
-- Used here: design reference only so far (no code adapted).
+- Source: https://github.com/g0nzo83/EVE-X-Preview
+- Licence: MIT
+- Copyright (c) 2024 g0nzo83
+- Written in **AutoHotkey**, so there is no code to lift into a C#/WPF app — it is an
+  idea/behaviour reference only.
 
 ---
 
