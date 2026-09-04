@@ -2211,6 +2211,14 @@ Parks inactive clients on efficiency cores and clocks them down (deeper cut than
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
 Minimizes inactive clients to save GPU/CPU (flat layouts only; disabled while previews are live). Respects 'never minimize' checkboxes on slot cards.
               </TextBlock>
+              <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0">
+                <StackPanel>
+                  <TextBlock Text="Cap background client frame rate (recommended)" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                  <TextBlock Text="{Binding BackgroundFpsCapTip}" TextWrapping="Wrap" LineHeight="19"
+                             Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                </StackPanel>
+              </Border>
                   </StackPanel>
                   <!-- section 6: EVE Launcher -->
                   <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=6}">

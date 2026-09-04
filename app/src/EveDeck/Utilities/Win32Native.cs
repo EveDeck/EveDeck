@@ -226,6 +226,22 @@ internal static class Win32Native
         ref DEVMODE lpDevMode,
         uint dwFlags);
 
+    internal const int DisplayDeviceMirroringDriver = 0x00000008; // DISPLAY_DEVICE_MIRRORING_DRIVER
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    internal struct DisplayDevice
+    {
+        public int cb;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]  public string DeviceName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceString;
+        public int StateFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceID;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceKey;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    internal static extern bool EnumDisplayDevices(string? lpDevice, uint iDevNum, ref DisplayDevice lpDisplayDevice, uint dwFlags);
+
     // Process priority constants for background throttling.
     internal const uint ProcessSetInformation = 0x0200;
     internal const uint PriorityNormal = 0x00000020;

@@ -2124,6 +2124,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    // Vendor-specific pointer to the OS-level way to cap BACKGROUND EVE-client frame rate -- the
+    // compliant alternative to EveDeck ever hooking the client. Shown under Performance options.
+    public string BackgroundFpsCapTip => Utilities.GpuInfo.DetectVendor() switch
+    {
+        Utilities.GpuVendor.Nvidia =>
+            "NVIDIA GPU detected. In NVIDIA Control Panel > Manage 3D Settings > Program Settings, add EVE (exefile.exe) and set \"Background Application Max Frame Rate\" to about 15-30 FPS. That caps alt clients whenever they're not focused, with no change to the game itself.",
+        Utilities.GpuVendor.Amd =>
+            "AMD GPU detected. In AMD Software > Gaming, select EVE (add exefile.exe if it's not listed) and enable Radeon Chill with a low min/max, or set a Frame Rate Target Control cap. AMD has no dedicated \"background\" cap, so a per-game Chill range is the closest equivalent.",
+        Utilities.GpuVendor.Intel =>
+            "Intel GPU detected. Intel's control panel has limited per-app frame control -- use EVE's own frame-rate limit (Esc > Settings > Display & Graphics), or a tool like RTSS, to hold background clients down.",
+        _ =>
+            "Set a per-application frame-rate cap for EVE (exefile.exe) in your GPU's control panel -- around 15-30 FPS for background clients. EVE also has its own limit under Esc > Settings > Display & Graphics.",
+    };
+
     public bool SuspendPreviewsUnderGpuLoad
     {
         get => _settings.SuspendPreviewsUnderGpuLoad;
