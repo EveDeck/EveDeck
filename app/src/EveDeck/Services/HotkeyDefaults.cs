@@ -91,6 +91,10 @@ public static class HotkeyDefaults
         // boss key. Window-management only; ships unbound.
         bindings.Add(new HotkeyBinding { ActionId = "MinimizeAllClients", DisplayName = "Minimize all EVE clients (skips protected seats)", Modifiers = 0, VirtualKey = 0, GestureText = "" });
 
+        // Close every EVE client at once (except seats marked "never minimize") -- destructive, so both
+        // the tray menu and this hotkey confirm first. Ships unbound.
+        bindings.Add(new HotkeyBinding { ActionId = "CloseAllClients", DisplayName = "Close all EVE clients (skips protected seats)", Modifiers = 0, VirtualKey = 0, GestureText = "" });
+
         for (var i = 1; i <= 4; i++)
             bindings.Add(new HotkeyBinding { ActionId = $"SwitchCharacterSet{i}", DisplayName = $"Switch to character set {i}", Modifiers = 0, VirtualKey = 0, GestureText = "" });
 

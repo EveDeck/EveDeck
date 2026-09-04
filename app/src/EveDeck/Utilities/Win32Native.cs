@@ -23,6 +23,7 @@ internal static class Win32Native
 
     internal const int WmMouseMove = 0x0200;
     internal const int WmMouseLeave = 0x02A3;
+    internal const uint WmClose = 0x0010;
     internal const uint TmeLeave = 0x00000002;
 
     // SetWindowLongPtr index for the owner window. Setting an owner makes the window manager keep
@@ -85,6 +86,9 @@ internal static class Win32Native
 
     [DllImport("user32.dll")]
     internal static extern bool ShowWindow(nint hWnd, int nCmdShow);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern bool PostMessage(nint hWnd, uint msg, nint wParam, nint lParam);
 
     [DllImport("user32.dll")]
     internal static extern bool GetClientRect(nint hWnd, out NativeRect lpRect);

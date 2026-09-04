@@ -375,6 +375,10 @@ public partial class MainWindow : Window
         _configProfilesMenu = new System.Windows.Forms.ToolStripMenuItem("Config profile");
         contextMenu.Items.Add(_configProfilesMenu);
         contextMenu.Items.Add("Check for Updates", null, (_, _) => _viewModel.CheckForUpdateCommand.Execute(null));
+        contextMenu.Items.Add("Close all EVE clients", null, (_, _) =>
+        {
+            if (_viewModel.ConfirmCloseAllClients()) _viewModel.CloseAllClients();
+        });
         contextMenu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         contextMenu.Items.Add("Exit", null, (_, _) => ExitFromTray());
         _notifyIcon.ContextMenuStrip = contextMenu;

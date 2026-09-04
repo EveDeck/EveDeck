@@ -454,6 +454,28 @@ public sealed partial class MainWindowViewModel
         Log.Info($"Minimized {count} EVE client(s) ({protectedHandles.Count} protected seat window(s) skipped).");
     }
 
+    // Close every managed EVE client at once, except protected seats -- reimplementation of EVE-X
+    // Preview's "Close all EVE clients". Destructive (the game clients quit), so both entry points
+    // (tray menu + optional hotkey) confirm first. Sends WM_CLOSE only; no input is forwarded.
+    internal void CloseAllClients()
+    {
+        Refresh();
+        var protectedHandles = ProtectedWindowHandles();
+        var count = 0;
+        foreach (var window in Windows)
+        {
+            if (protectedHandles.Contains(window.Handle)) continue;
+            _windowService.CloseWindow(window.Handle);
+            count++;
+        }
+        Log.Info($"Close all EVE clients: sent WM_CLOSE to {count} client(s) ({protectedHandles.Count} protected seat window(s) skipped).");
+    }
+
+    internal bool ConfirmCloseAllClients() =>
+        MessageBox.Show(
+            "Close all managed EVE clients? Any client not in a protected seat will be told to quit.",
+            "EveDeck", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
+
     // Optional eve-o-preview-style auto-minimize: whenever an EVE client takes the foreground,
     // minimize the others (except protected seats). Only active in flat layouts — corner-overlay
     // mode parks alts off-screen and needs them UNminimized so DWM keeps compositing their live

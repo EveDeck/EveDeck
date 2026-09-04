@@ -415,6 +415,7 @@ public sealed partial class MainWindowViewModel
         _tileSurface.SnapGridPx = Math.Max(0, _settings.CornerOverlaySnapGridPx);
         _tileSurface.TileClicked = OnCornerTileClicked;
         _tileSurface.TileShiftClicked = OnCornerTileShiftClicked;
+        _tileSurface.TileCtrlShiftClicked = OnCornerTileCtrlShiftClicked;
         _tileSurface.TileRectChanged = OnCornerTileRectChanged;
         _tileSurface.TileDragStarted = OnCornerTileDragStarted;
         _tileSurface.TileDragging = OnCornerTileDragging;
@@ -1054,6 +1055,10 @@ public sealed partial class MainWindowViewModel
         Save();
         Log.Info($"Seat {seat} ({SeatLabel(seat)}) {(assignment.ExcludedFromCycle ? "excluded from" : "included in")} cycling.");
     }
+
+    // Ctrl+Shift+click a preview tile -> jump back to whatever non-EVE window you were last in
+    // (same as the FocusPreviousApp hotkey). Idea from EVE-O Preview -- see THIRD-PARTY-NOTICES.md.
+    private void OnCornerTileCtrlShiftClicked(int position) => FocusPreviousApp();
 
     // Right-drag (move) / both-buttons-drag (resize) directly on the overlay, mirroring EVE-O
     // Preview/EVE-APM Preview. The dragged tile's rect has already visually settled by the time

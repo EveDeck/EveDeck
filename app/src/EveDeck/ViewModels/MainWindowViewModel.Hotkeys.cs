@@ -71,6 +71,10 @@ public sealed partial class MainWindowViewModel
             {
                 MinimizeAllClients();
             }
+            else if (actionId.Equals("CloseAllClients", StringComparison.OrdinalIgnoreCase))
+            {
+                if (ConfirmCloseAllClients()) CloseAllClients();
+            }
             else if (actionId.StartsWith("SwitchCharacterSet", StringComparison.OrdinalIgnoreCase)
                 && int.TryParse(actionId["SwitchCharacterSet".Length..], out var setIndex))
             {

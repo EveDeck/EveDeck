@@ -39,6 +39,11 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     // into the EVE client. See COMPLIANCE.md.
     public Action<int>? TileShiftClicked;
 
+    // Raised on Ctrl+Shift+left-click instead of TileClicked/TileShiftClicked -- the view-model jumps
+    // focus back to the last non-EVE window (same as the FocusPreviousApp hotkey). Idea from EVE-O
+    // Preview -- see THIRD-PARTY-NOTICES.md. Still a local focus switch, never input forwarded.
+    public Action<int>? TileCtrlShiftClicked;
+
     // Info flyout button (added 2026-07-24). When enabled, a small "i" badge is drawn in each tile's
     // top-right corner ON THE LABEL SURFACE (which composites above the DWM thumbnails); a plain
     // left-click that lands in that corner rect fires InfoButtonClicked instead of the focus switch.
@@ -692,6 +697,7 @@ internal sealed class TileSurfaceWindow : WinForms.Form
 
         if (e.Button != WinForms.MouseButtons.Left) return;
         var shift = WinForms.Control.ModifierKeys.HasFlag(WinForms.Keys.Shift);
+        var ctrl = WinForms.Control.ModifierKeys.HasFlag(WinForms.Keys.Control);
         // A plain left-click in an info-badge corner opens the info flyout instead of switching focus.
         // Checked against ALL badge positions (see _infoButtonRects) before the focus/cycle gestures, so
         // it works for the master rect too (which has no _tiles entry in dominant-master layouts). The
@@ -702,7 +708,12 @@ internal sealed class TileSurfaceWindow : WinForms.Form
             return;
         }
         if (!TryFindTileAt(e.Location, out var clickedPosition, out _)) return;
-        try { (shift ? TileShiftClicked : TileClicked)?.Invoke(clickedPosition); } catch { } // subscriber exceptions must not kill the input loop
+        try
+        {
+            if (ctrl && shift) TileCtrlShiftClicked?.Invoke(clickedPosition);
+            else (shift ? TileShiftClicked : TileClicked)?.Invoke(clickedPosition);
+        }
+        catch { } // subscriber exceptions must not kill the input loop
     }
 
     // Which info badge (if any) the point falls in. Uses a position's live tile rect when it has one

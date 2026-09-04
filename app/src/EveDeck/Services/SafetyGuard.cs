@@ -26,6 +26,7 @@ public static class SafetyGuard
         "ToggleStreamSafe",
         "SwitchCharacterSet",
         "MinimizeAllClients",
+        "CloseAllClients",
         "ForceRefreshPreviews",
         "TogglePreviewsSuspended"
     };

@@ -229,6 +229,15 @@ public sealed class Win32WindowService
 
     public bool IsWindowMinimized(nint handle) => handle != 0 && IsIconic(handle);
 
+    // Ask a window to close (WM_CLOSE) through the OS window manager -- the target app decides how to
+    // handle it, exactly like the user clicking its X.
+    // Dangerous API: window message only; never sends input or injects into the target process.
+    public void CloseWindow(nint handle)
+    {
+        if (handle == 0 || !IsWindow(handle)) return;
+        Utilities.Win32Native.PostMessage(handle, Utilities.Win32Native.WmClose, 0, 0);
+    }
+
     // Throttle or restore a process's OS scheduling priority. Open with minimum rights, operate, close.
     // Dangerous API: changes OS CPU scheduling for another process; does not inject code or send input.
     public bool SetProcessPriority(uint pid, bool background)
