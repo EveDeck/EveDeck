@@ -44,6 +44,7 @@ internal sealed class LabelSurfaceWindow : Window
     private readonly Canvas _canvas = new();
     private readonly Dictionary<int, PillElement> _pills = new();
     private readonly Dictionary<int, AlertGlowElement> _glows = new();
+    private readonly Dictionary<int, TileBorderElement> _tileBorders = new();
     private readonly Dictionary<int, Border> _infoButtons = new();
     private readonly int _physX, _physY, _physWidth, _physHeight;
     private readonly double _dpiScale;
@@ -332,6 +333,28 @@ internal sealed class LabelSurfaceWindow : Window
         glow.Stop();
         _canvas.Children.Remove(glow.Container);
         _glows.Remove(key);
+    }
+
+    // A plain static outline around a tile whose EVE client is not in focus (see
+    // AppSettings.InactivePreviewBorderEnabled). Keyed like the pills/glows by position id, drawn on
+    // this always-above-tiles surface so it renders over the DWM thumbnail. No effect, no animation.
+    public void SetTileBorder(int key, WindowRect physRect, string colorHex, int thickness)
+    {
+        if (!_tileBorders.TryGetValue(key, out var border))
+        {
+            border = new TileBorderElement();
+            _tileBorders[key] = border;
+            _canvas.Children.Add(border.Container);
+        }
+        border.Set(colorHex, thickness);
+        border.Place(physRect.X - _physX, physRect.Y - _physY, physRect.Width, physRect.Height, _dpiScale);
+    }
+
+    public void ClearTileBorder(int key)
+    {
+        if (!_tileBorders.TryGetValue(key, out var border)) return;
+        _canvas.Children.Remove(border.Container);
+        _tileBorders.Remove(key);
     }
 
     // -- DPS panel ------------------------------------------------------------------------------
@@ -948,6 +971,54 @@ internal sealed class LabelSurfaceWindow : Window
             }
             catch { /* fall through to the default */ }
             return Color.FromRgb(0xEF, 0x44, 0x44);
+        }
+    }
+
+    // -- One inactive-client border: a plain static rectangle outline around a whole tile ----------
+
+    private sealed class TileBorderElement
+    {
+        private readonly Rectangle _rect = new()
+        {
+            Fill = null,
+            IsHitTestVisible = false,
+            SnapsToDevicePixels = true,
+        };
+
+        public readonly Canvas Container = new() { IsHitTestVisible = false };
+
+        public TileBorderElement() => Container.Children.Add(_rect);
+
+        public void Set(string colorHex, int thickness)
+        {
+            _rect.StrokeThickness = Math.Max(1, thickness);
+            Color color;
+            try
+            {
+                color = string.IsNullOrWhiteSpace(colorHex)
+                    ? Color.FromRgb(0x64, 0x75, 0x8B)
+                    : (Color)ColorConverter.ConvertFromString(colorHex);
+            }
+            catch { color = Color.FromRgb(0x64, 0x75, 0x8B); }
+            _rect.Stroke = new SolidColorBrush(color);
+        }
+
+        public void Place(double relPhysX, double relPhysY, double physWidth, double physHeight, double dpiScale)
+        {
+            var w = physWidth / dpiScale;
+            var h = physHeight / dpiScale;
+            Container.Width = w;
+            Container.Height = h;
+            Canvas.SetLeft(Container, relPhysX / dpiScale);
+            Canvas.SetTop(Container, relPhysY / dpiScale);
+            // Inset the stroke by half its thickness so the outline sits fully inside the tile
+            // rather than straddling its edge.
+            var stroke = _rect.StrokeThickness;
+            var half = stroke / 2.0;
+            Canvas.SetLeft(_rect, half);
+            Canvas.SetTop(_rect, half);
+            _rect.Width = Math.Max(0, w - stroke);
+            _rect.Height = Math.Max(0, h - stroke);
         }
     }
 }

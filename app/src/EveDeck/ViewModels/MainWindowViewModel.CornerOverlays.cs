@@ -1923,6 +1923,7 @@ public sealed partial class MainWindowViewModel
                     // as the badge itself -- it's anchored to a badge that no longer exists.
                     if (_infoFlyoutPosition == position) CloseInfoFlyout();
                 }
+                _labelSurface?.ClearTileBorder(position);
                 continue;
             }
 
@@ -1949,6 +1950,17 @@ public sealed partial class MainWindowViewModel
                 _cornerSourceHandles[position] = desiredHandle;
                 RefreshInfoBadgeVisibility(position);
                 RefreshJumpBadgeVisibility(position);
+            }
+
+            if (_labelSurface is not null)
+            {
+                var showInactiveBorder = _settings.InactivePreviewBorderEnabled
+                    && window.Handle != fgHandle
+                    && _cornerSourceHandles.GetValueOrDefault(position) != 0;
+                if (showInactiveBorder && _cornerRects.TryGetValue(position, out var borderRect))
+                    _labelSurface.SetTileBorder(position, borderRect, _settings.InactivePreviewBorderColor, _settings.InactivePreviewBorderThickness);
+                else
+                    _labelSurface.ClearTileBorder(position);
             }
         }
 

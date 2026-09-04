@@ -80,6 +80,11 @@ public static class ConfigProfileService
         nameof(AppSettings.ActiveFrameThickness),
         nameof(AppSettings.ActiveFrameGlowRadius),
         nameof(AppSettings.ActiveFrameColor),
+
+        // Inactive-client preview border
+        nameof(AppSettings.InactivePreviewBorderEnabled),
+        nameof(AppSettings.InactivePreviewBorderColor),
+        nameof(AppSettings.InactivePreviewBorderThickness),
     };
 
     private static IEnumerable<PropertyInfo> Properties() =>

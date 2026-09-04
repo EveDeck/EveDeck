@@ -1202,6 +1202,50 @@ public sealed partial class MainWindowViewModel : ObservableObject
     // Swatch preview for the Options-tab color picker button.
     public Brush ActiveFrameBrush => ParseFrameBrush(ActiveFrameColor);
 
+    // Inactive-client preview border -- a plain outline around every corner tile whose client
+    // is not in focus. Drawn by LabelSurfaceWindow; MaintainCornerOverlays reads these live.
+    public bool InactivePreviewBorderEnabled
+    {
+        get => _settings.InactivePreviewBorderEnabled;
+        set
+        {
+            if (_settings.InactivePreviewBorderEnabled == value) return;
+            _settings.InactivePreviewBorderEnabled = value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    public string InactivePreviewBorderColor
+    {
+        get => _settings.InactivePreviewBorderColor;
+        set
+        {
+            var v = value ?? "";
+            if (_settings.InactivePreviewBorderColor == v) return;
+            _settings.InactivePreviewBorderColor = v;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(InactivePreviewBorderBrush));
+            Save();
+        }
+    }
+
+    public int InactivePreviewBorderThickness
+    {
+        get => _settings.InactivePreviewBorderThickness;
+        set
+        {
+            var clamped = Math.Clamp(value, 1, 12);
+            if (_settings.InactivePreviewBorderThickness == clamped) return;
+            _settings.InactivePreviewBorderThickness = clamped;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    // Swatch preview for the Previews-tab color picker button.
+    public Brush InactivePreviewBorderBrush => ParseFrameBrush(InactivePreviewBorderColor);
+
     // 2a — Minimize to system tray instead of taskbar.
     public bool MinimizeToTray
     {

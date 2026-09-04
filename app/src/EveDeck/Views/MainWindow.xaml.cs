@@ -717,6 +717,12 @@ public partial class MainWindow : Window
             _viewModel.ActiveFrameColor = color;
     }
 
+    private void InactiveBorderColorPreset_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button { Tag: string color })
+            _viewModel.InactivePreviewBorderColor = color;
+    }
+
     private void FrameColorPick_Click(object sender, RoutedEventArgs e)
     {
         using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true };

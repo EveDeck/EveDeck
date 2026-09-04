@@ -37,6 +37,13 @@ public sealed class AppSettings
     // Has no effect on Solid/Dashed/Dotted, which never blur regardless.
     public bool ActiveFrameGlowEnabled { get; set; } = true;
 
+    // Inactive-client preview border: a plain static outline around every corner-preview tile whose
+    // EVE client is NOT in focus. Distinct from the active-client frame (ActiveFrame* above). Idea
+    // from EVE-X Preview / EVE-APM Preview -- see THIRD-PARTY-NOTICES.md.
+    public bool InactivePreviewBorderEnabled { get; set; }
+    public string InactivePreviewBorderColor { get; set; } = "#64748B";
+    public int InactivePreviewBorderThickness { get; set; } = 2;
+
     // 2g — Startup profile auto-apply
     public bool ApplyProfileOnStartup { get; set; }
     public string StartupProfileId { get; set; } = "";
