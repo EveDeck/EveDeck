@@ -18,10 +18,6 @@ jobs:
       portable_vt_url: ${{ steps.vt.outputs.portable_vt_url }}
       portable_vt_summary: ${{ steps.vt.outputs.portable_vt_summary }}
       portable_vt_clean: ${{ steps.vt.outputs.portable_vt_clean }}
-      installer_sha256: ${{ steps.vt.outputs.installer_sha256 }}
-      installer_vt_url: ${{ steps.vt.outputs.installer_vt_url }}
-      installer_vt_summary: ${{ steps.vt.outputs.installer_vt_summary }}
-      installer_vt_clean: ${{ steps.vt.outputs.installer_vt_clean }}
 
     steps:
       - uses: actions/checkout@v7
@@ -102,29 +98,14 @@ jobs:
         # are fixed by Velopack itself, not chosen here -- confirmed via a local `vpk pack` run:
         # Releases\EveDeck-win-Portable.zip (the human-facing download), EveDeck-<ver>-full.nupkg
         # + releases.win.json/RELEASES/assets.win.json (the update feed GithubSource reads), and
-        # EveDeck-win-Setup.exe (Velopack's own installer, which we don't surface -- Inno Setup is
-        # the installer track instead). `vpk download` seeds delta-patch generation from the prior
-        # release; harmless no-op on the very first run when there's nothing to seed from yet.
+        # EveDeck-win-Setup.exe (Velopack's own installer, which we don't surface -- EveDeck ships
+        # portable only). `vpk download` seeds delta-patch generation from the prior release;
+        # harmless no-op on the very first run when there's nothing to seed from yet.
         run: |
           dotnet tool install -g vpk
           vpk download github --repoUrl https://github.com/EveDeck/EveDeck --token ${{ secrets.GITHUB_TOKEN }}
           vpk pack -u EveDeck -v ${{ steps.ver.outputs.version }} -p publish-ci -e EveDeck.exe `
             --packTitle EveDeck --icon app\src\EveDeck\Assets\evedeck.ico
-
-      - name: Build installer (Inno Setup)
-        shell: pwsh
-        # windows-latest usually ships Inno Setup 6 already, but install via choco (always present
-        # on GH-hosted runners) if it's ever missing rather than assuming the image's software list.
-        # MySourceDir points the .iss at publish-ci (repo root) instead of its local-dev default of
-        # app\publish.
-        run: |
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) {
-            choco install innosetup -y --no-progress
-          }
-          & $iscc app/installer/EveDeck.iss `
-            "/DMyAppVersion=${{ steps.ver.outputs.version }}" `
-            "/DMySourceDir=$PWD\publish-ci"
 
       - name: Build Microsoft Store package (MSIX)
         shell: pwsh
@@ -161,9 +142,8 @@ jobs:
       - name: Scan release files with VirusTotal
         id: vt
         shell: pwsh
-        # Scans both artifacts users can download (portable package AND installer) -- they're
-        # different files with different hashes, so a badge for one says nothing about the other.
-        # Doesn't scan the Velopack nupkg/feed files -- those aren't something a user downloads
+        # Scans the portable package users download. Doesn't scan the Velopack nupkg/feed files --
+        # those aren't something a user downloads
         # directly. Same function runs twice with a distinct output prefix; each prefix's outputs
         # are independent.
         env:
@@ -271,7 +251,6 @@ jobs:
           }
 
           Invoke-VtScan -Path "Releases\EveDeck-win-Portable.zip" -Prefix "portable"
-          Invoke-VtScan -Path "app\installer\output\EveDeck-Setup-v${{ steps.ver.outputs.version }}.exe" -Prefix "installer"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -281,12 +260,10 @@ jobs:
           body: |
             ${{ steps.notes.outputs.notes }}
 
-            **Two ways to install:**
-            - **EveDeck-Setup-v${{ steps.ver.outputs.version }}.exe** — normal Windows installer (Start Menu
-              shortcut, proper uninstaller, no admin rights needed). Recommended for most people.
+            **How to install:**
             - **EveDeck-win-Portable.zip** — portable, just extract and run **EveDeck.exe**.
 
-            No .NET runtime required either way — everything is bundled. Both tracks self-update in
+            No .NET runtime required — everything is bundled. The app self-updates in
             place (Options → About → Check for Updates, or the update banner).
 
             > **Windows SmartScreen:** click **More info → Run anyway** on first launch.
@@ -296,14 +273,12 @@ jobs:
 
             🛡️ **VirusTotal**
             - portable: [${{ steps.vt.outputs.portable_vt_summary }}](${{ steps.vt.outputs.portable_vt_url }}) (SHA-256 `${{ steps.vt.outputs.portable_sha256 }}`)
-            - installer: [${{ steps.vt.outputs.installer_vt_summary }}](${{ steps.vt.outputs.installer_vt_url }}) (SHA-256 `${{ steps.vt.outputs.installer_sha256 }}`)
           files: |
             Releases/EveDeck-win-Portable.zip
             Releases/*.nupkg
             Releases/releases.win.json
             Releases/RELEASES
             Releases/assets.win.json
-            app/installer/output/EveDeck-Setup-v${{ steps.ver.outputs.version }}.exe
 
   update-site:
     needs: build-and-release
@@ -332,10 +307,6 @@ jobs:
           PORTABLE_VT_URL: ${{ needs.build-and-release.outputs.portable_vt_url }}
           PORTABLE_VT_SUMMARY: ${{ needs.build-and-release.outputs.portable_vt_summary }}
           PORTABLE_VT_CLEAN: ${{ needs.build-and-release.outputs.portable_vt_clean }}
-          INSTALLER_SHA256: ${{ needs.build-and-release.outputs.installer_sha256 }}
-          INSTALLER_VT_URL: ${{ needs.build-and-release.outputs.installer_vt_url }}
-          INSTALLER_VT_SUMMARY: ${{ needs.build-and-release.outputs.installer_vt_summary }}
-          INSTALLER_VT_CLEAN: ${{ needs.build-and-release.outputs.installer_vt_clean }}
         run: |
           # Same changelog text as the GitHub release body (both come from the annotated tag
           # message) — turn each "- bullet" into its own whatsNew array entry instead of falling
@@ -361,15 +332,11 @@ jobs:
             }
             END { if (buf != "") print buf }
           ')
-          FLAGS=("--installer-url=https://github.com/EveDeck/EveDeck/releases/download/v$VERSION/EveDeck-Setup-v$VERSION.exe")
+          FLAGS=()
           [ -n "$PORTABLE_SHA256" ] && FLAGS+=("--sha256=$PORTABLE_SHA256")
           [ -n "$PORTABLE_VT_URL" ] && FLAGS+=("--virustotal-url=$PORTABLE_VT_URL")
           [ -n "$PORTABLE_VT_SUMMARY" ] && FLAGS+=("--virustotal-summary=$PORTABLE_VT_SUMMARY")
           [ -n "$PORTABLE_VT_CLEAN" ] && FLAGS+=("--virustotal-clean=$PORTABLE_VT_CLEAN")
-          [ -n "$INSTALLER_SHA256" ] && FLAGS+=("--installer-sha256=$INSTALLER_SHA256")
-          [ -n "$INSTALLER_VT_URL" ] && FLAGS+=("--installer-virustotal-url=$INSTALLER_VT_URL")
-          [ -n "$INSTALLER_VT_SUMMARY" ] && FLAGS+=("--installer-virustotal-summary=$INSTALLER_VT_SUMMARY")
-          [ -n "$INSTALLER_VT_CLEAN" ] && FLAGS+=("--installer-virustotal-clean=$INSTALLER_VT_CLEAN")
           # downloadUrl / sha256 / virustotal-* here describe the Velopack portable package now,
           # not a plain zip -- reusing the same content.ts fields (no schema change) since this is
           # a replacement, not an addition, of the old portable download.
