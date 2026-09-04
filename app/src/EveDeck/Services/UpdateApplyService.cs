@@ -41,22 +41,15 @@ public sealed class UpdateApplyService
     }
 
     /// <summary>
-    /// Downloads the given Setup.exe (reporting progress via <paramref name="onProgress"/>) and
-    /// re-runs it over the existing (fixed-AppId, per-user) install using /SILENT rather than
-    /// /VERYSILENT -- both are equally unattended (no wizard pages, no "close applications"
-    /// prompt), but /SILENT keeps Inno's small install-progress window visible so the update
-    /// stays noticeable through the file-copy phase instead of the app just vanishing.
+    /// Downloads the given Setup.exe and re-runs it silently over the existing (fixed-AppId,
+    /// per-user) install.
     ///
-    /// The installer is NOT launched directly. Earlier this method spawned Setup.exe and then
-    /// immediately called Application.Shutdown() -- which races App.OnExit's Environment.Exit
-    /// hard-kill against Inno's Restart-Manager + solid-archive copy phase. On v1.52.0 that race
-    /// dropped the large memory-mapped EveDeck.dll (while the tiny .exe/.deps.json/.runtimeconfig
-    /// landed), leaving an install whose apphost had nothing to run. Instead we hand the install
-    /// to a detached PowerShell shim that blocks on Wait-Process until THIS pid is gone, then
-    /// starts Setup against a fully unlocked directory -- so /CLOSEAPPLICATIONS and its
-    /// Restart-Manager dance are not needed at all. Relaunch after install is the installer's own
-    /// [Run] section (EveDeck.iss); /RESTARTAPPLICATIONS alone did not reliably relaunch a silent
-    /// install and risks racing the single-instance mutex into an "already running" popup.
+    /// VESTIGIAL as of the 2026-09 move to private development: EveDeck no longer publishes an
+    /// installer, so a running Inno-kind install can never see an InstallerUrl and this method is
+    /// not reached. Kept minimal (a plain launch, no PowerShell shim -- an earlier
+    /// <c>powershell -ExecutionPolicy Bypass</c> shim here got the shipped binary flagged by
+    /// Defender ML) rather than deleted, so an old Inno install could still be pointed at a
+    /// hand-built Setup.exe if ever needed.
     /// </summary>
     public async Task ApplyInnoUpdateAsync(string installerUrl, Action<string, double?>? onProgress = null)
     {
@@ -83,49 +76,13 @@ public sealed class UpdateApplyService
 
         onProgress?.Invoke("Installing update...", null);
 
-        LaunchInstallerAfterExit(tempPath);
+        Process.Start(new ProcessStartInfo(tempPath)
+        {
+            Arguments = "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS",
+            UseShellExecute = true,
+        });
+
         System.Windows.Application.Current.Shutdown();
-    }
-
-    // Start a detached shim that waits for THIS process to exit, then runs the silent installer
-    // against an unlocked install directory. See ApplyInnoUpdateAsync's summary for why the
-    // installer must not run while EveDeck is still alive.
-    private void LaunchInstallerAfterExit(string installerPath)
-    {
-        var pid = Environment.ProcessId;
-        var escaped = installerPath.Replace("'", "''");
-        var script =
-            $"Wait-Process -Id {pid} -ErrorAction SilentlyContinue; "
-            + $"Start-Process -FilePath '{escaped}' "
-            + "-ArgumentList '/SILENT','/SUPPRESSMSGBOXES','/NORESTART'";
-
-        try
-        {
-            var psi = new ProcessStartInfo("powershell.exe")
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden,
-            };
-            psi.ArgumentList.Add("-NoProfile");
-            psi.ArgumentList.Add("-ExecutionPolicy");
-            psi.ArgumentList.Add("Bypass");
-            psi.ArgumentList.Add("-Command");
-            psi.ArgumentList.Add(script);
-            Process.Start(psi);
-        }
-        catch (Exception ex)
-        {
-            // PowerShell missing / blocked (rare). Fall back to a direct launch with
-            // /CLOSEAPPLICATIONS so an update still happens -- this is the old racy path, but a
-            // best-effort update beats none.
-            _log?.Warn($"Update shim via PowerShell failed ({ex.Message}); launching installer directly.");
-            Process.Start(new ProcessStartInfo(installerPath)
-            {
-                Arguments = "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS",
-                UseShellExecute = true,
-            });
-        }
     }
 
     /// <summary>Checks, downloads, and applies via Velopack, restarting the app when done.</summary>
