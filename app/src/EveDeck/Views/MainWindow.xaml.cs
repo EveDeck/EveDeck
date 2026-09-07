@@ -800,10 +800,12 @@ public partial class MainWindow : Window
     // Returns the picked font on OK. WPF FontSize is in DIPs (1/96in); the dialog works in points
     // (1/72in), so convert on the way in and out (dip = pt * 96/72).
     internal static bool TryPickFont(string family, double sizeDip, string colorHex,
-                             out string outFamily, out double outSizeDip, out string outColorHex)
+                             out string outFamily, out double outSizeDip, out string outColorHex,
+                             LogService? log = null)
     {
         outFamily = family; outSizeDip = sizeDip; outColorHex = colorHex;
         using var dialog = new System.Windows.Forms.FontDialog { ShowColor = true, ShowEffects = true, FontMustExist = true };
+        RestrictToTrueType(dialog);
         var seedFamily = string.IsNullOrWhiteSpace(family) ? "Segoe UI" : family;
         var pt = Math.Max(1f, (float)(sizeDip * 72.0 / 96.0));
         try { dialog.Font = new System.Drawing.Font(seedFamily, pt); }
@@ -815,24 +817,81 @@ public partial class MainWindow : Window
         }
         catch { /* keep the dialog default colour if the stored hex fails to parse */ }
 
-        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return false;
+        // FontDialog converts the highlighted selection to a System.Drawing.Font *inside* its own
+        // modal loop, and Font.FromLogFont hard-throws ArgumentException ("Only TrueType fonts are
+        // supported") on raster/bitmap families -- System, Terminal, MS Sans Serif, Fixedsys, Small
+        // Fonts. That throw escapes through the Win32 message pump and killed the whole app (crash
+        // log 2026-09-07). RestrictToTrueType above hides those families; this catch is the net for
+        // when it cannot (the reflection target moved, or some other dialog failure).
+        System.Windows.Forms.DialogResult result;
+        try
+        {
+            result = dialog.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            log?.Error($"Font picker failed: {ex}");
+            System.Windows.MessageBox.Show(
+                "That font can't be used -- EveDeck labels need a TrueType font.\n\nPick a different font (raster fonts such as System, Terminal or Fixedsys are not supported).",
+                "Font Not Supported",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return false;
+        }
+
+        if (result != System.Windows.Forms.DialogResult.OK) return false;
         outFamily = dialog.Font.Name;
         outSizeDip = dialog.Font.SizeInPoints * 96.0 / 72.0;
         outColorHex = ColorToHex(dialog.Color);
         return true;
     }
 
+    // Adds CF_TTONLY to the dialog's CHOOSEFONT flags so non-TrueType families never appear in the
+    // list. WinForms exposes no public property for this bit (FontMustExist validates existence, not
+    // font technology), and FontDialog.Options is read-only, so the private backing field is the only
+    // route. On .NET 10 that field is `_options`, typed as the internal enum CHOOSEFONT_FLAGS -- hence
+    // the underlying-type dance rather than a plain int cast. Best-effort by design: if the field is
+    // renamed or retyped in a future runtime this silently no-ops and the try/catch around ShowDialog
+    // still prevents the crash.
+    private const uint CfTtOnly = 0x00040000;
+
+    private static void RestrictToTrueType(System.Windows.Forms.FontDialog dialog)
+    {
+        try
+        {
+            var field = typeof(System.Windows.Forms.FontDialog).GetField(
+                "_options",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            if (field is null) return;
+
+            var fieldType = field.FieldType;
+            var rawType = fieldType.IsEnum ? Enum.GetUnderlyingType(fieldType) : fieldType;
+            if (rawType != typeof(int) && rawType != typeof(uint)) return;
+
+            var current = field.GetValue(dialog);
+            if (current is null) return;
+
+            var merged = Convert.ToUInt32(current, System.Globalization.CultureInfo.InvariantCulture) | CfTtOnly;
+            object boxed = rawType == typeof(int)
+                ? unchecked((int)merged)
+                : merged;
+
+            field.SetValue(dialog, fieldType.IsEnum ? Enum.ToObject(fieldType, boxed) : boxed);
+        }
+        catch { /* best-effort; the ShowDialog guard covers the failure case */ }
+    }
+
     private void LabelFontPick_Click(object sender, RoutedEventArgs e)
     {
         var (family, sizeDip, color) = _viewModel.GlobalLabelFont();
-        if (TryPickFont(family, sizeDip, color, out var f, out var s, out var c))
+        if (TryPickFont(family, sizeDip, color, out var f, out var s, out var c, _viewModel.Log))
             _viewModel.ApplyGlobalLabelFont(f, s, c);
     }
 
     private void MasterLabelFontPick_Click(object sender, RoutedEventArgs e)
     {
         var (family, sizeDip, color) = _viewModel.GlobalMasterLabelFont();
-        if (TryPickFont(family, sizeDip, color, out var f, out var s, out var c))
+        if (TryPickFont(family, sizeDip, color, out var f, out var s, out var c, _viewModel.Log))
             _viewModel.ApplyGlobalMasterLabelFont(f, s, c);
     }
 

@@ -1385,13 +1385,50 @@ public sealed partial class MainWindowViewModel
         foreach (var group in EffectiveGroups()) RefreshGroupCenterPill(group);
     }
 
-    // True when an EVE client -- or EveDeck itself -- is the foreground app; drives whether the corner
-    // previews sit on top (covering other apps) or sink to the bottom of the z-order.
-    private bool IsEveOrEwcForeground()
+    // Last positively-identified foreground verdict, held across moments when the OS can't tell us
+    // who is in front. Starts false so a cold start behaves exactly as it did before the hold existed.
+    private bool _lastKnownEveForeground;
+
+    // Resolves the foreground question to a definite answer for the two consumers that need one.
+    // A null verdict means "can't tell right now", which must NOT be read as "another app has
+    // focus" -- see IsEveOrEwcForeground for why that distinction is the whole fix.
+    private bool ResolveEveOrEwcForeground()
+    {
+        var verdict = IsEveOrEwcForeground();
+        if (verdict is null) return _lastKnownEveForeground;
+        _lastKnownEveForeground = verdict.Value;
+        return verdict.Value;
+    }
+
+    // True when an EVE client -- or EveDeck itself -- is the foreground app; false when some other
+    // app positively owns it; NULL when the foreground genuinely cannot be determined.
+    //
+    // That third state is load-bearing. Windows returns NULL from GetForegroundWindow() while the
+    // foreground is in transition, which is exactly what happens during a seat centering/swap: the
+    // 2026-09-07 logs showed a "previews left the topmost band; foreground process: 'unknown'" line
+    // immediately before EVERY "Centered seat N" line. Collapsing that unknown to false sank the
+    // previews out of the topmost band on every swap, letting the master cover them until the next
+    // tick re-asserted -- the reported flicker. Unknown now holds the previous verdict instead.
+    private bool? IsEveOrEwcForeground()
     {
         var fg = _windowService.GetForegroundWindowHandle();
-        if (fg == 0) return false;
+        if (fg == 0) return null;
         if (Windows.Any(w => w.Handle == fg)) return true;
+
+        // Membership in `Windows` alone is not a reliable "is EVE focused" test. FindEveWindows
+        // skips any window whose title is blank, and EVE blanks/retitles its client window
+        // transiently (the ESC menu is the reproducible case). When that happened to the FOCUSED
+        // master, this method returned false for a tick, ApplySurfaceZOrder dropped both surfaces
+        // out of the topmost band, and the master -- foreground, so top of the normal band --
+        // covered the previews until the next detection tick restored the title and the 2s
+        // safety-net re-asserted. That is the self-recovering preview flicker reported 2026-09-07.
+        // A window's owning process does not change when its title does, so fall back to process
+        // identity, which stays stable across the retitle.
+        if (IsForegroundProcessPreviewable(fg)) return true;
+
+        // A live foreground window whose owning process we can't resolve is another "can't tell",
+        // not a positive sighting of a rival app.
+        if (string.IsNullOrEmpty(_windowService.GetWindowProcessName(fg))) return null;
 
         // The foreground-change WinEvent hook is registered inside MainWindow's own constructor
         // (HotkeyService.RegisterAll) and can fire before WPF has assigned Application.MainWindow --
@@ -1401,6 +1438,20 @@ public sealed partial class MainWindowViewModel
         // EveDeck's window" rather than dereferencing it.
         var mainWindow = System.Windows.Application.Current?.MainWindow;
         return mainWindow is not null && fg == new System.Windows.Interop.WindowInteropHelper(mainWindow).Handle;
+    }
+
+    // Mirrors FindEveWindows' process filter (EVE itself, the notepad test harness, and any
+    // user-configured previewable app) but keyed off a single HWND, with no title requirement.
+    private bool IsForegroundProcessPreviewable(nint fg)
+    {
+        var name = _windowService.GetWindowProcessName(fg);
+        if (string.IsNullOrEmpty(name)) return false;
+        if (name.Equals("exefile", StringComparison.OrdinalIgnoreCase)) return true;
+        if (IncludeNotepadTestWindows && name.Equals("notepad", StringComparison.OrdinalIgnoreCase)) return true;
+        return _settings.PreviewableApps.Any(a =>
+            a.Enabled
+            && !string.IsNullOrWhiteSpace(a.ProcessName)
+            && name.Contains(a.ProcessName.Trim(), StringComparison.OrdinalIgnoreCase));
     }
 
     internal void RefreshCornerOverlayZOrder()
@@ -1441,9 +1492,26 @@ public sealed partial class MainWindowViewModel
     // NOTE: EveDeck deliberately does NOT reorder the real EVE game windows, matching how EVE-O
     // Preview and EVE-APM behave. An attempt to raise the master client above the preview surface
     // (2026-07-21) made z-order visibly worse and was reverted -- do not reintroduce it.
+    // Last value ApplySurfaceZOrder acted on, so the log below records band transitions only. This
+    // runs on a 2s safety-net tick as well as on events, so logging unconditionally would spam.
+    private bool? _lastSurfaceTopmost;
+
     private void ApplySurfaceZOrder()
     {
-        var eveOrEwcFg = IsEveOrEwcForeground();
+        var eveOrEwcFg = ResolveEveOrEwcForeground();
+        if (_lastSurfaceTopmost != eveOrEwcFg)
+        {
+            _lastSurfaceTopmost = eveOrEwcFg;
+            if (!eveOrEwcFg)
+            {
+                // Names the app that took focus, so a preview-behind-master report can be diagnosed
+                // from the log: "exefile" here means a client fell out of the foreground test while
+                // still focused, which is the bug class IsForegroundProcessPreviewable exists to stop.
+                var fg = _windowService.GetForegroundWindowHandle();
+                var owner = _windowService.GetWindowProcessName(fg);
+                Log.Info($"Previews left the topmost band; foreground process: '{(string.IsNullOrEmpty(owner) ? "unknown" : owner)}'.");
+            }
+        }
         _tileSurface?.SetZ(eveOrEwcFg);
         _labelSurface?.SetZ(eveOrEwcFg);
         BumpAllowedAppsAboveOverlaySurfaces();
@@ -1781,7 +1849,7 @@ public sealed partial class MainWindowViewModel
                 _seatOfflineSince[assignment.SlotNumber] = DateTime.UtcNow;
         }
 
-        var eveOrEwcFg = IsEveOrEwcForeground();
+        var eveOrEwcFg = ResolveEveOrEwcForeground();
 
         // Runs before the z-order/hover work below: while the overlay is hidden there is nothing to
         // keep on top and no tile for the cursor to be over.

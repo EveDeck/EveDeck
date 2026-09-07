@@ -214,7 +214,7 @@ public partial class SeatCardTemplate : ResourceDictionary
         if (sender is not FrameworkElement { DataContext: SlotAssignment seat }) return;
         if (ResolveViewModel(sender) is not { } viewModel) return;
         var (family, sizeDip, color) = viewModel.EffectiveSeatLabelFont(seat);
-        if (MainWindow.TryPickFont(family, sizeDip, color, out var f, out var s, out var c))
+        if (MainWindow.TryPickFont(family, sizeDip, color, out var f, out var s, out var c, viewModel.Log))
             viewModel.ApplySeatLabelFont(seat, f, s, c);
     }
 
@@ -223,7 +223,7 @@ public partial class SeatCardTemplate : ResourceDictionary
         if (sender is not FrameworkElement { DataContext: SlotAssignment seat }) return;
         if (ResolveViewModel(sender) is not { } viewModel) return;
         var (family, sizeDip, color) = viewModel.EffectiveSeatLabelFont(seat, isMaster: true);
-        if (MainWindow.TryPickFont(family, sizeDip, color, out var f, out var s, out var c))
+        if (MainWindow.TryPickFont(family, sizeDip, color, out var f, out var s, out var c, viewModel.Log))
             viewModel.ApplySeatMasterLabelFont(seat, f, s, c);
     }
 

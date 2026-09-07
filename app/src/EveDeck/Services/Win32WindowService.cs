@@ -219,6 +219,18 @@ public sealed class Win32WindowService
 
     public nint GetForegroundWindowHandle() => GetForegroundWindow();
 
+    // Process name of a window's owning process, or "" when it can't be resolved (dead window,
+    // access denied). Used to identify a client by process rather than by its window title:
+    // FindEveWindows drops blank-titled windows, and EVE blanks/retitles its own title transiently,
+    // so title-derived identity is not stable enough to gate z-order on.
+    public string GetWindowProcessName(nint handle)
+    {
+        if (handle == 0 || !IsWindow(handle)) return "";
+        GetWindowThreadProcessId(handle, out var processId);
+        try { return Process.GetProcessById((int)processId).ProcessName; }
+        catch { return ""; }
+    }
+
     // Minimize another process's window through the OS window manager only (ShowWindow SW_MINIMIZE).
     // Dangerous API: window-state change only; never sends input or injects into the target process.
     public void MinimizeWindow(nint handle)

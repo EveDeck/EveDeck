@@ -86,12 +86,17 @@ public sealed partial class MainWindowViewModel
             _frameOverlay.BringToTop();
         }
 
-        // A hover-zoomed preview can grow to cover the master's screen area, but it lives on a
-        // different always-topmost window than the frame we just re-raised above -- reassert our own
-        // overlay surfaces one more time so they deterministically end up on top instead of racing the
-        // frame's own reassert on an independent timer (found live 2026-08-08: previously the frame
-        // and its badges could win that race and show through an enlarged preview).
-        if (_tileSurface?.IsZoomed == true) ReassertOwnOverlaySurfaces();
+        // The frame re-asserts itself HWND_TOPMOST on every tick (above), and the topmost band is
+        // ordered by whoever asserted LAST -- so without a matching re-assert here the frame wins the
+        // race continuously and sits above the preview surfaces. That is invisible in layouts whose
+        // tiles sit outside the master rect, but in a Center-Master-style profile (tiles placed INSIDE
+        // the master cell, which is a supported and deliberate setup) the frame covers the previews.
+        //
+        // This used to be gated on IsZoomed -- a hover-zoomed preview was the only case anyone had
+        // noticed losing the race (2026-08-08). The gate was too narrow: the same race runs every tick
+        // regardless of zoom. ReassertOwnOverlaySurfaces is the cheap variant (three SetWindowPos
+        // calls, no EnumWindows), which is exactly why it is safe to run per tick -- see its comment.
+        ReassertOwnOverlaySurfaces();
     }
 
     // 3a — Resolve frame color: per-slot if set, otherwise global.
