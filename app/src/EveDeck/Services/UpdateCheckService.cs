@@ -15,7 +15,7 @@ public sealed class UpdateCheckService
         _log = log;
     }
 
-    public record UpdateInfo(string Version, string DownloadUrl, string? InstallerUrl);
+    public record UpdateInfo(string Version, string DownloadUrl);
 
     public async Task<UpdateInfo?> CheckAsync(string currentVersion)
     {
@@ -26,9 +26,8 @@ public sealed class UpdateCheckService
             var root = doc.RootElement;
             var remote = root.GetProperty("version").GetString() ?? "";
             var url = root.GetProperty("downloadUrl").GetString() ?? "";
-            var installerUrl = root.TryGetProperty("installerUrl", out var installerProp) ? installerProp.GetString() : null;
             if (IsNewer(remote, currentVersion))
-                return new UpdateInfo(remote, url, installerUrl);
+                return new UpdateInfo(remote, url);
         }
         catch (Exception ex)
         {

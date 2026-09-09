@@ -371,14 +371,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (_availableUpdate is not { } update) return;
 
         var kind = new UpdateApplyService(Log).DetectInstallKind();
-        var canApplyInPlace = kind switch
-        {
-            InstallKind.Velopack => true,
-            InstallKind.Inno => update.InstallerUrl is not null,
-            _ => false
-        };
-
-        if (!canApplyInPlace)
+        if (kind != InstallKind.Velopack)
         {
             if (update.DownloadUrl is { } url)
                 try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
@@ -393,29 +386,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             MessageBoxImage.Question);
         if (confirm != MessageBoxResult.Yes) return;
 
-        Views.UpdateProgressWindow? progressWindow = null;
         try
         {
-            var apply = new UpdateApplyService(Log);
-            if (kind == InstallKind.Inno)
-            {
-                progressWindow = new Views.UpdateProgressWindow();
-                progressWindow.Show();
-                await apply.ApplyInnoUpdateAsync(update.InstallerUrl!,
-                    (status, percent) =>
-                    {
-                        progressWindow.SetStatus(status);
-                        progressWindow.SetProgress(percent);
-                    });
-            }
-            else
-            {
-                await apply.ApplyVelopackUpdateAsync();
-            }
+            await new UpdateApplyService(Log).ApplyVelopackUpdateAsync();
         }
         catch (Exception ex)
         {
-            progressWindow?.Close();
             Log.Error($"Update failed: {ex.Message}");
             MessageBox.Show($"The update could not be applied: {ex.Message}", "Update EveDeck", MessageBoxButton.OK, MessageBoxImage.Error);
         }
