@@ -226,7 +226,12 @@ internal sealed class TileSurfaceWindow : WinForms.Form
             var wgcFaulted = false;
             foreach (var s in _captureSessions.Values)
                 if (s is Services.Wgc.WgcTileCaptureSession w) { wgcLive = true; if (w.Faulted) wgcFaulted = true; }
-            var wantInterval = wgcLive ? 66 : 250;
+            // Pump latency stacks on top of the capture cap: a 15fps session behind a fixed 66ms
+            // pump costs up to ~130ms before a frame is composited, which reads as lag next to DWM
+            // (which composites itself and needs no pump). Derive the interval from the configured
+            // cap so raising WgcPreviewMaxFps actually lowers latency instead of doing nothing.
+            var wgcInterval = Math.Clamp(1000 / Math.Max(1, WgcMaxFps), 8, 250);
+            var wantInterval = wgcLive ? wgcInterval : 250;
             if (_capturePump.Interval != wantInterval) _capturePump.Interval = wantInterval;
             if (wgcFaulted) DemoteFaultedWgcTiles();
 

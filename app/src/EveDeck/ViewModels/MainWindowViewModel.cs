@@ -2126,6 +2126,39 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    // Opt-in GPU capture for preview tiles. DWM thumbnails stay the default: they composite
+    // themselves, so they are lighter and lower-latency. WGC trades that for a sharper image at
+    // small tile sizes, and is what VR capture needs. Baked into the surface, so changing it
+    // rebuilds; any per-tile failure still falls back to a DWM thumbnail on its own.
+    public bool UseWgcPreviewCapture
+    {
+        get => _settings.UseWgcPreviewCapture;
+        set
+        {
+            if (_settings.UseWgcPreviewCapture == value) return;
+            _settings.UseWgcPreviewCapture = value;
+            OnPropertyChanged();
+            Save();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
+        }
+    }
+
+    // Caps WGC capture AND the redraw pump that feeds it, so this is the latency dial: 15 costs up
+    // to ~130ms before a frame is composited, 30 about half that, at more CPU/GPU per tile.
+    public int WgcPreviewMaxFps
+    {
+        get => _settings.WgcPreviewMaxFps;
+        set
+        {
+            var clamped = Math.Clamp(value, 5, 60);
+            if (_settings.WgcPreviewMaxFps == clamped) return;
+            _settings.WgcPreviewMaxFps = clamped;
+            OnPropertyChanged();
+            Save();
+            if (PreviewModeActive && CornerOverlaysLive) StartCornerOverlays();
+        }
+    }
+
     // Which point a hover-zoomed tile grows from. Baked into the surface, so changing it rebuilds.
     public string HoverZoomAnchor
     {

@@ -1773,6 +1773,20 @@ Preview tiles shrink the whole client window. To read them better: raise UI Scal
                             ToolTip="The character creator, boarding a capital, or a loading screen can spike the GPU. Previews drop for a few seconds, then return on their own. Also backs off after a graphics-driver reset."
                             Margin="0,0,0,6"/>
 
+                  <CheckBox Content="Use GPU capture (WGC) for preview tiles instead of DWM thumbnails"
+                            IsChecked="{Binding UseWgcPreviewCapture}"
+                            ToolTip="Sharper tiles at small sizes, but heavier and slightly laggier than DWM, which composites itself. Any tile that fails falls back to a DWM thumbnail on its own. Leave off unless preview sharpness matters more than latency."
+                            Margin="0,0,0,6"/>
+                  <StackPanel Orientation="Horizontal" Margin="16,0,0,10" VerticalAlignment="Center">
+                    <TextBlock Text="up to" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                    <TextBox Width="48" Margin="6,0,0,0"
+                             Text="{Binding WgcPreviewMaxFps, UpdateSourceTrigger=LostFocus}"
+                             HorizontalContentAlignment="Center" FontSize="12"/>
+                    <TextBlock Text="FPS" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="4,0,0,0"/>
+                    <TextBlock Text="(5-60; higher is smoother and lower-latency, at more GPU cost)"
+                               VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="8,0,0,0"/>
+                  </StackPanel>
+
                   <CheckBox Content="Hide all previews while EVE is not in focus"
                             IsChecked="{Binding HidePreviewsOnFocusLoss}"
                             ToolTip="Alt-tab to another app and previews hide; switch back to EVE and they return instantly."
