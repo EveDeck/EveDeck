@@ -92,11 +92,19 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     // compositing (capture -> CPU readback -> GDI, like the screenshot path), reused staging texture
     // + a per-frame-rate cap, a free-VRAM floor check before it will start (WgcCaptureDevice), and a
     // hard fallback -- any WGC fault demotes that tile to a DWM thumbnail (TryWgcSource /
-    // DemoteFaultedWgcTiles). See Services\Wgc and the project-wgc-removed-dwm-only memory.
+    // HealOrDemoteFaultedWgcTiles). See Services\Wgc and the project-wgc-removed-dwm-only memory.
     //
     // ScreenshotCaptureSession (PrintWindow, ~1fps, plain GDI) stays as the last-resort fallback for
     // windows DWM can't thumbnail at all (some RDP/virtual-display setups).
     private readonly Dictionary<int, ITileCaptureSession> _captureSessions = new();
+
+    // A WGC capture item closes for reasons that are usually TRANSIENT in this app: EveDeck moves,
+    // resizes and restyles the very windows it is capturing during a seat swap. Demoting the tile to
+    // DWM on the first close meant one swap cost WGC for the rest of the session. Track faults per
+    // position instead and rebuild, giving up only if a position keeps failing in quick succession.
+    private readonly Dictionary<int, (int Count, DateTime Last)> _wgcFaults = new();
+    private const int MaxWgcRebuilds = 3;
+    private static readonly TimeSpan WgcFaultWindow = TimeSpan.FromSeconds(30);
     // Only drives the PrintWindow fallback's ~1fps refresh and the zoom-active z-order re-assert --
     // DWM thumbnails composite themselves and need no pump at all, which is why this can be slow now.
     // Steps up to ~66ms only while a WgcTileCaptureSession is live (see the pump Tick handler).
@@ -104,7 +112,7 @@ internal sealed class TileSurfaceWindow : WinForms.Form
 
     // Opt-in: try Windows.Graphics.Capture for local tiles before DWM (crisper at small sizes). Set
     // by the overlay VM from settings. Any WGC failure -- init, VRAM floor, or a frame error later
-    // -- demotes that tile to a DWM thumbnail; see TryWgcSource / DemoteFaultedWgcTiles. DWM stays
+    // -- demotes that tile to a DWM thumbnail; see TryWgcSource / HealOrDemoteFaultedWgcTiles. DWM stays
     // the default and the safe path.
     // Fields, not properties: WFO1000 requires DesignerSerializationVisibility on public settable
     // properties of a component; a plain field sidesteps it (same as SnapGridPx below).
@@ -233,7 +241,7 @@ internal sealed class TileSurfaceWindow : WinForms.Form
             var wgcInterval = Math.Clamp(1000 / Math.Max(1, WgcMaxFps), 8, 250);
             var wantInterval = wgcLive ? wgcInterval : 250;
             if (_capturePump.Interval != wantInterval) _capturePump.Interval = wantInterval;
-            if (wgcFaulted) DemoteFaultedWgcTiles();
+            if (wgcFaulted) HealOrDemoteFaultedWgcTiles();
 
             // Only recomposite when a capture session actually produced a NEW frame this tick.
             // Previously this redrew unconditionally at ~15fps whenever any capture session existed,
@@ -367,6 +375,25 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     {
         if (!_tiles.TryGetValue(position, out var rect)) return;
 
+        // A live WGC session is independent of DWM composition, so the full unregister/re-register
+        // that RefreshAllSources performs for thumbnails buys it nothing and costs a visible hitch
+        // (a new frame pool and device resources per tile). When the window has not actually
+        // changed, keep the session running.
+        if (UseWgcCapture
+            && sourceHwnd != 0
+            && !_preventedPositions.Contains(position)
+            && _sources.GetValueOrDefault(position) == sourceHwnd
+            && _captureSessions.TryGetValue(position, out var live)
+            && live is Services.Wgc.WgcTileCaptureSession { Faulted: false })
+        {
+            _hiddenTiles.Remove(position);
+            Redraw();
+            return;
+        }
+
+        // A different window means a fresh rebuild budget for this position.
+        if (_sources.GetValueOrDefault(position) != sourceHwnd) _wgcFaults.Remove(position);
+
         if (_zoomedPosition == position) ClearZoom(); // occupant changed under the cursor
 
         UnregisterThumbnail(position);
@@ -440,9 +467,11 @@ internal sealed class TileSurfaceWindow : WinForms.Form
         return true;
     }
 
-    // A WgcTileCaptureSession that faulted after install (device lost, VRAM pressure, frame error).
-    // Swap each one for a DWM thumbnail (or the PrintWindow fallback) for its tile.
-    private void DemoteFaultedWgcTiles()
+    // A WgcTileCaptureSession that faulted after install (capture item closed, device lost, VRAM
+    // pressure, frame error). Rebuild it in place first -- most faults here are a seat swap
+    // disturbing the very window being captured -- and only fall back to a DWM thumbnail (or the
+    // PrintWindow fallback) once a position has failed repeatedly in a short window.
+    private void HealOrDemoteFaultedWgcTiles()
     {
         var faulted = _captureSessions
             .Where(kv => kv.Value is Services.Wgc.WgcTileCaptureSession { Faulted: true })
@@ -455,6 +484,29 @@ internal sealed class TileSurfaceWindow : WinForms.Form
             if (!_tiles.TryGetValue(position, out var rect)) continue;
             var hwnd = _sources.GetValueOrDefault(position);
             if (hwnd == 0 || _preventedPositions.Contains(position)) { Redraw(); continue; }
+
+            // Rebuild rather than demote, unless this position has failed repeatedly in a short
+            // window -- that pattern means the window genuinely cannot be captured, not that a swap
+            // disturbed it.
+            if (UseWgcCapture && Utilities.Win32Native.IsWindow(hwnd))
+            {
+                var now = DateTime.UtcNow;
+                var prior = _wgcFaults.GetValueOrDefault(position);
+                var count = (now - prior.Last) > WgcFaultWindow ? 1 : prior.Count + 1;
+                _wgcFaults[position] = (count, now);
+
+                if (count <= MaxWgcRebuilds && TryWgcSource(position, hwnd, rect))
+                {
+                    Log?.Invoke($"tile {position}: WGC capture rebuilt after a fault ({count}/{MaxWgcRebuilds}).");
+                    _hiddenTiles.Remove(position);
+                    Redraw();
+                    continue;
+                }
+
+                if (count > MaxWgcRebuilds)
+                    Log?.Invoke($"tile {position}: WGC failed {count} times in {WgcFaultWindow.TotalSeconds:F0}s; staying on DWM.");
+            }
+
             if (!RegisterThumbnail(position, hwnd, rect))
                 _captureSessions[position] = new ScreenshotCaptureSession(hwnd, msg => Log?.Invoke(msg));
             _hiddenTiles.Remove(position);

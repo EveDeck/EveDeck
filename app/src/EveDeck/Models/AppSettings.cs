@@ -16,7 +16,7 @@ public sealed class AppSettings
     // to a DWM thumbnail on any failure. Leave false unless previews are the priority and the
     // GPU has headroom.
     public bool UseWgcPreviewCapture { get; set; }
-    public int WgcPreviewMaxFps { get; set; } = 15;
+    public int WgcPreviewMaxFps { get; set; } = 30;
     public string ActiveProfileId { get; set; } = "";
     public ObservableCollection<SlotAssignment> Assignments { get; set; } = new();
     public ObservableCollection<LayoutProfile> Profiles { get; set; } = new();

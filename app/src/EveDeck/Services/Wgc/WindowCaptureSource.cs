@@ -37,6 +37,8 @@ internal sealed class WindowCaptureSource : IDisposable
     /// Raised (once) if the OS closes the capture item, e.g. the target window was closed.
     public event Action? Closed;
 
+    private readonly Windows.Foundation.TypedEventHandler<GraphicsCaptureItem, object> _itemClosed;
+
     public int Width => _poolSize.Width;
     public int Height => _poolSize.Height;
 
@@ -53,7 +55,16 @@ internal sealed class WindowCaptureSource : IDisposable
         if (_poolSize.Width <= 0 || _poolSize.Height <= 0)
             throw new InvalidOperationException($"capture item has zero size ({_poolSize.Width}x{_poolSize.Height}); is the window minimized?");
 
-        _item.Closed += (_, _) => { try { Closed?.Invoke(); } catch { /* ignore */ } };
+        // Keep the handler in a field so Dispose can detach it. An anonymous lambda could never be
+        // unsubscribed, so a torn-down session kept reporting "capture item closed" -- which the
+        // tile surface read as a genuine fault and used to demote that tile to DWM permanently.
+        // The _disposed guard covers the close that disposal itself triggers.
+        _itemClosed = (_, _) =>
+        {
+            if (_disposed) return;
+            try { Closed?.Invoke(); } catch { /* ignore */ }
+        };
+        _item.Closed += _itemClosed;
     }
 
     public void Start()
@@ -144,6 +155,7 @@ internal sealed class WindowCaptureSource : IDisposable
             if (_disposed) return;
             _disposed = true;
             if (_pool is not null) _pool.FrameArrived -= OnFrameArrived;
+            try { _item.Closed -= _itemClosed; } catch { /* item may already be gone */ }
             try { _session?.Dispose(); } catch { /* ignore */ }
             try { _pool?.Dispose(); } catch { /* ignore */ }
             _session = null;

@@ -115,6 +115,9 @@ internal static class Win32Native
     internal static extern bool IsWindowVisible(nint hWnd);
 
     [DllImport("user32.dll")]
+    internal static extern bool IsWindow(nint hWnd);
+
+    [DllImport("user32.dll")]
     internal static extern bool MoveWindow(nint hWnd, int x, int y, int width, int height, bool repaint);
 
     [DllImport("user32.dll")]
