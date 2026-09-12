@@ -35,6 +35,16 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
     // Seeded rather than left at 0: a 0 target means "full resolution", and the frames that arrive
     // before the first draw would each cost a full-size readback for no benefit.
     private volatile int _targetWidth = 640;
+    private volatile int _targetHeight = 360;
+
+    // Tile-sized frame, produced on the CAPTURE thread rather than at draw time.
+    //
+    // The rescale is the expensive half of this path, and doing it inside TryGetResizedFrame put it
+    // on the single UI/pump thread for every tile in turn -- so the whole preview pipeline was
+    // serialised onto one core no matter how many tiles were live. Each capture session already has
+    // its own free-threaded callback, so doing the work there spreads it across cores and leaves the
+    // draw call a small copy.
+    private Bitmap? _scaled;
 
     public bool Faulted { get; private set; }
     public string? FaultReason { get; private set; }
@@ -75,6 +85,7 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
             {
                 if (_disposed || _readback is null) return;
                 _readback.CopyToBgra(frame.Texture, ref _bgra, out _w, out _h, out _stride, _targetWidth);
+                BuildScaled();
                 _seq++;
                 _dirty = true;
             }
@@ -95,15 +106,66 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
         }
     }
 
+    // Runs on the capture thread, inside _gate.
+    private void BuildScaled()
+    {
+        var destWidth = _targetWidth;
+        var destHeight = _targetHeight;
+        if (destWidth < 1 || destHeight < 1 || _w < 2 || _h < 2) return;
+
+        if (_full is null || _full.Width != _w || _full.Height != _h)
+        {
+            _full?.Dispose();
+            _full = new Bitmap(_w, _h, PixelFormat.Format32bppArgb);
+        }
+
+        var bits = _full.LockBits(new Rectangle(0, 0, _w, _h), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+        try
+        {
+            unsafe
+            {
+                var d = (byte*)bits.Scan0;
+                fixed (byte* src = _bgra)
+                {
+                    for (var y = 0; y < _h; y++)
+                        Buffer.MemoryCopy(src + (long)y * _stride, d + (long)y * bits.Stride, bits.Stride, _stride);
+                }
+            }
+        }
+        finally { _full.UnlockBits(bits); }
+
+        if (_scaled is null || _scaled.Width != destWidth || _scaled.Height != destHeight)
+        {
+            _scaled?.Dispose();
+            _scaled = new Bitmap(destWidth, destHeight, PixelFormat.Format32bppArgb);
+        }
+
+        using var g = Graphics.FromImage(_scaled);
+        g.InterpolationMode = _w > destWidth * 2
+            ? System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear
+            : System.Drawing.Drawing2D.InterpolationMode.Bilinear;
+        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+        g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+        g.DrawImage(_full, new Rectangle(0, 0, destWidth, destHeight));
+        _renderedSeq = _seq;
+    }
+
     public Bitmap? TryGetResizedFrame(int destWidth, int destHeight)
     {
         if (destWidth < 1 || destHeight < 1 || Faulted) return null;
         _targetWidth = destWidth;
+        _targetHeight = destHeight;
 
         try
         {
             lock (_gate)
             {
+                // Fast path: the capture thread already produced this exact size. Copying a
+                // tile-sized bitmap is far cheaper than rescaling a megapixel one, and it keeps the
+                // UI thread free.
+                if (_scaled is not null && _scaled.Width == destWidth && _scaled.Height == destHeight)
+                    return new Bitmap(_scaled);
+
                 if (_w < 2 || _h < 2 || _bgra.Length < _stride * _h) return null;
 
                 if (_renderedSeq != _seq)
@@ -173,6 +235,8 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
             _readback = null;
             _full?.Dispose();
             _full = null;
+            _scaled?.Dispose();
+            _scaled = null;
         }
     }
 }
