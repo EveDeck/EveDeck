@@ -2,6 +2,14 @@ using System.Text.Json;
 
 namespace EveDeck.VrSpike;
 
+// Per-panel override, keyed by seat slot. Any field left null falls back to the shared layout, so
+// one panel can be moved without pinning the rest.
+internal sealed record PanelPlacement(
+    float? X = null,
+    float? Y = null,
+    float? Z = null,
+    float? Width = null);
+
 // Persists tuned VR geometry so a good arrangement survives a restart.
 //
 // Deliberately its OWN file next to EveDeck's settings, never inside settings.json -- the app owns
@@ -14,7 +22,8 @@ internal sealed record VrGeometry(
     float Drop = 1.0f,
     float Curve = 0.18f,
     bool Flat = false,
-    bool World = false);
+    bool World = false,
+    Dictionary<string, PanelPlacement>? Panels = null);
 
 internal static class GeometryStore
 {

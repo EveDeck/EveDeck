@@ -19,8 +19,11 @@ dotnet run -- --seats
 # Flat panels, pinned to the play space instead of your head
 dotnet run -- --seats --flat --world
 
-# Tune geometry live
-dotnet run -- --seats --master=3.6 --preview=0.9 --dist=1.5 --drop=1.2 --curve=0.1
+# Tune geometry live, and persist it
+dotnet run -- --seats --master=3.6 --preview=0.9 --dist=1.5 --drop=1.2 --save
+
+# Park seat 3 off to the left, slightly larger, leaving the others on the strip
+dotnet run -- --seats --panel=3:-1.6,0.3,-1.9,1.1 --save
 
 # Capture only, no VR (works with SteamVR absent) + VRAM report
 dotnet run -- --seats --dry-run
@@ -36,7 +39,9 @@ spike is tested without EVE running.
 | `--seats` | panels follow `Assignments[]` in EveDeck's settings.json |
 | `--headlock` / `--world` | panels ride your view (default) or pin to the play space |
 | `--flat` | no curvature on the master panel |
-| `--master= --preview= --dist= --drop= --curve=` | geometry, in metres |
+| `--master= --preview= --dist= --drop= --curve=` | shared geometry, in metres |
+| `--panel=<slot>:x,y,z[,w]` | park one seat independently; omitted axes fall back |
+| `--save` | persist the effective geometry to `%LOCALAPPDATA%\EveDeckr-spike.json` |
 | `--raw` | force the old `SetOverlayRaw` path (see below — it breaks) |
 | `--no-wgc` | force the PrintWindow fallback |
 | `--dry-run` / `--vram` / `--probe-raw` | diagnostics, no VR needed |
@@ -101,5 +106,8 @@ Any VR or desktop capture of this running belongs in a scratch directory, never 
   last-known PIDs/handles and they go stale on every relaunch.
 - `MasterSlotNumber` and `Assignments[].IsMaster` can disagree in live config (observed: 1 vs 5).
   The per-assignment flag wins here; `MasterSlotNumber` is a fallback.
-- Geometry is command-line only — nothing persists between runs.
-- Panel placement is one fixed arrangement; there is no per-panel override.
+- Per-panel placement (`--panel=`) is parse- and persistence-verified but **not yet confirmed in a
+  headset** — SteamVR was down when it was added.
+- The six `Services/Wgc/` files are now duplicated between this spike and the app (merged to main in
+  `55ba214`). OPSEC or capture fixes must be applied in **both** places until the spike either
+  references the app's copy or is retired.

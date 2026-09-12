@@ -86,12 +86,13 @@ internal static class Program
         var distance = Arg(args, "dist", saved.Dist);
         var previewDrop = Arg(args, "drop", saved.Drop);
         var curve = flat ? 0f : Arg(args, "curve", saved.Curve);
-        var geom = new Geometry(masterWidth, previewWidth, distance, previewDrop, curve);
+        var panelOverrides = ParsePanelOverrides(args, saved.Panels);
+        var geom = new Geometry(masterWidth, previewWidth, distance, previewDrop, curve, panelOverrides);
 
         if (args.Contains("--save"))
         {
             GeometryStore.Save(
-                new VrGeometry(masterWidth, previewWidth, distance, previewDrop, curve, flat, worldLocked),
+                new VrGeometry(masterWidth, previewWidth, distance, previewDrop, curve, flat, worldLocked, panelOverrides),
                 m => Console.WriteLine($"[cfg] {m}"));
         }
         const int fps = 15;
@@ -165,6 +166,7 @@ internal static class Program
             var fov = 2 * Math.Atan(masterWidth / 2 / distance) * 180 / Math.PI;
             Console.WriteLine($"  geometry: master {masterWidth}m @ {distance}m = {fov:F0} deg wide, curve {curve}; previews {previewWidth}m dropped {previewDrop}m");
             Console.WriteLine($"  tune with --master= --preview= --dist= --drop= --curve= | --flat --headlock --world --seats --save");
+            if (geom.Panels.Count > 0) Console.WriteLine($"  per-panel overrides: {string.Join(", ", geom.Panels.Select(kv => $"seat {kv.Key}"))}");
 
             var stop = false;
             Console.CancelKeyPress += (_, e) => { e.Cancel = true; stop = true; };
@@ -209,7 +211,7 @@ internal static class Program
                             panels.Remove(promoted);
                             panels.Insert(0, promoted);
                             for (var pi = 0; pi < panels.Count; pi++)
-                                ApplyPanelGeometry(ov, panels[pi].Handle, pi == 0, pi, panels.Count, geom, worldLocked);
+                                ApplyPanelGeometry(ov, panels[pi].Handle, pi == 0, pi, panels.Count, geom, worldLocked, panels[pi].Title);
                             Console.WriteLine($"  master moved to {Safe(promoted.Title)}");
                         }
                         else if (!sameSet)
@@ -469,7 +471,7 @@ internal static class Program
             }
 
             ov.SetOverlayAlpha(handle, 1.0f);
-            ApplyPanelGeometry(ov, handle, i == 0, i, windows.Count, geom, worldLocked);
+            ApplyPanelGeometry(ov, handle, i == 0, i, windows.Count, geom, worldLocked, windows[i].Title);
             ov.ShowOverlay(handle);
 
             var panel = new Panel(handle, windows[i].Hwnd, windows[i].Title);
@@ -490,20 +492,63 @@ internal static class Program
         panels.Clear();
     }
 
+    // --panel=<slot>:x,y,z[,width] -- e.g. --panel=3:-1.4,0.1,-1.6,1.1 parks seat 3 on the left.
+    // Merged over anything already saved, so one panel can be nudged without retyping the rest.
+    private static Dictionary<string, PanelPlacement> ParsePanelOverrides(string[] args, Dictionary<string, PanelPlacement>? saved)
+    {
+        var result = saved is null
+            ? new Dictionary<string, PanelPlacement>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, PanelPlacement>(saved, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var arg in args.Where(a => a.StartsWith("--panel=", StringComparison.OrdinalIgnoreCase)))
+        {
+            var body = arg["--panel=".Length..];
+            var split = body.Split(':', 2);
+            if (split.Length != 2) { Console.Error.WriteLine($"ignoring malformed {arg} (want --panel=<slot>:x,y,z[,w])"); continue; }
+
+            var parts = split[1].Split(',', StringSplitOptions.TrimEntries);
+            if (parts.Length < 3) { Console.Error.WriteLine($"ignoring malformed {arg} (need at least x,y,z)"); continue; }
+
+            float? Num(int i) =>
+                i < parts.Length && float.TryParse(parts[i], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
+
+            result[split[0].Trim()] = new PanelPlacement(Num(0), Num(1), Num(2), Num(3));
+        }
+
+        return result;
+    }
+
+    // Panels are labelled "Seat N" in --seats mode; overrides are keyed by that bare N.
+    private static string PlacementKey(string title)
+    {
+        var digits = new string(title.Where(char.IsDigit).ToArray());
+        return digits.Length > 0 ? digits : title;
+    }
+
     // --headlock always wins over a saved world-lock, so there is a way back without editing the
     // config file.
     private static bool WorldLockRequested(string[] args) =>
         (args.Contains("--world") || GeometryStore.Load().World) && !args.Contains("--headlock");
 
-    private sealed record Geometry(float Master, float Preview, float Distance, float Drop, float Curve);
+    private sealed record Geometry(float Master, float Preview, float Distance, float Drop, float Curve,
+        Dictionary<string, PanelPlacement> Panels);
 
-    private static void ApplyPanelGeometry(CVROverlay ov, ulong handle, bool isMaster, int index, int total, Geometry g, bool worldLocked)
+    private static void ApplyPanelGeometry(CVROverlay ov, ulong handle, bool isMaster, int index, int total, Geometry g, bool worldLocked, string title = "")
     {
-        ov.SetOverlayWidthInMeters(handle, isMaster ? g.Master : g.Preview);
+        g.Panels.TryGetValue(PlacementKey(title), out var over);
+
+        var width = over?.Width ?? (isMaster ? g.Master : g.Preview);
+        ov.SetOverlayWidthInMeters(handle, width);
+
         // A wide flat quad reads badly at the edges; a gentle curve keeps the master roughly
         // equidistant from the eye. Previews are small enough to stay flat.
         ov.SetOverlayCurvature(handle, isMaster ? g.Curve : 0f);
-        SetTransform(ov, handle, SlotFor(index, total, g.Distance, g.Preview, g.Drop), worldLocked);
+
+        var slot = SlotFor(index, total, g.Distance, g.Preview, g.Drop);
+        // Each axis falls back independently, so --panel=3:,,-1.2 style partial moves still work.
+        var pos = (over?.X ?? slot.X, over?.Y ?? slot.Y, over?.Z ?? slot.Z);
+        SetTransform(ov, handle, pos, worldLocked);
     }
 
     private static float Arg(string[] args, string name, float fallback)
