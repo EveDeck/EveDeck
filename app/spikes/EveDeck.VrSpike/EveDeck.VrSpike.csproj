@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- THROWAWAY SPIKE. Deliberately outside EveDeck.sln so it never enters a build,
+       test, or publish of the shipping app, and so OVRSharp's native openvr_api.dll
+       never lands in app\publish. Nothing here is production code. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Same switch the app uses to get System.Drawing on a windows TFM. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Ships Valve's generated Valve.VR binding plus the native openvr_api.dll. -->
+    <PackageReference Include="OVRSharp" Version="1.0.2" />
+    <!-- WGC capture, ported verbatim from branch wgc-local-previews (3fed5cc). -->
+    <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
+    <PackageReference Include="Vortice.DXGI" Version="3.8.3" />
+  </ItemGroup>
+
+</Project>
