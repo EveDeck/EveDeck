@@ -32,7 +32,9 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
     // Last size the surface asked to draw at. Frames arrive on the capture thread, before any draw
     // call, so the readback uses the previous request as its hint -- tile sizes change rarely, and a
     // stale hint only costs one slightly-larger readback.
-    private volatile int _targetWidth;
+    // Seeded rather than left at 0: a 0 target means "full resolution", and the frames that arrive
+    // before the first draw would each cost a full-size readback for no benefit.
+    private volatile int _targetWidth = 640;
 
     public bool Faulted { get; private set; }
     public string? FaultReason { get; private set; }

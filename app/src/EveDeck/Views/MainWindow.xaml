@@ -1775,7 +1775,7 @@ Preview tiles shrink the whole client window. To read them better: raise UI Scal
 
                   <CheckBox Content="Use GPU capture (WGC) for preview tiles instead of DWM thumbnails"
                             IsChecked="{Binding UseWgcPreviewCapture}"
-                            ToolTip="Sharper tiles at small sizes, but heavier and slightly laggier than DWM, which composites itself. Any tile that fails falls back to a DWM thumbnail on its own. Leave off unless preview sharpness matters more than latency."
+                            ToolTip="Sharper tiles at small sizes, at more GPU cost than DWM. GPU capture cannot see a window Windows is not compositing, so with this on, inactive seats stack behind the master client instead of parking off-screen. Any tile that fails falls back to a DWM thumbnail on its own."
                             Margin="0,0,0,6"/>
                   <StackPanel Orientation="Horizontal" Margin="16,0,0,10" VerticalAlignment="Center">
                     <TextBlock Text="up to" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12"/>

@@ -430,7 +430,7 @@ internal sealed class TileSurfaceWindow : WinForms.Form
             // virtual-display setups fail. Fall back to periodic PrintWindow-based screenshot capture
             // rather than leaving the tile blank (matches EVE-O Preview's "Compatibility Mode").
             // Genuinely last-resort: plain GDI, ~1fps, no GPU device involved.
-            _captureSessions[position] = new ScreenshotCaptureSession(sourceHwnd, msg => Log?.Invoke(msg));
+            _captureSessions[position] = new ScreenshotCaptureSession(sourceHwnd, CaptureLog());
             _hiddenTiles.Remove(position);
             Redraw();
             return;
@@ -439,6 +439,18 @@ internal sealed class TileSurfaceWindow : WinForms.Form
         _hiddenTiles.Remove(position);
         Redraw();
     }
+
+    // WGC frames arrive on a free-threaded capture-pool thread, and the app's log sink appends to a
+    // UI-bound collection -- logging straight from that thread throws a WPF cross-thread exception,
+    // which the frame handler catches and turns into a session fault. The session then rebuilds,
+    // logs again, and faults again. Marshal capture-thread logging to the dispatcher so a log line
+    // can never take a capture session down.
+    private Action<string> CaptureLog() => msg =>
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess()) Log?.Invoke(msg);
+        else dispatcher.BeginInvoke(new Action(() => Log?.Invoke(msg)));
+    };
 
     private void StopCaptureSession(int position)
     {
@@ -451,7 +463,7 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     private bool TryWgcSource(int position, nint sourceHwnd, Drawing.Rectangle rect)
     {
         Services.Wgc.WgcTileCaptureSession wgc;
-        try { wgc = new Services.Wgc.WgcTileCaptureSession(sourceHwnd, WgcMaxFps, msg => Log?.Invoke(msg)); }
+        try { wgc = new Services.Wgc.WgcTileCaptureSession(sourceHwnd, WgcMaxFps, CaptureLog()); }
         catch (Exception ex) { Log?.Invoke($"tile {position}: WGC session ctor threw ({ex.Message}); using DWM"); return false; }
 
         if (wgc.Faulted)
@@ -475,10 +487,11 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     {
         var faulted = _captureSessions
             .Where(kv => kv.Value is Services.Wgc.WgcTileCaptureSession { Faulted: true })
-            .Select(kv => kv.Key)
+            .Select(kv => (Position: kv.Key,
+                           Reason: (kv.Value as Services.Wgc.WgcTileCaptureSession)?.FaultReason ?? "unknown"))
             .ToArray();
 
-        foreach (var position in faulted)
+        foreach (var (position, faultReason) in faulted)
         {
             StopCaptureSession(position);
             if (!_tiles.TryGetValue(position, out var rect)) continue;
@@ -497,18 +510,18 @@ internal sealed class TileSurfaceWindow : WinForms.Form
 
                 if (count <= MaxWgcRebuilds && TryWgcSource(position, hwnd, rect))
                 {
-                    Log?.Invoke($"tile {position}: WGC capture rebuilt after a fault ({count}/{MaxWgcRebuilds}).");
+                    Log?.Invoke($"tile {position}: WGC rebuilt after fault ({count}/{MaxWgcRebuilds}) -- was: {faultReason}");
                     _hiddenTiles.Remove(position);
                     Redraw();
                     continue;
                 }
 
                 if (count > MaxWgcRebuilds)
-                    Log?.Invoke($"tile {position}: WGC failed {count} times in {WgcFaultWindow.TotalSeconds:F0}s; staying on DWM.");
+                    Log?.Invoke($"tile {position}: WGC failed {count} times in {WgcFaultWindow.TotalSeconds:F0}s; staying on DWM. Last: {faultReason}");
             }
 
             if (!RegisterThumbnail(position, hwnd, rect))
-                _captureSessions[position] = new ScreenshotCaptureSession(hwnd, msg => Log?.Invoke(msg));
+                _captureSessions[position] = new ScreenshotCaptureSession(hwnd, CaptureLog());
             _hiddenTiles.Remove(position);
             Redraw();
         }

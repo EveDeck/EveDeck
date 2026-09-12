@@ -77,7 +77,8 @@ public sealed partial class MainWindowViewModel
     private int _pendingHoverPosition = -1;
 
     // Peek-swap state — a temporary move-swap that reverts when the cursor leaves.
-    // Corner seats always live parked off-screen (ResolveParkRect), never at their tile's rect —
+    // Corner seats live parked away from the master (ResolveParkRect: off-screen for DWM capture,
+    // stacked behind the master when GPU capture is on), never at their tile's rect —
     // the tile only ever shows a DWM/WGC thumbnail. So a peek is just master <-> park, independent
     // of the tile's own geometry.
     private int _peekPosition = -1;       // corner position currently peeked; -1 = none

@@ -430,6 +430,26 @@ public sealed partial class MainWindowViewModel
     // master resolution — never resized — so EVE never re-flows its UI layout.
     private WindowRect ResolveParkRect(WindowRect masterRect)
     {
+        // WGC cannot capture a window DWM is not compositing, and a window parked entirely outside
+        // every monitor stops being composited -- its capture item closes before delivering a frame.
+        // DwmRegisterThumbnail has no such requirement, which is why off-screen parking has always
+        // been fine for thumbnails and is fatal for GPU capture.
+        //
+        // So when GPU capture is on, seats stack AT the master rect instead of beside the desktop:
+        // only one client is meant to be visible at a time, the newly centered seat is focused (which
+        // raises it) right after the move, and the preview tiles draw over the top. Moves use
+        // SWP_NOZORDER | SWP_NOACTIVATE throughout, so nothing here reorders an EVE window by itself.
+        if (_settings.UseWgcPreviewCapture)
+        {
+            return new WindowRect
+            {
+                X = masterRect.X,
+                Y = masterRect.Y,
+                Width = masterRect.Width,
+                Height = masterRect.Height
+            };
+        }
+
         var anchor = ResolveLayoutAnchor();
         var leftEdge = anchor?.X ?? 0;
         return new WindowRect

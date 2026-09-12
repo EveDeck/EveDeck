@@ -25,7 +25,7 @@ internal sealed class TextureReadback : IDisposable
     // the tile size cuts the transfer by one to two orders of magnitude and hands GDI an image that
     // is already near its final size.
     private readonly Action<string>? _log;
-    private bool _loggedScale;
+    private int _lastLoggedMip = -1;
     private ID3D11Texture2D? _mipped;
     private ID3D11ShaderResourceView? _mipView;
     private uint _mipSourceWidth;
@@ -76,9 +76,12 @@ internal sealed class TextureReadback : IDisposable
             var need = stride * height;
             if (dest.Length < need) dest = new byte[need];
 
-            if (!_loggedScale)
+            // Log when the chosen mip CHANGES, not just once: the first frame of a session arrives
+            // before any draw has reported a tile size, so a one-shot log only ever shows the
+            // full-resolution worst case and never the steady state.
+            if (_lastLoggedMip != mipLevel)
             {
-                _loggedScale = true;
+                _lastLoggedMip = mipLevel;
                 var fullMiB = desc.Width * desc.Height * 4 / 1048576.0;
                 var readMiB = width * height * 4 / 1048576.0;
                 _log?.Invoke($"readback: {desc.Width}x{desc.Height} -> {width}x{height} (mip {mipLevel}), {fullMiB:F1} MiB -> {readMiB:F2} MiB per frame");
