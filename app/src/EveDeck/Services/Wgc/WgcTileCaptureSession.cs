@@ -29,6 +29,11 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
     private bool _dirty;
     private bool _disposed;
 
+    // Last size the surface asked to draw at. Frames arrive on the capture thread, before any draw
+    // call, so the readback uses the previous request as its hint -- tile sizes change rarely, and a
+    // stale hint only costs one slightly-larger readback.
+    private volatile int _targetWidth;
+
     public bool Faulted { get; private set; }
     public string? FaultReason { get; private set; }
 
@@ -40,7 +45,7 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
         try
         {
             var device = WgcCaptureDevice.Shared; // throws => Faulted below => caller uses DWM
-            _readback = new TextureReadback(device.D3DDevice, device.ContextLock);
+            _readback = new TextureReadback(device.D3DDevice, device.ContextLock, log);
             _source = new WindowCaptureSource(hwnd, device.D3DDevice, device.WinRtDevice, log);
             _source.FrameArrived += OnFrame;
             _source.Closed += () => Fault("capture item closed");
@@ -67,7 +72,7 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
             lock (_gate)
             {
                 if (_disposed || _readback is null) return;
-                _readback.CopyToBgra(frame.Texture, ref _bgra, out _w, out _h, out _stride);
+                _readback.CopyToBgra(frame.Texture, ref _bgra, out _w, out _h, out _stride, _targetWidth);
                 _seq++;
                 _dirty = true;
             }
@@ -91,6 +96,7 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
     public Bitmap? TryGetResizedFrame(int destWidth, int destHeight)
     {
         if (destWidth < 1 || destHeight < 1 || Faulted) return null;
+        _targetWidth = destWidth;
 
         try
         {
@@ -124,9 +130,15 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
                 }
 
                 if (_full is null) return null;
+
+                // The GPU has already filtered this down to near the tile size, so the remaining
+                // step is short and HighQualityBilinear stays affordable.
                 var dst = new Bitmap(destWidth, destHeight, PixelFormat.Format32bppArgb);
                 using var g = Graphics.FromImage(dst);
-                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear;
+                g.InterpolationMode = _w > destWidth * 2
+                    ? System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear
+                    : System.Drawing.Drawing2D.InterpolationMode.Bilinear;
+                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
                 g.DrawImage(_full, new Rectangle(0, 0, destWidth, destHeight));
                 return dst;
             }
