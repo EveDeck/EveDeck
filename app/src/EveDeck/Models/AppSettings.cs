@@ -9,6 +9,14 @@ public sealed class AppSettings
     public bool UseMonitorWorkArea { get; set; }
     public bool IncludeNotepadTestWindows { get; set; } = false;
     public bool AutoRefresh { get; set; } = true;
+
+    // Opt-in: use Windows.Graphics.Capture for local preview tiles instead of DWM thumbnails
+    // (sharper at small sizes). GPU capture hard-locked the machine once under heavy multi-client
+    // DX12 load (v1.22.0) -- this path checks free VRAM before starting and falls every tile back
+    // to a DWM thumbnail on any failure. Leave false unless previews are the priority and the
+    // GPU has headroom.
+    public bool UseWgcPreviewCapture { get; set; }
+    public int WgcPreviewMaxFps { get; set; } = 15;
     public string ActiveProfileId { get; set; } = "";
     public ObservableCollection<SlotAssignment> Assignments { get; set; } = new();
     public ObservableCollection<LayoutProfile> Profiles { get; set; } = new();

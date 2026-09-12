@@ -412,6 +412,8 @@ public sealed partial class MainWindowViewModel
 
         _overlayDpiScale = dpiScale;
         _tileSurface = new TileSurfaceWindow(surfX, surfY, surfW, surfH);
+        _tileSurface.UseWgcCapture = _settings.UseWgcPreviewCapture;
+        _tileSurface.WgcMaxFps = _settings.WgcPreviewMaxFps;
         _tileSurface.SnapGridPx = Math.Max(0, _settings.CornerOverlaySnapGridPx);
         _tileSurface.TileClicked = OnCornerTileClicked;
         _tileSurface.TileShiftClicked = OnCornerTileShiftClicked;

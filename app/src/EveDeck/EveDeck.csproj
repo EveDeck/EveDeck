@@ -42,6 +42,13 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
     <PackageReference Include="Velopack" Version="1.2.0" />
+    <!-- Opt-in WGC local preview capture (Services\Wgc). GPU capture was removed in v1.22.0 after
+         it hard-locked the machine under heavy multi-client DX12 load. This path is gated behind a
+         setting, shares one D3D11 device, checks free VRAM before starting, and falls every tile
+         back to a DWM thumbnail on any failure. Direct2D is NOT referenced (no on-GPU compositing
+         this time): capture, then CPU readback, then GDI, same as the screenshot fallback. -->
+    <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
+    <PackageReference Include="Vortice.DXGI" Version="3.8.3" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\evedeck-logo.png" />
