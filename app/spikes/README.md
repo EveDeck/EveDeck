@@ -41,7 +41,7 @@ spike is tested without EVE running.
 | `--flat` | no curvature on the master panel |
 | `--master= --preview= --dist= --drop= --curve=` | shared geometry, in metres |
 | `--panel=<slot>:x,y,z[,w]` | park one seat independently; omitted axes fall back |
-| `--save` | persist the effective geometry to `%LOCALAPPDATA%\EveDeckr-spike.json` |
+| `--save` | persist the effective geometry to `%LOCALAPPDATA%\EveDeck\vr-spike.json` |
 | `--raw` | force the old `SetOverlayRaw` path (see below — it breaks) |
 | `--no-wgc` | force the PrintWindow fallback |
 | `--dry-run` / `--vram` / `--probe-raw` | diagnostics, no VR needed |
@@ -90,9 +90,8 @@ development, so the guards are deliberate:
 - seats are identified by **slot number only**; `Assignments[].Label` and `EsiCharacters[]` are
   never read
 - every console path runs titles through `Safe()`
-- `WindowCaptureSource` logs frame size, never `_item.DisplayName` (**the same line still logs the
-  raw title on branch `wgc-local-previews`** — a latent leak into EveDeck's own log if WGC is ever
-  revived there)
+- `WindowCaptureSource` logs frame size, never `_item.DisplayName` -- fixed here and in the app
+  (`55ba214`), where that line would otherwise have written character names into EveDeck's own log
 - `--dry-run` writes no screenshots unless `--save-png` is passed, and still refuses for any window
   whose **live** title starts with `EVE`. The check reads the real title via `GetWindowTextW` and
   fails closed — an earlier version tested a display label, which in `--seats` mode is `"Seat 3"`
