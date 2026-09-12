@@ -79,6 +79,9 @@ internal static class Program
         // --headlock is the default; --world pins panels to the play space instead.
         // --flat drops the master's curvature.
         var useSeats = args.Contains("--seats");
+        // Grab-to-move needs world transforms to write back to, so it only applies when panels are
+        // world-locked. --no-grab turns it off.
+        var allowGrab = !args.Contains("--no-grab");
 
         var flat = args.Contains("--flat") || (saved.Flat && !args.Contains("--curve="));
         var masterWidth = Arg(args, "master", saved.Master);
@@ -146,6 +149,7 @@ internal static class Program
         if (args.Contains("--probe-raw")) return ProbeRaw(ov);
 
         var panels = new List<Panel>();
+        VrManipulator? manipulator = null;
 
         try
         {
@@ -165,7 +169,7 @@ internal static class Program
             Console.WriteLine($"{panels.Count} overlay(s) live ({onWgc} on WGC, {panels.Count - onWgc} on PrintWindow) via {mode}, {anchor}, from {source}, ~{fps}fps. Ctrl+C to quit.");
             var fov = 2 * Math.Atan(masterWidth / 2 / distance) * 180 / Math.PI;
             Console.WriteLine($"  geometry: master {masterWidth}m @ {distance}m = {fov:F0} deg wide, curve {curve}; previews {previewWidth}m dropped {previewDrop}m");
-            Console.WriteLine($"  tune with --master= --preview= --dist= --drop= --curve= | --flat --headlock --world --seats --save");
+            Console.WriteLine($"  tune with --master= --preview= --dist= --drop= --curve= | --flat --headlock --world --seats --save --no-grab --no-laser --aim-pitch=<deg>");
             if (geom.Panels.Count > 0) Console.WriteLine($"  per-panel overrides: {string.Join(", ", geom.Panels.Select(kv => $"seat {kv.Key}"))}");
 
             var stop = false;
@@ -176,11 +180,42 @@ internal static class Program
             var seatsStamp = SeatModel.LastWriteUtc();
             var seatCheck = Stopwatch.StartNew();
 
+            var grabbing = allowGrab && worldLocked;
+            manipulator = grabbing
+                ? new VrManipulator(
+                    m => Console.WriteLine($"  {m}"),
+                    showLaser: !args.Contains("--no-laser"),
+                    pitchDegrees: Arg(args, "aim-pitch", 0f),
+                    keyFor: handle =>
+                    {
+                        var match = panels.FirstOrDefault(pn => pn.Handle == handle);
+                        return match is null ? null : PlacementKey(match.Title);
+                    },
+                    onDrop: (key, x, y, z, width) =>
+                    {
+                        // An arrangement made by hand is the whole point -- persist it immediately
+                        // so it survives a restart without anyone copying numbers into flags.
+                        geom.Panels[key] = new PanelPlacement(x, y, z, width);
+                        GeometryStore.Save(
+                            new VrGeometry(masterWidth, previewWidth, distance, previewDrop, curve, flat, worldLocked, geom.Panels));
+                    })
+                : null;
+            if (allowGrab && !worldLocked)
+                Console.WriteLine("  grab-to-move needs --world (head-locked panels have no world transform to edit)");
+            else if (grabbing)
+                Console.WriteLine("  grab: aim the laser at a panel, hold trigger or grip to move; thumbstick up/down resizes");
+
+            var frameClock = Stopwatch.StartNew();
+
             const int frameDelay = 1000 / fps;
             var lastReport = Stopwatch.StartNew();
             while (!stop)
             {
                 var sw = Stopwatch.StartNew();
+
+                var delta = (float)frameClock.Elapsed.TotalSeconds;
+                frameClock.Restart();
+                manipulator?.Update(ov, panels.Select(pn => pn.Handle).ToList(), delta);
 
                 // OpenVR requires an application to drain its event queues. Leaving them unpolled
                 // lets them overflow, after which calls start returning RequestFailed -- which is
@@ -210,8 +245,13 @@ internal static class Program
                             var promoted = panels.First(pn => pn.Hwnd == freshMaster);
                             panels.Remove(promoted);
                             panels.Insert(0, promoted);
-                            for (var pi = 0; pi < panels.Count; pi++)
-                                ApplyPanelGeometry(ov, panels[pi].Handle, pi == 0, pi, panels.Count, geom, worldLocked, panels[pi].Title);
+                            // Re-applying geometry while a panel is in someone's hand would yank it
+                            // back; defer until both hands are empty.
+                            if (manipulator?.Busy != true)
+                            {
+                                for (var pi = 0; pi < panels.Count; pi++)
+                                    ApplyPanelGeometry(ov, panels[pi].Handle, pi == 0, pi, panels.Count, geom, worldLocked, panels[pi].Title);
+                            }
                             Console.WriteLine($"  master moved to {Safe(promoted.Title)}");
                         }
                         else if (!sameSet)
@@ -249,6 +289,7 @@ internal static class Program
         }
         finally
         {
+            manipulator?.Dispose();
             TearDown(ov, panels);
             WgcCaptureDevice.DisposeShared();
             OpenVR.Shutdown();
