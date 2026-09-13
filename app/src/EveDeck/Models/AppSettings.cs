@@ -78,7 +78,7 @@ public sealed class AppSettings
     public bool CornerOverlayShowSlotNumber { get; set; } = false;
     public double CornerOverlayLabelFontSize { get; set; } = 27.0;
     public string CornerOverlayLabelStyle { get; set; } = "IconText";
-    public string CornerOverlayLabelFontFamily { get; set; } = "Acens"; // bundled font, see Assets\Fonts\Acens-LICENSE.txt
+    public string CornerOverlayLabelFontFamily { get; set; } = "Michroma"; // bundled font, see Assets\Fonts\Michroma-OFL.txt
     public string CornerOverlayLabelColor { get; set; } = "#E5E7EB"; // global default label text color
     public int CornerOverlayLabelHeight { get; set; } = 28; // WPF DIPs
 
@@ -152,7 +152,7 @@ public sealed class AppSettings
     // These ship populated rather than empty, so the MASTER pill differs from the rest out of
     // the box. Per-seat overrides on SlotAssignment
     // (LabelFontFamilyMaster etc.) take precedence over these when set.
-    public string CornerOverlayLabelFontFamilyMaster { get; set; } = "Acens";
+    public string CornerOverlayLabelFontFamilyMaster { get; set; } = "Michroma";
     public double? CornerOverlayLabelFontSizeMaster { get; set; } = 27.0;
     public string CornerOverlayLabelColorMaster { get; set; } = "#E5E7EB";
 

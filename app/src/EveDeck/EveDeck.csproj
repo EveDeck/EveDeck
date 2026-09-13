@@ -57,10 +57,13 @@
     <Content Include="Assets\bg.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <!-- Personal-use-only font (see Assets\Fonts\Acens-LICENSE.txt), bundled so the default label
-         font renders correctly without requiring a separate system-wide font install. -->
-    <Resource Include="Assets\Fonts\Acens.ttf" />
-    <Content Include="Assets\Fonts\Acens-LICENSE.txt">
+    <!-- Michroma, under the SIL Open Font License 1.1 (see Assets\Fonts\Michroma-OFL.txt), bundled
+         so the default label font renders correctly without requiring a separate system-wide font
+         install. The OFL permits bundling and redistribution, which the previously bundled font
+         (personal/non-commercial use only, all rights reserved) did not. That made it incompatible
+         with EveDeck's own GPL-3.0 terms, since the GPL grants recipients rights the font withheld. -->
+    <Resource Include="Assets\Fonts\Michroma-Regular.ttf" />
+    <Content Include="Assets\Fonts\Michroma-OFL.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

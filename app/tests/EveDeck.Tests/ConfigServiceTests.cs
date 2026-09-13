@@ -181,7 +181,7 @@ public class ConfigServiceTests : IDisposable
     public void Load_DefaultsCornerOverlayLabelFontMasterProperties()
     {
         var settings = _configService.Load();
-        Assert.Equal("Acens", settings.CornerOverlayLabelFontFamilyMaster);
+        Assert.Equal("Michroma", settings.CornerOverlayLabelFontFamilyMaster);
         Assert.Equal(27.0, settings.CornerOverlayLabelFontSizeMaster);
         Assert.Equal("#E5E7EB", settings.CornerOverlayLabelColorMaster);
     }
@@ -201,6 +201,36 @@ public class ConfigServiceTests : IDisposable
         Assert.Equal("Arial", reloadedSettings.CornerOverlayLabelFontFamilyMaster);
         Assert.Equal(28.0, reloadedSettings.CornerOverlayLabelFontSizeMaster);
         Assert.Equal("#FF0000", reloadedSettings.CornerOverlayLabelColorMaster);
+    }
+
+    // The bundled default label font was "Acens" until it was replaced with Michroma on licensing
+    // grounds (personal/non-commercial only, so not redistributable under EveDeck's GPL-3.0).
+    // Settings written before the swap still name it and it is no longer shipped, so Load() rewrites
+    // it -- otherwise the Options font picker shows a font that is not installed.
+    [Fact]
+    public void Load_MigratesRetiredAcensFontToBundledDefault()
+    {
+        var settings = _configService.Load();
+        settings.CornerOverlayLabelFontFamily = "Acens";
+        settings.CornerOverlayLabelFontFamilyMaster = "Acens";
+        _configService.Save(settings);
+
+        var reloaded = new ConfigService(_tempDir).Load();
+
+        Assert.Equal("Michroma", reloaded.CornerOverlayLabelFontFamily);
+        Assert.Equal("Michroma", reloaded.CornerOverlayLabelFontFamilyMaster);
+    }
+
+    // A font the user deliberately chose must survive Load() untouched -- the migration above is
+    // scoped to the one retired name, not a general reset to the default.
+    [Fact]
+    public void Load_LeavesUserChosenFontAlone()
+    {
+        var settings = _configService.Load();
+        settings.CornerOverlayLabelFontFamilyMaster = "Consolas";
+        _configService.Save(settings);
+
+        Assert.Equal("Consolas", new ConfigService(_tempDir).Load().CornerOverlayLabelFontFamilyMaster);
     }
 
     // Save() writes through a reused MemoryStream + Utf8JsonWriter rather than serializing to a

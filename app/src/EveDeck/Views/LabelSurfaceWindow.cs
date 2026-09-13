@@ -384,7 +384,7 @@ internal sealed class LabelSurfaceWindow : Window
 
         // Second line under the name: the jump-fatigue / reactivation countdowns (see SetJumpLine).
         // Always Segoe UI rather than the pill's chosen family -- the shipped default label font
-        // (Acens) is a display face whose digits and colon read poorly at this size, and this line is
+        // (Michroma) is a display face whose digits and colon read poorly at this size, and this line is
         // nothing but digits. Collapsed whenever neither timer is running.
         private readonly TextBlock _jumpLine = new()
         {
@@ -865,14 +865,20 @@ internal sealed class LabelSurfaceWindow : Window
                 : null;
         }
 
-        // "Acens" (the shipped default) is bundled as an app resource so it renders correctly even
+        // "Michroma" (the shipped default) is bundled as an app resource so it renders correctly even
         // when not installed system-wide; any other family name is resolved from installed fonts.
-        private static readonly FontFamily BundledAcens = new(new Uri("pack://application:,,,/Assets/Fonts/"), "./#Acens");
+        private static readonly FontFamily BundledMichroma = new(new Uri("pack://application:,,,/Assets/Fonts/"), "./#Michroma");
 
         private static FontFamily ResolveFontFamily(string family)
         {
             if (string.IsNullOrWhiteSpace(family)) return new FontFamily("Segoe UI");
-            return family.Equals("Acens", StringComparison.OrdinalIgnoreCase) ? BundledAcens : new FontFamily(family);
+            // "Acens" was the bundled default until the font was replaced for licensing reasons; settings
+            // written before then still name it, and it is no longer shipped, so map it onto the current
+            // bundled face rather than letting WPF silently fall back to an unrelated installed font.
+            return family.Equals("Michroma", StringComparison.OrdinalIgnoreCase)
+                || family.Equals("Acens", StringComparison.OrdinalIgnoreCase)
+                ? BundledMichroma
+                : new FontFamily(family);
         }
 
         private static SolidColorBrush BrushFromHex(string hex, Color fallback)

@@ -291,6 +291,17 @@ public sealed class ConfigService
 
         MigrateHotkeyList(settings.Hotkeys);
 
+        // The bundled default label font was "Acens" until it was replaced with Michroma: Acens is
+        // licensed for personal/non-commercial use only, which cannot be redistributed under the
+        // GPL-3.0 terms EveDeck itself ships under. Settings written before the swap still name it,
+        // and it is no longer bundled, so rewrite it to the current default. LabelSurfaceWindow also
+        // maps the old name at render time, but migrating the stored value keeps the Options font
+        // picker from displaying a font that is not installed.
+        if (string.Equals(settings.CornerOverlayLabelFontFamily, "Acens", StringComparison.OrdinalIgnoreCase))
+            settings.CornerOverlayLabelFontFamily = "Michroma";
+        if (string.Equals(settings.CornerOverlayLabelFontFamilyMaster, "Acens", StringComparison.OrdinalIgnoreCase))
+            settings.CornerOverlayLabelFontFamilyMaster = "Michroma";
+
         // Add newly-introduced default game-event rules for existing users whose GameEventRules
         // predates them (matched by Name, not Pattern -- a user may have edited a default rule's
         // pattern text). Same additive-merge idiom as the Hotkeys migration above.
