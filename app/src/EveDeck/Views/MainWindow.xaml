@@ -2896,7 +2896,7 @@ EveDeck arranges your EVE clients into on-screen layouts and lets you switch bet
                 <TextBlock Grid.Row="7" Grid.Column="0" Text="Profile Sync" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
                 <TextBlock Grid.Row="7" Grid.Column="1" Text="Mass-copy one character's EVE UI settings to multiple alts in one click." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
                 <TextBlock Grid.Row="8" Grid.Column="0" Text="About" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
-                <TextBlock Grid.Row="8" Grid.Column="1" Text="What EveDeck is, credits, and the version you're on." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="8" Grid.Column="1" Text="What EveDeck is, credits, how to support it, and the version you're on." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
               </Grid>
 
               <Separator Margin="0,4,0,16"/>
@@ -2911,6 +2911,12 @@ Built by the EveDeck project using native Windows APIs (Win32 and DWM). EVE Onli
               <TextBlock Text="Fair play" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
 EveDeck respects EVE's one-input-to-one-client rule. It manages windows and shows passive previews only -- no input broadcasting, gameplay automation, memory reads, or code injection. See Disclaimer for details.
+              </TextBlock>
+
+              <!-- Support -->
+              <TextBlock Text="Support development" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
+EveDeck is free and open source, with no paywall and no feature held back for a paid tier. If it has earned a spot in your setup, ISK donations are welcome in-game to the character EveDeck. Never required, always appreciated, and nothing in EveDeck changes either way.
               </TextBlock>
 
             </StackPanel>
