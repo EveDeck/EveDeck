@@ -202,4 +202,77 @@ public class ConfigServiceTests : IDisposable
         Assert.Equal(28.0, reloadedSettings.CornerOverlayLabelFontSizeMaster);
         Assert.Equal("#FF0000", reloadedSettings.CornerOverlayLabelColorMaster);
     }
+
+    // Save() writes through a reused MemoryStream + Utf8JsonWriter rather than serializing to a
+    // string, to keep ~250KB allocations off the Large Object Heap. Indentation then comes from the
+    // writer's options instead of the serializer's, so this pins the on-disk bytes to exactly what
+    // the plain string path would have produced -- a silent format change here would rewrite every
+    // user's settings.json on first launch.
+    [Fact]
+    public void Save_WritesBytesIdenticalToIndentedStringSerialization()
+    {
+        var settings = _configService.Load();
+        settings.CornerOverlayLabelFontFamilyMaster = "Arial";
+        _configService.Save(settings);
+
+        var onDisk = File.ReadAllBytes(_configService.ConfigPath);
+        var expected = System.Text.Encoding.UTF8.GetBytes(
+            JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+
+        Assert.Equal(expected, onDisk);
+    }
+
+    // The skip-write short-circuit compares a SHA-256 of the fresh JSON against the last written
+    // hash. Save() is called far more often than settings change, so this is what keeps the periodic
+    // refresh loop from doing a temp-write + File.Replace every few seconds.
+    [Fact]
+    public void Save_Unchanged_SkipsWrite_ThenWritesAgainOnChange()
+    {
+        // Load() persists on the way out, so the skip-write hash is already primed here.
+        var settings = _configService.Load();
+
+        Assert.False(_configService.Save(settings));  // unchanged since Load's own write -> skipped
+
+        settings.CornerOverlayLabelFontSizeMaster = 31.0;
+        Assert.True(_configService.Save(settings));   // changed -> written
+        Assert.False(_configService.Save(settings));  // unchanged again -> skipped
+    }
+
+    // An externally deleted settings.json must be recreated even when nothing changed in memory,
+    // otherwise the skip-write hash would leave the user with no config file at all.
+    [Fact]
+    public void Save_Unchanged_StillRewritesWhenFileDeleted()
+    {
+        var settings = _configService.Load();
+        _configService.Save(settings);
+        File.Delete(_configService.ConfigPath);
+
+        Assert.True(_configService.Save(settings));
+        Assert.True(File.Exists(_configService.ConfigPath));
+    }
+
+    // RestoreBackup stages to a temp file and atomically replaces, and must clear the skip-write
+    // hash: the file on disk no longer matches what Save() last wrote, so an unchanged in-memory
+    // AppSettings would otherwise suppress the next save and silently re-overwrite the restore.
+    [Fact]
+    public void RestoreBackup_ReplacesConfigAndForcesNextSave()
+    {
+        var settings = _configService.Load();
+        settings.CornerOverlayLabelFontFamilyMaster = "Arial";
+        _configService.Save(settings);
+        _configService.CreateBackup();
+
+        var backup = _configService.GetBackups().First();
+
+        settings.CornerOverlayLabelFontFamilyMaster = "Consolas";
+        _configService.Save(settings);
+
+        _configService.RestoreBackup(backup.Path);
+
+        Assert.Equal("Arial", new ConfigService(_tempDir).Load().CornerOverlayLabelFontFamilyMaster);
+        Assert.False(File.Exists(_configService.ConfigPath + ".restore.tmp"));
+        // In-memory settings are unchanged since the last Save(), but the restore invalidated the
+        // hash, so this must still write rather than short-circuit.
+        Assert.True(_configService.Save(settings));
+    }
 }

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text.Json;
 using EveDeck.Models;
 
@@ -9,18 +10,27 @@ public sealed class ConfigService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
+    // Matches JsonOptions.WriteIndented: when Save() drives a Utf8JsonWriter directly, indentation
+    // comes from the writer's own options, not the serializer's, so these two must stay in step or
+    // settings.json silently stops being human-readable.
+    private static readonly JsonWriterOptions JsonWriterOptions = new() { Indented = true };
+
     // Guards against the auto-save timer and a manual Save() racing on the same temp file.
     private readonly object _saveLock = new();
 
-    // The exact JSON last written to disk. Save() skips the disk write (and the comparatively
-    // expensive File.Replace) whenever the freshly-serialized settings are byte-for-byte identical.
+    // SHA-256 of the exact JSON last written to disk. Save() skips the disk write (and the
+    // comparatively expensive File.Replace) whenever the freshly-serialized settings hash the same.
     // The refresh loop and several UI paths call Save() far more often than settings actually change
     // (observed live 2026-07-20: ~2 writes every 5s, ~28k/session, of a 140KB+ file, all on the WPF
     // UI thread — a real source of switching jank and, when a write stalled the dispatcher long
     // enough, of the overlay's UpdateLayeredWindow push being starved so previews briefly blanked).
     // Serializing to compare is far cheaper than the temp-write + File.Replace filesystem
     // transaction it avoids.
-    private string? _lastWrittenJson;
+    private byte[]? _lastWrittenHash;
+
+    // Reused serialization target for Save(); see the note there on LOH churn. Only ever touched
+    // under _saveLock.
+    private readonly MemoryStream _saveBuffer = new(capacity: 256 * 1024);
 
     private readonly bool _isDefaultFolder;
 
@@ -93,16 +103,32 @@ public sealed class ConfigService
     {
         lock (_saveLock)
         {
-            var json = JsonSerializer.Serialize(settings, JsonOptions);
+            // Serialize into a buffer we own and reuse. A live settings.json runs ~250KB, which is
+            // well past the 85KB Large Object Heap threshold, and Save() is called far more often
+            // than settings change -- so the previous `JsonSerializer.Serialize` to a string put a
+            // fresh ~250KB string on the LOH roughly twice every five seconds, on the UI thread,
+            // almost always only to discover nothing had changed. This buffer grows once and is then
+            // reused for the life of the process.
+            _saveBuffer.SetLength(0);
+            using (var writer = new Utf8JsonWriter(_saveBuffer, JsonWriterOptions))
+                JsonSerializer.Serialize(writer, settings, JsonOptions);
+            var bytes = _saveBuffer.GetBuffer().AsSpan(0, (int)_saveBuffer.Length);
+
+            // Compare a 32-byte hash rather than retaining a second ~250KB copy of the JSON for the
+            // whole session (the old _lastWrittenJson) and memcmp-ing a quarter-megabyte each call.
+            Span<byte> hash = stackalloc byte[32];
+            SHA256.HashData(bytes, hash);
             // Nothing changed since the last write (the common case for the periodic refresh loop) --
             // skip the disk write entirely. Still re-check the file exists so an externally-deleted
             // settings.json is recreated even when the in-memory content is unchanged.
-            if (json == _lastWrittenJson && File.Exists(ConfigPath)) return false;
+            if (_lastWrittenHash is not null && hash.SequenceEqual(_lastWrittenHash) && File.Exists(ConfigPath))
+                return false;
 
             Directory.CreateDirectory(AppDataFolder);
             // Write to a temp file then atomically replace — prevents zero-filled settings.json on crash.
             var tmp = ConfigPath + ".tmp";
-            File.WriteAllText(tmp, json);
+            using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+                fs.Write(bytes);
             // File.Replace requires the destination to already exist (throws FileNotFoundException
             // otherwise) — falls back to a plain move on first-ever launch or right after Load() moves
             // a corrupt settings.json out of the way.
@@ -110,7 +136,7 @@ public sealed class ConfigService
                 File.Replace(tmp, ConfigPath, destinationBackupFileName: null);
             else
                 File.Move(tmp, ConfigPath);
-            _lastWrittenJson = json;
+            _lastWrittenHash = hash.ToArray();
             return true;
         }
     }
@@ -165,7 +191,23 @@ public sealed class ConfigService
     {
         if (!IsFileHealthy(backupPath))
             throw new InvalidOperationException("The selected backup file appears to be corrupt and cannot be restored.");
-        File.Copy(backupPath, ConfigPath, overwrite: true);
+
+        // Stage then atomically swap, the same way Save() does. A plain File.Copy over ConfigPath is
+        // not atomic: interrupted partway (crash, power loss) it leaves settings.json truncated, and
+        // it does so during the one operation the user reached for *because* something was already
+        // wrong -- turning a recoverable problem into a lost config.
+        Directory.CreateDirectory(AppDataFolder);
+        var tmp = ConfigPath + ".restore.tmp";
+        File.Copy(backupPath, tmp, overwrite: true);
+        if (File.Exists(ConfigPath))
+            File.Replace(tmp, ConfigPath, destinationBackupFileName: null);
+        else
+            File.Move(tmp, ConfigPath);
+
+        // The file on disk no longer matches what Save() last wrote, so drop the skip-write hash;
+        // otherwise an unchanged in-memory AppSettings would suppress the next save and let the
+        // restored file be silently re-overwritten (or, worse, leave the two permanently disagreeing).
+        lock (_saveLock) _lastWrittenHash = null;
     }
 
     // Keep 5 backups from today + 1 per prior day for 7 days (roughly 12 total).
