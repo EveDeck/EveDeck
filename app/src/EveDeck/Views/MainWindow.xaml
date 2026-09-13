@@ -2916,7 +2916,7 @@ EveDeck respects EVE's one-input-to-one-client rule. It manages windows and show
               <!-- Support -->
               <TextBlock Text="Support development" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
-EveDeck is free and open source, with no paywall and no feature held back for a paid tier. If it has earned a spot in your setup, ISK donations are welcome in-game to the character EveDeck. Never required, always appreciated, and nothing in EveDeck changes either way.
+EveDeck is free and open source, with no paywall and no feature held back for a paid tier. If it has earned a spot in your setup, ISK donations are welcome in-game to the corporation EveDeck.Space [EDECK]. Never required, always appreciated, and nothing in EveDeck changes either way.
               </TextBlock>
 
             </StackPanel>
