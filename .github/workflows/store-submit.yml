@@ -60,8 +60,14 @@ jobs:
       - name: Publish self-contained
         shell: pwsh
         run: |
+          # -p:DebugType=none must match release.yml. Without it the Store package ships PDBs, and
+          # .NET then resolves file/line for every logged exception using the paths recorded at build
+          # time -- on a runner that is D:\a\EveDeck\EveDeck\..., so Store users' logs fill with stack
+          # frames pointing at a drive that exists only inside GitHub Actions. That was fixed for the
+          # portable track and silently missed here, so Store users kept getting it.
           dotnet publish app/src/EveDeck/EveDeck.csproj `
             -c Release --self-contained -r win-x64 `
+            -p:DebugType=none `
             -o publish-ci
 
       - name: Build Microsoft Store package (MSIX)
