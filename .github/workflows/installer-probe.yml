@@ -1,0 +1,88 @@
+name: Installer AV Probe
+
+# Throwaway diagnostic (NOT part of the release pipeline). Builds the Inno Setup installer the
+# same way the old release job did, uploads it to VirusTotal, and prints which engines flag it.
+# The installer track was dropped in 2026-09 because it drew Defender's Wacatac ML heuristic; this
+# measures whether that is still true on a current build before deciding to re-add the track.
+# Ships nothing to users and changes no app code. Delete once the question is answered.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version for the installer filename (e.g. 1.54.3)"
+        required: false
+        default: "0.0.0-probe"
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.x'
+
+      - name: Publish self-contained
+        shell: pwsh
+        # Matches release.yml exactly, -p:DebugType=none included, so the probe measures the real
+        # shipping payload rather than a debug build.
+        run: |
+          dotnet publish app/src/EveDeck/EveDeck.csproj `
+            -c Release --self-contained -r win-x64 `
+            -p:DebugType=none `
+            -o publish-ci
+
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc app/installer/EveDeck.iss `
+            "/DMyAppVersion=${{ inputs.version }}" `
+            "/DMySourceDir=$PWD\publish-ci"
+
+      - name: Upload installer as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-probe
+          path: app/installer/output/*.exe
+
+      - name: Scan installer on VirusTotal and print flagged engines
+        shell: bash
+        env:
+          VT_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
+        run: |
+          set -euo pipefail
+          FILE=$(ls app/installer/output/*.exe | head -1)
+          echo "scanning: $FILE ($(du -h "$FILE" | cut -f1))"
+
+          # >32MB needs the large-file upload URL, which the installer always exceeds.
+          UPURL=$(curl -s -H "x-apikey: $VT_API_KEY" https://www.virustotal.com/api/v3/files/upload_url | jq -r '.data')
+          ID=$(curl -s -H "x-apikey: $VT_API_KEY" -F "file=@$FILE" "$UPURL" | jq -r '.data.id')
+          echo "analysis id: $ID"
+
+          for i in $(seq 1 40); do
+            RESP=$(curl -s -H "x-apikey: $VT_API_KEY" "https://www.virustotal.com/api/v3/analyses/$ID")
+            STATUS=$(echo "$RESP" | jq -r '.data.attributes.status // "unknown"')
+            echo "  [$i] status=$STATUS"
+            if [ "$STATUS" = "completed" ]; then
+              SHA=$(echo "$RESP" | jq -r '.meta.file_info.sha256')
+              echo "sha256: $SHA"
+              echo "report: https://www.virustotal.com/gui/file/$SHA"
+              curl -s -H "x-apikey: $VT_API_KEY" "https://www.virustotal.com/api/v3/files/$SHA" | jq '{
+                  stats: .data.attributes.last_analysis_stats,
+                  flagged: (.data.attributes.last_analysis_results
+                    | to_entries
+                    | map(select(.value.category != "undetected" and .value.category != "harmless" and .value.category != "type-unsupported"))
+                    | from_entries)
+                }'
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "timed out waiting for VirusTotal analysis"
+          exit 1
