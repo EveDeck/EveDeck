@@ -108,15 +108,34 @@ try {
         Write-Warning "Self-signing for LOCAL TEST ONLY. Do not submit this file to the Store."
         $manifestXml = [xml](Get-Content (Join-Path $stage "AppxManifest.xml"))
         $publisher = $manifestXml.Package.Identity.Publisher
-        $cert = New-SelfSignedCertificate -Type Custom -Subject $publisher `
-            -KeyUsage DigitalSignature -FriendlyName "EveDeck MSIX local test" `
-            -CertStoreLocation "Cert:\CurrentUser\My" `
-            -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+
+        # Reuse a still-valid local test cert for this publisher rather than minting a new one on
+        # every run: repeated runs otherwise pile up certificates that all share the same subject,
+        # which makes any subject-based signtool lookup ambiguous.
+        $cert = Get-ChildItem "Cert:\CurrentUser\My" |
+            Where-Object { $_.Subject -eq $publisher -and $_.NotAfter -gt (Get-Date).AddDays(7) } |
+            Sort-Object NotAfter -Descending | Select-Object -First 1
+        if (-not $cert) {
+            $cert = New-SelfSignedCertificate -Type Custom -Subject $publisher `
+                -KeyUsage DigitalSignature -FriendlyName "EveDeck MSIX local test" `
+                -CertStoreLocation "Cert:\CurrentUser\My" `
+                -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+        }
+
         $signtool = Get-ChildItem -Path $sdkRoot -Filter "signtool.exe" -Recurse -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending | Select-Object -First 1
         if (-not $signtool) { throw "signtool.exe not found -- cannot self-sign." }
-        & $signtool.FullName sign /fd SHA256 /a /s My /n $cert.Subject $OutFile
-        if ($LASTEXITCODE -ne 0) { throw "signtool failed with exit code $LASTEXITCODE" }
+
+        # Select the certificate by thumbprint, not by subject. signtool's /n takes a SUBSTRING of the
+        # subject's common name, so passing the full DN ("CN=<guid>") matches nothing and the whole
+        # step failed with a bare "exit code 1" -- which is what silently broke local MSIX testing.
+        # /sha1 is exact and unambiguous even with several certs sharing a subject.
+        $signOutput = & $signtool.FullName sign /fd SHA256 /sha1 $cert.Thumbprint $OutFile 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            # Surface signtool's own message; without it this is an exit code and nothing else.
+            throw "signtool failed with exit code $LASTEXITCODE`n$($signOutput -join "`n")"
+        }
+        $signOutput | ForEach-Object { Write-Host $_ }
         Write-Host "Signed with local test cert $($cert.Thumbprint). Trust it before installing:"
         Write-Host "  Export it from Cert:\CurrentUser\My and import into Local Machine > Trusted People."
     }
