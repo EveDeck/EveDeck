@@ -28,7 +28,10 @@ public sealed partial class MainWindowViewModel
         // window placement ("copy") even with corner overlays globally enabled.
         if (PreviewModeFor(SelectedProfile))
         {
-            await ApplyCornerOverlayLayout();
+            // Guarded for the same reason as the main path below: this is `async void`, so an
+            // escaping exception reaches DispatcherUnhandledException, which shuts the app down.
+            try { await ApplyCornerOverlayLayout(); }
+            catch (Exception ex) { Log.Error($"Corner-overlay layout apply failed: {ex}"); }
             return;
         }
 
@@ -73,37 +76,55 @@ public sealed partial class MainWindowViewModel
         _applyInProgress = true;
         UndoLastApplyCommand.RaiseCanExecuteChanged();
 
-        await System.Threading.Tasks.Task.Run(async () =>
+        // _applyInProgress MUST be cleared on every exit path. It gates the early return at the top
+        // of this method, so leaving it set once disables every subsequent layout apply for the rest
+        // of the session -- silently, with the hotkeys still appearing to work. This method is
+        // `async void` (six call sites invoke it without awaiting), which means anything escaping
+        // here also reaches DispatcherUnhandledException, and that handler shuts the app down.
+        try
         {
-            foreach (var (window, slot, targetRect, borderless) in workItems)
+            await System.Threading.Tasks.Task.Run(async () =>
             {
-                try
+                foreach (var (window, slot, targetRect, borderless) in workItems)
                 {
-                    // Move first so WM_NCCALCSIZE (from MakeBorderless) fires at the correct position.
-                    _windowService.MoveResizeWindow(window.Handle, targetRect);
-                    if (borderless) _windowService.MakeBorderless(window.Handle);
-                    WpfApp.Current.Dispatcher.Invoke(() =>
-                        Log.Info($"Moved {window.Title} to slot {slot.SlotNumber}: {targetRect}."));
+                    try
+                    {
+                        // Move first so WM_NCCALCSIZE (from MakeBorderless) fires at the correct position.
+                        _windowService.MoveResizeWindow(window.Handle, targetRect);
+                        if (borderless) _windowService.MakeBorderless(window.Handle);
+                        // LogService marshals to the dispatcher itself, so no Invoke here. The previous
+                        // WpfApp.Current.Dispatcher.Invoke wrapper blocked this worker on the UI thread
+                        // once per window, and NRE'd outright whenever Current was null (see the note in
+                        // App.OnDispatcherUnhandledException) -- including from inside the catch below,
+                        // which is how a single failed move could take the whole app down.
+                        Log.Info($"Moved {window.Title} to slot {slot.SlotNumber}: {targetRect}.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error($"Could not apply slot {slot.SlotNumber} to {window.Title}: {ex}");
+                    }
                 }
-                catch (Exception ex)
+
+                // Re-apply positions after a short delay to override any deferred self-correction
+                // the game may post to its own message queue after processing WM_NCCALCSIZE.
+                await System.Threading.Tasks.Task.Delay(300);
+                foreach (var (window, _, targetRect, _) in workItems)
                 {
-                    WpfApp.Current.Dispatcher.Invoke(() =>
-                        Log.Error($"Could not apply slot {slot.SlotNumber} to {window.Title}: {ex.Message}"));
+                    try { _windowService.MoveResizeWindow(window.Handle, targetRect); }
+                    catch { } // best-effort second pass; window may have closed mid-apply
                 }
-            }
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Layout apply failed: {ex}");
+        }
+        finally
+        {
+            _applyInProgress = false;
+            UndoLastApplyCommand.RaiseCanExecuteChanged();
+        }
 
-            // Re-apply positions after a short delay to override any deferred self-correction
-            // the game may post to its own message queue after processing WM_NCCALCSIZE.
-            await System.Threading.Tasks.Task.Delay(300);
-            foreach (var (window, _, targetRect, _) in workItems)
-            {
-                try { _windowService.MoveResizeWindow(window.Handle, targetRect); }
-                catch { } // best-effort second pass; window may have closed mid-apply
-            }
-        });
-
-        _applyInProgress = false;
-        UndoLastApplyCommand.RaiseCanExecuteChanged();
         Refresh();
 
         // Re-baseline swap bookkeeping so a flat-grid layout starts at rest (master centered).

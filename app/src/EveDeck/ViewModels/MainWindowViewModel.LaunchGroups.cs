@@ -41,6 +41,7 @@ public sealed partial class MainWindowViewModel
         if (parameter is not CharacterSet group) return;
 
         _launchGroupCts?.Cancel();
+        _launchGroupCts?.Dispose();
         _launchGroupCts = new CancellationTokenSource();
         try
         {
@@ -49,6 +50,14 @@ public sealed partial class MainWindowViewModel
         catch (OperationCanceledException)
         {
             // Superseded by a newer launch request — expected, nothing to report.
+        }
+        catch (Exception ex)
+        {
+            // This method is `async void`, so anything not caught here reaches
+            // DispatcherUnhandledException and shuts the app down. A wrong EveLauncherPathOverride
+            // (Win32Exception / FileNotFoundException) is the likely trigger and must degrade to a
+            // log line, not a process kill.
+            Log.Error($"Launching group '{group.Name}' failed: {ex}");
         }
     }
 }
