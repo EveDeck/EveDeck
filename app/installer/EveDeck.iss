@@ -47,9 +47,10 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 LicenseFile=..\..\LICENSE
-; The in-app silent-update flow (Services/UpdateApplyService.cs) re-runs this installer with
-; /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS -- spelled out explicitly here rather than relying on
-; Inno's own defaults, since that flow depends on both being enabled.
+; Let Inno's Restart Manager close a running EveDeck before overwriting files and relaunch it after,
+; so installing a newer version over a running one is graceful instead of failing on locked files.
+; The installer does NOT self-update the app (that in-app path was removed as a security fix in
+; v1.53.3 and is not restored) -- this only covers a user manually running a newer installer.
 CloseApplications=yes
 RestartApplications=yes
 
@@ -68,11 +69,7 @@ Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-; No skipifsilent: the in-app silent-update flow (Services/UpdateApplyService.cs) depends on this
-; relaunching EveDeck after a /SILENT install -- confirmed via local testing that silent installs
-; otherwise finish with the app closed and nothing bringing it back (/RESTARTAPPLICATIONS alone
-; did not reliably relaunch it). Safe for interactive installs too: postinstall already means
-; "launch after finishing", this only removes the silent-mode exception to that.
+; Offer to launch EveDeck when the wizard finishes (standard interactive-install behaviour).
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall
 
 [UninstallDelete]
