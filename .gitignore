@@ -42,3 +42,6 @@ site/
 
 # Microsoft Store certification support bundles — carry publisher identity details.
 app/cert-report-*.zip
+
+# Portable zip staging dir (created by the release workflow and local test packs)
+dist/
