@@ -179,10 +179,9 @@ jobs:
       - name: Scan release files with VirusTotal
         id: vt
         shell: pwsh
-        # Scans the portable package users download. Doesn't scan the Velopack nupkg/feed files --
-        # those aren't something a user downloads
-        # directly. Same function runs twice with a distinct output prefix; each prefix's outputs
-        # are independent.
+        # Scans both downloads users can actually click, plus the app binary inside them. The same
+        # function runs once per target with a distinct output prefix; each prefix's outputs are
+        # independent.
         env:
           VT_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
         run: |
@@ -290,14 +289,12 @@ jobs:
           Invoke-VtScan -Path "dist\EveDeck-win-Portable.zip" -Prefix "portable"
           Invoke-VtScan -Path "app\installer\output\EveDeck-Setup-v${{ steps.ver.outputs.version }}.exe" -Prefix "installer"
           # EveDeck's own executable, scanned on its own rather than only inside a container.
-          # Measured 2026-09-15: this binary is 0/71 while the portable zip reports 1 malicious,
-          # because the zip also carries Velopack's prebuilt stubs (Update.exe and the root
-          # launcher) and Sangfor flags Update.exe as Trojan.Win32.Save.a -- a false positive on
-          # a third-party file shared by every Velopack app. The installer scores 0/68 purely
-          # because its payload is these app files with no stub. Reporting this line alongside
-          # the container scans keeps the difference legible instead of reading as "EveDeck is
-          # dirty". Costs no extra quota once the hash is known: the function returns an existing
-          # report without re-uploading.
+          # Added after the 2026-09-15 investigation that retired Velopack: the portable zip used
+          # to report 1 malicious while this binary measured 0/71, because the detection lived
+          # entirely in Velopack's prebuilt stubs and never in EveDeck's code. Those stubs are
+          # gone, but scanning the binary directly stays -- it is the only line that can prove the
+          # app itself is clean independently of whatever container ships it. Costs no extra quota
+          # once the hash is known: the function returns an existing report without re-uploading.
           Invoke-VtScan -Path "publish-ci\EveDeck.exe" -Prefix "app"
 
       - name: Create GitHub Release
@@ -410,9 +407,9 @@ jobs:
           [ -n "$INSTALLER_VT_URL" ] && FLAGS+=("--installer-virustotal-url=$INSTALLER_VT_URL")
           [ -n "$INSTALLER_VT_SUMMARY" ] && FLAGS+=("--installer-virustotal-summary=$INSTALLER_VT_SUMMARY")
           [ -n "$INSTALLER_VT_CLEAN" ] && FLAGS+=("--installer-virustotal-clean=$INSTALLER_VT_CLEAN")
-          # downloadUrl / sha256 / virustotal-* here describe the Velopack portable package now,
-          # not a plain zip -- reusing the same content.ts fields (no schema change) since this is
-          # a replacement, not an addition, of the old portable download.
+          # downloadUrl / sha256 / virustotal-* describe the portable zip, whatever it is packaged
+          # as at the time: a plain zip again since 2026-09-15, a Velopack package before that.
+          # The content.ts field names have outlived both and are deliberately not renamed.
           node scripts/add-release.mjs "$VERSION" \
             "https://github.com/EveDeck/EveDeck/releases/download/v$VERSION/EveDeck-win-Portable.zip" \
             "${FLAGS[@]}" "${BULLETS[@]}"
