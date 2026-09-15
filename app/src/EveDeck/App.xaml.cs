@@ -2,7 +2,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
-using Velopack;
 using Application = System.Windows.Application;
 using MessageBox = System.Windows.MessageBox;
 
@@ -15,16 +14,13 @@ public partial class App : Application
     private Services.ProtocolHandlerService? _protocolHandler;
 
     // App.xaml is no longer an ApplicationDefinition (see EveDeck.csproj), so this is the real
-    // entry point. VelopackApp.Build().Run() must be the very first thing that runs -- it handles
-    // Velopack's own hidden install/update/uninstall shortcut-management invocations and exits
-    // immediately when called that way, so nothing below it runs in that case (by design).
+    // entry point. It was originally made explicit so VelopackApp.Build().Run() could go first;
+    // Velopack is gone now (the portable track ships as a plain zip), but the explicit Main stays
+    // -- EnableDefaultApplicationDefinition=false is also what stops the WPF markup pass from
+    // generating a second Main, and reverting that would bring back CS0017. See EveDeck.csproj.
     [STAThread]
     public static void Main(string[] args)
     {
-        // Skipped entirely in the Microsoft Store (MSIX) build: a packaged app cannot modify its own
-        // install directory, so Velopack has nothing valid to do there -- the Store handles updates.
-        // See Utilities/PackagedAppInfo.
-        if (!Utilities.PackagedAppInfo.IsPackaged) VelopackApp.Build().Run();
         var app = new App();
         app.InitializeComponent();
 

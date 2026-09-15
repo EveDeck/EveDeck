@@ -28,9 +28,10 @@
          call in App.xaml.cs is a defensive fallback, not the primary mechanism. -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
     <ApplicationIcon>Assets\evedeck.ico</ApplicationIcon>
-    <!-- Custom Main (below, in App.xaml.cs) so VelopackApp.Build().Run() can run before anything
-         else at startup: requires App.xaml to stop being the implicit ApplicationDefinition
-         (which auto-generates its own Main and would collide with ours). -->
+    <!-- Custom Main (below, in App.xaml.cs). Added so Velopack could initialise before anything
+         else at startup; Velopack is gone, but the explicit Main is kept because it requires
+         App.xaml to stop being the implicit ApplicationDefinition (which auto-generates its own
+         Main and would collide with ours). See EnableDefaultApplicationDefinition below. -->
     <StartupObject>EveDeck.App</StartupObject>
     <!-- Stop the SDK from auto-adding App.xaml as an ApplicationDefinition. The Remove/Page swap
          below handles the primary build, but the WPF markup "Pass 1" temp project (triggered whenever
@@ -41,7 +42,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
-    <PackageReference Include="Velopack" Version="1.2.0" />
     <!-- Opt-in WGC local preview capture (Services\Wgc). GPU capture was removed in v1.22.0 after
          it hard-locked the machine under heavy multi-client DX12 load. This path is gated behind a
          setting, shares one D3D11 device, checks free VRAM before starting, and falls every tile

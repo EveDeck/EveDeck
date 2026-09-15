@@ -366,35 +366,40 @@ public sealed partial class MainWindowViewModel : ObservableObject
         });
     }
 
-    private async Task InstallUpdateAsync()
+    // EveDeck does not apply its own updates. The portable track ships as a plain zip the user
+    // extracts over their copy, so the most this can do is open the download page. The Velopack
+    // updater stubs that used to do this in-process were the ONLY thing VirusTotal ever flagged in
+    // the portable download -- the app's own binary scores 0/71 and the installer, whose payload is
+    // those same app files without a stub, scores 0/68. Dropping them removed the detection and a
+    // whole class of update-path risk with it.
+    private Task InstallUpdateAsync()
     {
-        if (_availableUpdate is not { } update) return;
+        if (_availableUpdate is not { } update) return Task.CompletedTask;
+        if (update.DownloadUrl is not { } url) return Task.CompletedTask;
 
-        var kind = new UpdateApplyService(Log).DetectInstallKind();
-        if (kind != InstallKind.Velopack)
+        // Only ever hand a web address to the shell. UseShellExecute launches whatever the string
+        // names -- a local path or a file:// URL gets executed, not browsed -- and this string
+        // arrives from a remote API response (Services/UpdateCheckService reads evedeck.space's
+        // /api/version). Checking the scheme is what keeps a spoofed or compromised manifest from
+        // turning the update prompt into arbitrary execution: the same shape of hole that was
+        // removed in v1.53.3, and now the only update path left, so it carries more weight.
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
-            if (update.DownloadUrl is { } url)
-                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
-                catch (Exception ex) { Log.Error($"Could not open link: {ex.Message}"); }
-            return;
+            Log.Error($"Refusing to open update link with an unexpected scheme: {url}");
+            return Task.CompletedTask;
         }
-
-        var confirm = MessageBox.Show(
-            $"EveDeck will close and update to v{update.Version}. Continue?",
-            "Update EveDeck",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (confirm != MessageBoxResult.Yes) return;
 
         try
         {
-            await new UpdateApplyService(Log).ApplyVelopackUpdateAsync();
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
         }
         catch (Exception ex)
         {
-            Log.Error($"Update failed: {ex.Message}");
-            MessageBox.Show($"The update could not be applied: {ex.Message}", "Update EveDeck", MessageBoxButton.OK, MessageBoxImage.Error);
+            Log.Error($"Could not open the download page: {ex}");
         }
+
+        return Task.CompletedTask;
     }
 
     // ── Observables ────────────────────────────────────────────────────────────

@@ -99,27 +99,33 @@ jobs:
             -p:DebugType=none `
             -o publish-ci
 
-      - name: Package portable app with Velopack
+      - name: Package portable app (plain zip)
         shell: pwsh
-        # Replaces the old plain zip with a Velopack-managed self-updating portable package (the
-        # app's UpdateApplyService applies updates via Velopack for this track). Output filenames
-        # are fixed by Velopack itself, not chosen here -- confirmed via a local `vpk pack` run:
-        # Releases\EveDeck-win-Portable.zip (the human-facing download), EveDeck-<ver>-full.nupkg
-        # + releases.win.json/RELEASES/assets.win.json (the update feed GithubSource reads), and
-        # EveDeck-win-Setup.exe (Velopack's own installer, which we don't surface -- EveDeck ships
-        # portable only). `vpk download` seeds delta-patch generation from the prior release;
-        # harmless no-op on the very first run when there's nothing to seed from yet.
+        # A plain zip of the published app -- byte-for-byte the same files the installer lays down.
+        #
+        # This replaced Velopack on 2026-09-15. Velopack gave the portable build in-place
+        # self-updating, but it did so via two prebuilt Rust stubs (Update.exe and a root launcher)
+        # that shipped inside the zip, and those stubs were the ONLY thing VirusTotal ever flagged
+        # in this download: measured per-file, EveDeck.exe scores 0/71 and the stubs carry 2 and 4
+        # detections, with Sangfor's Trojan.Win32.Save.a on Update.exe being what dropped the zip to
+        # "1 malicious" every release. The installer, whose payload is the app files with no stub,
+        # has always come back 0/68. Removing the stubs removes the detection at the source.
+        #
+        # The cost is deliberate and accepted: the portable track no longer self-updates. The app
+        # still CHECKS for updates (Services/UpdateCheckService polls evedeck.space/api/version) and
+        # now opens the download page instead of applying anything -- which also retires the last
+        # in-app code path that fetched and executed a remote payload. The Store build still updates
+        # itself, via the Store.
+        #
+        # Filename is unchanged on purpose: evedeck.space's /api/version downloadUrl, the site's
+        # download buttons and every past link all point at EveDeck-win-Portable.zip.
+        #
+        # Flat layout (EveDeck.exe at the zip root, no wrapper folder) so extracting over an
+        # existing install replaces it in place. Explorer's "Extract All" still drops it into a
+        # folder named after the zip, so this does not spray files into Downloads.
         run: |
-          # Pinned, deliberately. The Velopack stubs this tool emits (Update.exe and the root
-          # launcher) are prebuilt binaries that ship to users and carry every VirusTotal
-          # detection the portable zip gets -- the app's own EveDeck.exe is 0/71. An unpinned
-          # `install -g vpk` therefore swaps those exact binaries out from under us whenever a
-          # new vpk ships, silently invalidating any false-positive dispute filed against them.
-          # Keep in lockstep with the Velopack PackageReference in EveDeck.csproj.
-          dotnet tool install -g vpk --version 1.2.0
-          vpk download github --repoUrl https://github.com/EveDeck/EveDeck --token ${{ secrets.GITHUB_TOKEN }}
-          vpk pack -u EveDeck -v ${{ steps.ver.outputs.version }} -p publish-ci -e EveDeck.exe `
-            --packTitle EveDeck --icon app\src\EveDeck\Assets\evedeck.ico
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path publish-ci\* -DestinationPath dist\EveDeck-win-Portable.zip -CompressionLevel Optimal
 
       - name: Build installer (Inno Setup)
         shell: pwsh
@@ -281,7 +287,7 @@ jobs:
             }
           }
 
-          Invoke-VtScan -Path "Releases\EveDeck-win-Portable.zip" -Prefix "portable"
+          Invoke-VtScan -Path "dist\EveDeck-win-Portable.zip" -Prefix "portable"
           Invoke-VtScan -Path "app\installer\output\EveDeck-Setup-v${{ steps.ver.outputs.version }}.exe" -Prefix "installer"
           # EveDeck's own executable, scanned on its own rather than only inside a container.
           # Measured 2026-09-15: this binary is 0/71 while the portable zip reports 1 malicious,
@@ -307,10 +313,21 @@ jobs:
               shortcut, proper uninstaller, no admin rights needed).
             - **EveDeck-win-Portable.zip** — portable, just extract and run **EveDeck.exe**.
 
-            No .NET runtime required either way — everything is bundled. The portable build
-            self-updates in place (Options → About → Check for Updates, or the update banner), as does
-            the Microsoft Store build; the installer does not — grab a newer installer here when one
-            ships.
+            No .NET runtime required either way — everything is bundled.
+
+            **Updating:** neither download updates itself. EveDeck still tells you when a new version
+            is out (Options → About → Check for Updates, or the update banner) and sends you here to
+            get it. For the portable build, extract the new zip over your existing folder, replacing
+            the files — your settings and logs live in `%LOCALAPPDATA%\EveDeck` and are untouched.
+            For the installer, just run the newer installer. Only the Microsoft Store build updates
+            itself, through the Store.
+
+            > **Upgrading a portable install from v1.54.4 or earlier?** Those builds were packaged
+            > with Velopack, so your folder has `Update.exe` and a `current\` subfolder. This one is
+            > a plain zip. Extract it to a fresh folder and delete the old one (or at least delete
+            > `Update.exe` and `current\`) rather than unpacking on top — and note the in-app
+            > **Update** button in those older builds can no longer apply anything, so come here
+            > instead. Settings carry over regardless; they are not stored in the app folder.
 
             > **Windows SmartScreen:** click **More info → Run anyway** on first launch.
             > Right-click → Properties → Unblock also removes the prompt permanently.
@@ -322,19 +339,10 @@ jobs:
             - installer download: [${{ steps.vt.outputs.installer_vt_summary }}](${{ steps.vt.outputs.installer_vt_url }}) (SHA-256 `${{ steps.vt.outputs.installer_sha256 }}`)
             - portable download: [${{ steps.vt.outputs.portable_vt_summary }}](${{ steps.vt.outputs.portable_vt_url }}) (SHA-256 `${{ steps.vt.outputs.portable_sha256 }}`)
 
-            The portable zip usually shows a single detection that the installer does not. It is a
-            known false positive, and it is not in EveDeck's code: the zip also contains the
-            prebuilt updater stubs from [Velopack](https://github.com/velopack/velopack) that make
-            the portable build self-update, and one engine (Sangfor) flags `Update.exe` — a file
-            shipped identically by every app that uses Velopack. The installer carries no such stub,
-            which is the only reason its score differs. EveDeck's own executable is scanned
-            separately above so you can check it directly.
+            EveDeck's own executable is scanned on its own, not just inside the two download
+            containers, so you can verify the binary you actually run.
           files: |
-            Releases/EveDeck-win-Portable.zip
-            Releases/*.nupkg
-            Releases/releases.win.json
-            Releases/RELEASES
-            Releases/assets.win.json
+            dist/EveDeck-win-Portable.zip
             app/installer/output/EveDeck-Setup-v${{ steps.ver.outputs.version }}.exe
 
   update-site:
