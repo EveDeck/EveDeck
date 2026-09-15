@@ -106,7 +106,13 @@ jobs:
         # portable only). `vpk download` seeds delta-patch generation from the prior release;
         # harmless no-op on the very first run when there's nothing to seed from yet.
         run: |
-          dotnet tool install -g vpk
+          # Pinned, deliberately. The Velopack stubs this tool emits (Update.exe and the root
+          # launcher) are prebuilt binaries that ship to users and carry every VirusTotal
+          # detection the portable zip gets -- the app's own EveDeck.exe is 0/71. An unpinned
+          # `install -g vpk` therefore swaps those exact binaries out from under us whenever a
+          # new vpk ships, silently invalidating any false-positive dispute filed against them.
+          # Keep in lockstep with the Velopack PackageReference in EveDeck.csproj.
+          dotnet tool install -g vpk --version 1.2.0
           vpk download github --repoUrl https://github.com/EveDeck/EveDeck --token ${{ secrets.GITHUB_TOKEN }}
           vpk pack -u EveDeck -v ${{ steps.ver.outputs.version }} -p publish-ci -e EveDeck.exe `
             --packTitle EveDeck --icon app\src\EveDeck\Assets\evedeck.ico
