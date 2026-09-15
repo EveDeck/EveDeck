@@ -22,6 +22,10 @@ jobs:
       installer_vt_url: ${{ steps.vt.outputs.installer_vt_url }}
       installer_vt_summary: ${{ steps.vt.outputs.installer_vt_summary }}
       installer_vt_clean: ${{ steps.vt.outputs.installer_vt_clean }}
+      app_sha256: ${{ steps.vt.outputs.app_sha256 }}
+      app_vt_url: ${{ steps.vt.outputs.app_vt_url }}
+      app_vt_summary: ${{ steps.vt.outputs.app_vt_summary }}
+      app_vt_clean: ${{ steps.vt.outputs.app_vt_clean }}
 
     steps:
       - uses: actions/checkout@v7
@@ -279,6 +283,16 @@ jobs:
 
           Invoke-VtScan -Path "Releases\EveDeck-win-Portable.zip" -Prefix "portable"
           Invoke-VtScan -Path "app\installer\output\EveDeck-Setup-v${{ steps.ver.outputs.version }}.exe" -Prefix "installer"
+          # EveDeck's own executable, scanned on its own rather than only inside a container.
+          # Measured 2026-09-15: this binary is 0/71 while the portable zip reports 1 malicious,
+          # because the zip also carries Velopack's prebuilt stubs (Update.exe and the root
+          # launcher) and Sangfor flags Update.exe as Trojan.Win32.Save.a -- a false positive on
+          # a third-party file shared by every Velopack app. The installer scores 0/68 purely
+          # because its payload is these app files with no stub. Reporting this line alongside
+          # the container scans keeps the difference legible instead of reading as "EveDeck is
+          # dirty". Costs no extra quota once the hash is known: the function returns an existing
+          # report without re-uploading.
+          Invoke-VtScan -Path "publish-ci\EveDeck.exe" -Prefix "app"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -304,8 +318,17 @@ jobs:
             ---
 
             🛡️ **VirusTotal**
-            - portable: [${{ steps.vt.outputs.portable_vt_summary }}](${{ steps.vt.outputs.portable_vt_url }}) (SHA-256 `${{ steps.vt.outputs.portable_sha256 }}`)
-            - installer: [${{ steps.vt.outputs.installer_vt_summary }}](${{ steps.vt.outputs.installer_vt_url }}) (SHA-256 `${{ steps.vt.outputs.installer_sha256 }}`)
+            - **EveDeck.exe** (the app itself): [${{ steps.vt.outputs.app_vt_summary }}](${{ steps.vt.outputs.app_vt_url }}) (SHA-256 `${{ steps.vt.outputs.app_sha256 }}`)
+            - installer download: [${{ steps.vt.outputs.installer_vt_summary }}](${{ steps.vt.outputs.installer_vt_url }}) (SHA-256 `${{ steps.vt.outputs.installer_sha256 }}`)
+            - portable download: [${{ steps.vt.outputs.portable_vt_summary }}](${{ steps.vt.outputs.portable_vt_url }}) (SHA-256 `${{ steps.vt.outputs.portable_sha256 }}`)
+
+            The portable zip usually shows a single detection that the installer does not. It is a
+            known false positive, and it is not in EveDeck's code: the zip also contains the
+            prebuilt updater stubs from [Velopack](https://github.com/velopack/velopack) that make
+            the portable build self-update, and one engine (Sangfor) flags `Update.exe` — a file
+            shipped identically by every app that uses Velopack. The installer carries no such stub,
+            which is the only reason its score differs. EveDeck's own executable is scanned
+            separately above so you can check it directly.
           files: |
             Releases/EveDeck-win-Portable.zip
             Releases/*.nupkg
