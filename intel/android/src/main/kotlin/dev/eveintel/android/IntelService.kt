@@ -15,6 +15,8 @@ import dev.eveintel.model.Keyword
 import dev.eveintel.parse.isHostile
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -40,23 +42,28 @@ class IntelService : LifecycleService() {
         }
 
         lifecycleScope.launch {
-            // Restart the connection whenever the server address or followed character changes.
-            settings.state.collectLatest { snapshot ->
-                connectionJob?.cancel()
-                client?.close()
-                if (!snapshot.isConfigured) {
-                    updateServiceNotification("No server configured")
-                    return@collectLatest
+            // Only the server address may tear the socket down. The alert settings are read fresh
+            // per message, so this must not react to them: collecting the whole snapshot would
+            // redial the WebSocket on every tick of the radius slider.
+            settings.state
+                .map { it.connection }
+                .distinctUntilChanged()
+                .collectLatest { (host, port) ->
+                    connectionJob?.cancel()
+                    client?.close()
+                    if (host.isBlank()) {
+                        updateServiceNotification("No server configured")
+                        return@collectLatest
+                    }
+                    val newClient = IntelClient(Build.MODEL ?: "tablet")
+                    client = newClient
+                    IntelRepository.requestChannels = { channels ->
+                        newClient.send(dev.eveintel.wire.ClientMessage.SetChannels(channels))
+                    }
+                    connectionJob = lifecycleScope.launch {
+                        newClient.run("ws://$host:$port/intel")
+                    }
                 }
-                val newClient = IntelClient(Build.MODEL ?: "tablet")
-                client = newClient
-                IntelRepository.requestChannels = { channels ->
-                    newClient.send(dev.eveintel.wire.ClientMessage.SetChannels(channels))
-                }
-                connectionJob = lifecycleScope.launch {
-                    newClient.run(snapshot.webSocketUrl, snapshot.followedCharacter)
-                }
-            }
         }
 
         lifecycleScope.launch {
@@ -76,7 +83,14 @@ class IntelService : LifecycleService() {
         }
     }
 
-    /** Alerts only on hostile intel inside the configured jump radius of the followed character. */
+    /**
+     * Alerts on hostile intel inside the configured jump radius of the chosen characters.
+     *
+     * Distance is the nearest of those characters, so a multiboxer gets one alert for the fleet.
+     * When it cannot be worked out at all — nobody chosen, nobody seen in Local yet, the universe
+     * still loading — the alert is raised anyway and says so, because going quiet about a hostile
+     * is the worse failure. It is labelled rather than silently passed off as in-range.
+     */
     private fun maybeAlert(message: IntelMessage) {
         val snapshot = settings.state.value
         if (snapshot.alertJumpRadius <= 0) return
@@ -84,19 +98,19 @@ class IntelService : LifecycleService() {
             if (!(snapshot.alertOnClear && Keyword.CLEAR in message.keywords)) return
         }
 
-        val distances = IntelRepository.distancesFrom(snapshot.followedCharacter)
+        val distances = IntelRepository.distancesFrom(snapshot.alertCharacters)
         val universe = IntelRepository.universe
-        val nearest = message.systemIds
-            .mapNotNull { id -> distances[id]?.let { id to it } }
-            .minByOrNull { it.second }
+        val jumps = message.systemIds.mapNotNull { distances[it] }.minOrNull()
 
-        // With no location known, alert on everything in scope rather than going silent.
-        val jumps = nearest?.second
         if (jumps != null && jumps > snapshot.alertJumpRadius) return
 
         val systemName = message.systemIds.firstNotNullOfOrNull { universe?.system(it)?.name }
             ?: return
-        val distanceText = jumps?.let { if (it == 0) " — YOUR SYSTEM" else " — $it jump${if (it == 1) "" else "s"}" } ?: ""
+        val distanceText = when {
+            jumps == 0 -> " — YOUR SYSTEM"
+            jumps != null -> " — $jumps jump${if (jumps == 1) "" else "s"}"
+            else -> " — range unknown"
+        }
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ALERTS)
             .setSmallIcon(R.drawable.ic_stat_intel)

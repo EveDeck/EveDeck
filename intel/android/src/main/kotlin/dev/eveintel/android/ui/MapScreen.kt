@@ -45,9 +45,9 @@ fun MapScreen(state: IntelUiState, now: Long, modifier: Modifier = Modifier) {
         return
     }
 
-    // Prefer the region the followed character is in; fall back to the channel's scope.
-    val regionIds = remember(state.scopeRegionIds, state.followedLocation?.systemId) {
-        val here = state.followedLocation?.let { universe.system(it.systemId)?.regionId }
+    // Prefer the region the alert characters are in; fall back to the channel's scope.
+    val regionIds = remember(state.scopeRegionIds, state.primaryLocation?.systemId) {
+        val here = state.primaryLocation?.let { universe.system(it.systemId)?.regionId }
         when {
             here != null -> setOf(here)
             state.scopeRegionIds.isNotEmpty() -> state.scopeRegionIds
@@ -122,7 +122,7 @@ fun MapScreen(state: IntelUiState, now: Long, modifier: Modifier = Modifier) {
             systems.forEach { system ->
                 val point = project(system)
                 val intel = intelBySystem[system.id]
-                val isYou = state.followedLocation?.systemId == system.id
+                val isYou = system.id in state.alertSystemIds
                 val jumps = state.jumpsTo(system.id)
                 val inRange = state.isInRange(jumps)
                 val radius = (if (isYou) 7f else 4f) * max(0.7f, min(scale, 2f))

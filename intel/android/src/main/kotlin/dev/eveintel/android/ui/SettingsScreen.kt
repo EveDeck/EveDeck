@@ -141,30 +141,38 @@ fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Mod
             }
         }
 
-        Section("Follow character") {
+        Section("Alert characters") {
             Text(
-                "Jump distances are measured from this character's current system, read from their Local channel.",
+                "Jump distance is measured from whichever of these characters is closest, using " +
+                    "the system their Local channel last reported.",
                 color = IntelColors.Muted,
                 fontSize = 12.sp,
             )
             if (state.locations.isEmpty()) {
                 Text("No characters seen yet.", color = IntelColors.Muted, fontSize = 13.sp)
+            } else if (settings.alertCharacters.isEmpty()) {
+                // Without an origin nothing can be measured, so every hostile line alerts. Saying
+                // so beats a radius that looks set and quietly does nothing.
+                Text(
+                    "None selected — the jump radius cannot be applied, so every hostile report " +
+                        "alerts. Pick at least one character.",
+                    color = IntelColors.Warning,
+                    fontSize = 13.sp,
+                )
             }
             state.locations.values.sortedBy { it.characterName }.forEach { location ->
-                val selected = settings.followedCharacter == location.characterName
+                val selected = location.characterName in settings.alertCharacters
                 Row(
                     Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(4.dp))
                         .background(if (selected) IntelColors.Accent.copy(alpha = 0.15f) else IntelColors.Surface)
-                        .clickable {
-                            viewModel.follow(if (selected) null else location.characterName)
-                        }
+                        .clickable { viewModel.toggleAlertCharacter(location.characterName) }
                         .padding(12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        location.characterName,
+                        (if (selected) "✓  " else "    ") + location.characterName,
                         color = if (selected) IntelColors.Accent else IntelColors.OnSurface,
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                     )

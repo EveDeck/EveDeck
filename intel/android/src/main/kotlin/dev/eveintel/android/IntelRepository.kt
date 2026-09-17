@@ -112,13 +112,17 @@ object IntelRepository {
     }
 
     /**
-     * Jump distances from [character]'s current system to everywhere reachable.
+     * Jump distances to everywhere reachable, measured from whichever of [characters] is closest.
      * Recomputed on demand; a BFS over ~8k nodes is cheap enough not to cache.
+     *
+     * An empty result means the distance is genuinely unknown — no characters chosen, none of them
+     * seen in Local yet, or the universe still loading. Callers must not read that as "far away".
      */
-    fun distancesFrom(character: String?): Map<Int, Int> {
+    fun distancesFrom(characters: Set<String>): Map<Int, Int> {
         val universe = universe ?: return emptyMap()
-        val origin = character?.let { _locations.value[it] } ?: return emptyMap()
-        return universe.distancesFrom(origin.systemId)
+        val origins = characters.mapNotNull { _locations.value[it]?.systemId }
+        if (origins.isEmpty()) return emptyMap()
+        return universe.distancesFrom(origins)
     }
 
     private const val MAX_MESSAGES = 500

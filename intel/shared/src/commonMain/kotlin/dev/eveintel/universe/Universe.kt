@@ -103,11 +103,22 @@ class Universe(dto: UniverseDto) {
      * Run once per location change rather than per message — over ~8k systems this is well under a
      * millisecond, so the tablet can recompute on every jump without noticing.
      */
-    fun distancesFrom(origin: Int): Map<Int, Int> {
-        if (origin !in systemsById) return emptyMap()
+    fun distancesFrom(origin: Int): Map<Int, Int> = distancesFrom(listOf(origin))
+
+    /**
+     * Jump distance to every reachable system from whichever of [origins] is closest.
+     *
+     * Seeding the frontier with every origin at depth 0 gives the nearest-of-any distance in a
+     * single traversal, rather than one BFS per character merged afterwards. That matters because
+     * the caller has one of these per pilot logged in, and the answer it actually wants is "how
+     * close is this to *any* of mine".
+     */
+    fun distancesFrom(origins: Collection<Int>): Map<Int, Int> {
+        val seeds = origins.filter { it in systemsById }.distinct()
+        if (seeds.isEmpty()) return emptyMap()
         val distances = HashMap<Int, Int>(systemsById.size)
-        distances[origin] = 0
-        var frontier = intArrayOf(origin)
+        seeds.forEach { distances[it] = 0 }
+        var frontier = seeds.toIntArray()
         var depth = 0
         while (frontier.isNotEmpty()) {
             depth++

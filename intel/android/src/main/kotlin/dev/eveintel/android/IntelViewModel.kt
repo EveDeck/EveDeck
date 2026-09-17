@@ -23,11 +23,31 @@ data class IntelUiState(
     val characters: Map<String, dev.eveintel.wire.CharacterInfo> = emptyMap(),
     val sovereignty: dev.eveintel.wire.ServerMessage.Sovereignty = dev.eveintel.wire.ServerMessage.Sovereignty(),
     val stats: Map<Int, dev.eveintel.wire.SystemStats> = emptyMap(),
-    /** Jump distance from the followed character to every reachable system. */
+    /** Jump distance to every reachable system from the nearest of the alert characters. */
     val distances: Map<Int, Int> = emptyMap(),
 ) {
-    val followedLocation: CharacterLocation?
-        get() = settings?.followedCharacter?.let { locations[it] }
+    /** Where the alert characters currently are, for centring and for the settings list. */
+    val alertLocations: List<CharacterLocation>
+        get() = settings?.alertCharacters.orEmpty().mapNotNull { locations[it] }
+
+    /** Systems an alert character is sitting in right now, for the "you are here" markers. */
+    val alertSystemIds: Set<Int>
+        get() = alertLocations.mapTo(mutableSetOf()) { it.systemId }
+
+    /**
+     * One location to centre the map on and show in the header. A multiboxer's pilots are almost
+     * always in or near the same place, so the alphabetically first is a stable pick rather than
+     * one that flips about as locations update.
+     */
+    val primaryLocation: CharacterLocation?
+        get() = alertLocations.minByOrNull { it.characterName }
+
+    /**
+     * True when a radius is set but nothing can be measured against it, so every hostile line
+     * alerts. Surfaced in the UI: the radius reads as active while silently doing nothing.
+     */
+    val rangeUnmeasurable: Boolean
+        get() = jumpRange > 0 && distances.isEmpty()
 
     fun jumpsTo(systemId: Int): Int? = distances[systemId]
 
@@ -77,7 +97,7 @@ class IntelViewModel(application: Application) : AndroidViewModel(application) {
         IntelRepository.scopeRegionIds,
     ) { connection, messages, locations, settingsSnapshot, scope ->
         val universe = IntelRepository.universe
-        val origin = settingsSnapshot.followedCharacter?.let { locations[it] }
+        val origins = settingsSnapshot.alertCharacters.mapNotNull { locations[it]?.systemId }
         IntelUiState(
             connection = connection,
             messages = messages,
@@ -85,8 +105,8 @@ class IntelViewModel(application: Application) : AndroidViewModel(application) {
             settings = settingsSnapshot,
             universe = universe,
             scopeRegionIds = scope,
-            distances = if (universe != null && origin != null) {
-                universe.distancesFrom(origin.systemId)
+            distances = if (universe != null && origins.isNotEmpty()) {
+                universe.distancesFrom(origins)
             } else {
                 emptyMap()
             },
@@ -118,7 +138,15 @@ class IntelViewModel(application: Application) : AndroidViewModel(application) {
         it.copy(serverHost = host.trim(), serverPort = port)
     }
 
-    fun follow(character: String?) = settings.update { it.copy(followedCharacter = character) }
+    /** Adds or removes a character from the set the alert radius is measured against. */
+    fun toggleAlertCharacter(character: String) = settings.update {
+        val next = if (character in it.alertCharacters) {
+            it.alertCharacters - character
+        } else {
+            it.alertCharacters + character
+        }
+        it.copy(alertCharacters = next)
+    }
 
     fun setAlertRadius(radius: Int) = settings.update { it.copy(alertJumpRadius = radius) }
 

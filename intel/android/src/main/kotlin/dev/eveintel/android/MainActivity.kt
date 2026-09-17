@@ -164,7 +164,7 @@ private fun StatusBar(state: IntelUiState) {
 
         Spacer(Modifier.weight(1f))
 
-        val location = state.followedLocation
+        val location = state.primaryLocation
         if (location != null) {
             Column(horizontalAlignment = Alignment.End) {
                 Text(

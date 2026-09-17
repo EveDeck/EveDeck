@@ -44,7 +44,7 @@ class IntelClient(private val deviceName: String) {
         pending.tryEmit(message)
     }
 
-    suspend fun run(url: String, followedCharacter: String?) {
+    suspend fun run(url: String) {
         var backoff = MIN_BACKOFF_MS
         while (coroutineContext.isActive) {
             try {
@@ -60,14 +60,9 @@ class IntelClient(private val deviceName: String) {
                             ClientMessage.Hello(deviceName),
                         ),
                     )
-                    followedCharacter?.let {
-                        send(
-                            WireJson.encodeToString(
-                                ClientMessage.serializer(),
-                                ClientMessage.Follow(it),
-                            ),
-                        )
-                    }
+                    // No Follow is sent: jump distance is computed here from the locations the
+                    // daemon broadcasts for every character, so the server never needed to know
+                    // which pilot we care about. It still accepts the verb from older clients.
 
                     val sender = launch {
                         pending.collect { message ->
