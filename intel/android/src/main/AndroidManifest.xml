@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -29,11 +29,24 @@
             </intent-filter>
         </activity>
 
-        <!-- Keeps the WebSocket alive when the tablet is propped up beside the monitor. -->
+        <!--
+          Keeps the WebSocket alive when the tablet is propped up beside the monitor.
+
+          specialUse, not dataSync: since Android 15 a dataSync service is capped at six hours
+          cumulative per day, after which the system calls onTimeout and stops it, and the app
+          cannot start another until the window resets. That is fatal for a monitor that is meant
+          to run for a whole evening, and dataSync means a transfer that finishes, which this
+          never does. specialUse is exempt from the cap. (Play review would want the justification
+          below; sideloading does not.)
+        -->
         <service
             android:name=".IntelService"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Holds a LAN WebSocket open continuously to raise real-time proximity alerts from EVE Online intel channels. The alert is worthless if it arrives late, so the connection cannot be deferred or batched." />
+        </service>
 
     </application>
 

@@ -128,6 +128,33 @@ class IntelService : LifecycleService() {
         }
     }
 
+    /**
+     * The platform asking us to stop, on a foreground-service type it time-limits.
+     *
+     * The service runs as `specialUse`, which is not capped, so this should never fire. It is
+     * implemented anyway because the penalty for ignoring it is an ANR rather than a quiet stop:
+     * the system gives a few seconds to call [stopSelf] and then kills the app if nothing happened.
+     * Leaving a stale "Connected" notification behind would be worse than saying what happened.
+     */
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        stopBecauseOfTimeout()
+        super.onTimeout(startId, fgsType)
+    }
+
+    @Deprecated("Superseded by the two-argument overload on API 35+", ReplaceWith("onTimeout(startId, 0)"))
+    override fun onTimeout(startId: Int) {
+        stopBecauseOfTimeout()
+        @Suppress("DEPRECATION")
+        super.onTimeout(startId)
+    }
+
+    private fun stopBecauseOfTimeout() {
+        updateServiceNotification("Stopped by Android — reopen EveDeck Intel to resume")
+        connectionJob?.cancel()
+        client?.close()
+        stopSelf()
+    }
+
     private fun createChannels() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java)

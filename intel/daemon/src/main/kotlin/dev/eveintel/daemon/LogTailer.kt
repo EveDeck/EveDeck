@@ -40,14 +40,38 @@ data class TailedMessage(
  */
 class LogTailer(
     private val directory: Path,
-    /** Re-read on every poll, so channels selected from the tablet take effect without a restart. */
+    /** Consulted on every scan, so channels selected from the tablet take effect without a restart. */
     private val channels: () -> Set<String>,
     private val pollInterval: Long = 500L,
     private val startFromEnd: Boolean = true,
+    /**
+     * How often the directory is re-enumerated to find rotated or newly selected files.
+     *
+     * Decoupled from [pollInterval] because these cost wildly different amounts. Reading new bytes
+     * from a handful of known files is nearly free; enumerating the Chatlogs directory is not, as
+     * it accumulates every log ever written -- 6k files on the development machine, and it only
+     * grows. Scanning that twice a second cost a measurable fraction of a core doing nothing.
+     */
+    private val rescanInterval: Long = 5_000L,
 ) {
     private val offsets = mutableMapOf<Path, Long>()
     private val headers = mutableMapOf<Path, ChatLogFormat.Header>()
     private val events = MutableSharedFlow<TailedMessage>(extraBufferCapacity = 512)
+
+    /**
+     * Log file names that existed when we started, captured unfiltered.
+     *
+     * This is what separates "history we chose to skip" from "a file EVE has just created". A file
+     * appearing later is a rotation or a fresh login, and its opening lines are live intel, so it
+     * is read from the top even under [startFromEnd]. Capturing it unfiltered matters: otherwise
+     * selecting a new channel from the tablet would make that channel's existing logs look new and
+     * replay the whole day into the feed.
+     */
+    private var preexisting: Set<String>? = null
+
+    private var active: List<Path> = emptyList()
+    private var lastScanAt = 0L
+    private var lastChannels: Set<String>? = null
 
     val messages: Flow<TailedMessage> = events.asSharedFlow()
 
@@ -58,40 +82,71 @@ class LogTailer(
         }
     }
 
-    /** Files EVE is currently appending to: the newest file per channel per character. */
+    /**
+     * Files EVE is currently appending to: the newest file per channel per character.
+     *
+     * Cached between scans. A channel-selection change forces one immediately, so the tablet's
+     * setting still takes effect at once rather than waiting out [rescanInterval].
+     */
     private fun activeFiles(): List<Path> {
-        if (!Files.isDirectory(directory)) return emptyList()
         val wanted = channels()
-        return Files.list(directory).use { stream ->
-            stream.toList()
-                .filter { Files.isRegularFile(it) }
-                .mapNotNull { path ->
-                    val parsed = ChatLogFormat.parseFileName(path.name) ?: return@mapNotNull null
-                    if (wanted.isNotEmpty() && parsed.channel !in wanted) return@mapNotNull null
-                    Triple(path, parsed, "${parsed.channel}|${parsed.characterId}")
-                }
-                .groupBy { it.third }
-                .mapNotNull { (_, group) ->
-                    group.maxByOrNull { "${it.second.date}${it.second.time}" }?.first
-                }
+        val due = System.currentTimeMillis() - lastScanAt >= rescanInterval
+        if (!due && wanted == lastChannels) return active
+
+        lastScanAt = System.currentTimeMillis()
+        lastChannels = wanted
+        active = scan(wanted)
+
+        // Files that rotated out are never read again; without this the maps grow for as long as
+        // the daemon runs, which is the whole point of it.
+        val live = active.toSet()
+        offsets.keys.retainAll(live)
+        headers.keys.retainAll(live)
+        return active
+    }
+
+    private fun scan(wanted: Set<String>): List<Path> {
+        if (!Files.isDirectory(directory)) return emptyList()
+        // A glob plus the filename parse is the filter; the previous isRegularFile check cost a
+        // stat syscall per entry across the whole directory, every single poll.
+        val logs = Files.newDirectoryStream(directory, "*.txt").use { stream ->
+            stream.mapNotNull { path ->
+                ChatLogFormat.parseFileName(path.name)?.let { path to it }
+            }
         }
+        if (preexisting == null) preexisting = logs.mapTo(mutableSetOf()) { it.first.name }
+
+        return logs
+            .filter { (_, parsed) -> wanted.isEmpty() || parsed.channel in wanted }
+            .groupBy { (_, parsed) -> "${parsed.channel}|${parsed.characterId}" }
+            .mapNotNull { (_, group) ->
+                group.maxByOrNull { "${it.second.date}${it.second.time}" }?.first
+            }
     }
 
     private suspend fun poll() = withContext(Dispatchers.IO) {
         for (path in activeFiles()) {
-            val fresh = path !in offsets
-            FileChannel.open(path, StandardOpenOption.READ).use { channel ->
-                val size = channel.size()
-                if (fresh) {
-                    // Read the header once so we know the listener, then optionally skip history.
-                    readHeader(channel, path)
-                    offsets[path] = if (startFromEnd) alignToEven(size) else 0L
-                    if (startFromEnd) return@use
-                }
-                val from = offsets[path] ?: 0L
-                if (size <= from) return@use
-                emitRange(channel, path, from, size)
+            // Per file, not per poll: during a rotation a file can vanish or be briefly locked, and
+            // one such failure must not cost every other channel its turn.
+            runCatching { tail(path) }
+                .onFailure { System.err.println("tail ${path.name} failed: $it") }
+        }
+    }
+
+    private suspend fun tail(path: Path) {
+        val fresh = path !in offsets
+        FileChannel.open(path, StandardOpenOption.READ).use { channel ->
+            val size = channel.size()
+            if (fresh) {
+                // Read the header once so we know the listener, then optionally skip history.
+                readHeader(channel, path)
+                val skipHistory = startFromEnd && path.name in preexisting.orEmpty()
+                offsets[path] = if (skipHistory) alignToEven(size) else 0L
+                if (skipHistory) return@use
             }
+            val from = offsets[path] ?: 0L
+            if (size <= from) return@use
+            emitRange(channel, path, from, size)
         }
     }
 
@@ -109,9 +164,13 @@ class LogTailer(
         if (complete.isEmpty()) return
 
         val consumedBytes = complete.length.toLong() * 2 + 2 // UTF-16LE, plus the newline
-        offsets[path] = alignToEven(minOf(to, from + consumedBytes))
+        val next = alignToEven(minOf(to, from + consumedBytes))
 
-        val fileName = ChatLogFormat.parseFileName(path.name) ?: return
+        val fileName = ChatLogFormat.parseFileName(path.name)
+        if (fileName == null) {
+            offsets[path] = next // Unreachable for a file we chose to tail, but never re-read it.
+            return
+        }
         val header = headers[path]
         for (line in complete.lines()) {
             val message = ChatLogFormat.parseMessage(line) ?: continue
@@ -124,6 +183,10 @@ class LogTailer(
                 ),
             )
         }
+        // Advanced only once the lines are handed off. If emission is cancelled part way the range
+        // is re-read next poll, and the pipeline's dedup drops what already got through -- whereas
+        // advancing first would lose those lines for good.
+        offsets[path] = next
     }
 
     private fun readText(channel: FileChannel, position: Long, length: Long): String {
