@@ -121,9 +121,20 @@ public sealed class AppSettings
     public string HoverZoomAnchor { get; set; } = "TopCenter";
 
     // Ask Windows to power-throttle (EcoQoS) EVE clients that are not the foreground window, on top
-    // of the existing ThrottleBackgroundProcesses priority drop. EcoQoS parks those processes on
-    // efficiency cores and lets the scheduler clock them down, which is the EULA-compliant way to
+    // of the existing ThrottleBackgroundProcesses priority drop. This is the EULA-compliant way to
     // stop background clients burning CPU/GPU.
+    //
+    // Temper expectations: how much it buys depends entirely on the CPU. On hybrid silicon (Intel
+    // 12th-gen+ P/E cores) the scheduler can park throttled processes on the E-cores and the saving
+    // is large. On a HOMOGENEOUS CPU -- every Zen part, older Intel -- there is nowhere to park
+    // them, so EXECUTION_SPEED throttling amounts to a modest frequency hint and little else.
+    // Measured on a Ryzen 7 5800X (8C/16T) with five clients: every client confirmed at
+    // ControlMask=1 StateMask=1 AND BelowNormal priority, still ~2.2 threads of CPU each. The OS
+    // levers were fully applied and the load did not move.
+    //
+    // So on AMD this is not a fix for "N clients pin my CPU". The only thing that moves that number
+    // is capping the clients' own frame rate in their graphics settings, which the user must do
+    // in-client -- see the DLL-injection note below for why EveDeck cannot do it for them.
     //
     // Deliberately NOT a frame-rate limiter: capping another process's FPS means hooking its D3D
     // present chain via DLL injection, which AGENTS.md forbids outright. EcoQoS is pure OS-level
