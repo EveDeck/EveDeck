@@ -17,6 +17,15 @@ Nothing leaves your network. There is no account, no cloud service, and no telem
 | `android/` | The APK. Feed, map, alerts. |
 | `tools/` | SDE download and `universe.json` conversion. |
 
+## Installing
+
+Both halves are published on the [intel-v0.1.0 release](https://github.com/EveDeck/EveDeck/releases/tag/intel-v0.1.0):
+a zipped Windows app image for the daemon, and the tablet APK. The daemon bundles its own Java
+runtime, so nothing has to be installed first -- unzip it, run `EveDeck Intel.exe`, and configure it
+from the tray icon's Settings window.
+
+Everything below is for working on it from source.
+
 ## Running the daemon
 
 ```
@@ -24,6 +33,9 @@ export JAVA_HOME="C:/Program Files/Android/Android Studio/jbr"
 ./gradlew :daemon:installDist
 ./daemon/build/install/daemon/bin/daemon.bat
 ```
+
+Run from Gradle like this it stays a console process. The tray and the settings window only appear
+in the packaged build, where there is no console for `println` to reach.
 
 It prints the address to enter on the tablet:
 
@@ -56,6 +68,22 @@ is the intended way to tune `Vocabulary.kt` for your alliance's habits — look 
 ./gradlew :android:assembleDebug
 adb install -r android/build/outputs/apk/debug/android-debug.apk
 ```
+
+`assembleRelease` signs the APK if `~/.eveintel/signing.properties` exists (override the location
+with `EVEINTEL_SIGNING`). It names a keystore, its passwords and the key alias. Without that file
+the release build is simply unsigned, which is the right outcome on any machine that is not the
+maintainer's -- the key is what stops someone else publishing an app that claims to be this one.
+
+## Packaging the daemon for release
+
+```
+pwsh packaging/build-daemon.ps1 -Version 0.1.0
+```
+
+Produces `build/dist/EveDeckIntel-daemon-<version>-win-x64.zip`: the launcher, a trimmed Java
+runtime, the config template and a readme. It needs a full JDK for `jpackage` -- the Android Studio
+JBR that Gradle builds with does not ship one, so the script finds one separately or takes
+`-JdkHome`.
 
 Then open Settings in the app, enter the host and port the daemon printed, and pick a character to
 follow.
