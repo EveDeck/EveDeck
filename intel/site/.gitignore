@@ -1,0 +1,19 @@
+node_modules
+.next
+out
+npm-debug.log*
+.env
+.env.local
+.DS_Store
+*.tsbuildinfo
+
+# Large release artifacts — served from GitHub Releases instead
+public/files/*.zip
+public/files/*.exe
+
+# Machine-specific credentials — never commit
+deploy/deploy.local.env
+CLAUDE.md
+AGENTS.md
+.claude/
+.frugal-fable/
