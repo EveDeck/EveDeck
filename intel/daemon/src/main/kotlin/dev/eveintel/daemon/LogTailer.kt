@@ -16,6 +16,8 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import kotlin.io.path.name
 
 /**
@@ -53,6 +55,25 @@ class LogTailer(
      * grows. Scanning that twice a second cost a measurable fraction of a core doing nothing.
      */
     private val rescanInterval: Long = 5_000L,
+    /**
+     * Channels whose existing content is read even under [startFromEnd].
+     *
+     * `Local` carries a character's *current system*, which is state rather than an event: EVE
+     * writes one file per system entered and announces the change on its first line. Skipping the
+     * history of a file that already existed therefore means never learning where anybody is until
+     * they next jump -- so a docked or stationary pilot never appears at all. Reading these from
+     * the top is cheap, because the pipeline discards every Local line except that announcement.
+     */
+    private val alwaysFromStart: Set<String> = emptySet(),
+    /**
+     * Ignore log files whose name is older than this many days.
+     *
+     * The Chatlogs directory is an archive going back years, and the newest file *per character*
+     * is picked out of all of it -- so without a bound, every character ever flown is reported at
+     * whatever system they were parked in months ago. A file EVE is still appending to is one from
+     * a session that is realistically this recent.
+     */
+    private val maxFileAgeDays: Long = 30,
 ) {
     private val offsets = mutableMapOf<Path, Long>()
     private val headers = mutableMapOf<Path, ChatLogFormat.Header>()
@@ -116,7 +137,11 @@ class LogTailer(
         }
         if (preexisting == null) preexisting = logs.mapTo(mutableSetOf()) { it.first.name }
 
+        // Compared as a string: the name carries yyyyMMdd, so this costs no stat call.
+        val oldest = LocalDate.now().minusDays(maxFileAgeDays).format(FILE_DATE)
+
         return logs
+            .filter { (_, parsed) -> parsed.date >= oldest }
             .filter { (_, parsed) -> wanted.isEmpty() || parsed.channel in wanted }
             .groupBy { (_, parsed) -> "${parsed.channel}|${parsed.characterId}" }
             .mapNotNull { (_, group) ->
@@ -140,7 +165,10 @@ class LogTailer(
             if (fresh) {
                 // Read the header once so we know the listener, then optionally skip history.
                 readHeader(channel, path)
-                val skipHistory = startFromEnd && path.name in preexisting.orEmpty()
+                val channelName = ChatLogFormat.parseFileName(path.name)?.channel
+                val skipHistory = startFromEnd &&
+                    path.name in preexisting.orEmpty() &&
+                    channelName !in alwaysFromStart
                 offsets[path] = if (skipHistory) alignToEven(size) else 0L
                 if (skipHistory) return@use
             }
@@ -202,6 +230,7 @@ class LogTailer(
     private fun alignToEven(value: Long): Long = value - (value % 2)
 
     private companion object {
+        val FILE_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
         const val HEADER_BYTES = 2048L
         const val MAX_READ = 4L * 1024 * 1024
     }

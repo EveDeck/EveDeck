@@ -126,6 +126,8 @@ read. See `alignToEven`.
 `EVE System > Channel changed to Local : 8DL-CP` on every jump. That is where jump distances are
 measured from — no ESI, no SSO, no API key. This is the single most useful trick in the codebase.
 
+EVE opens a **new** `Local_*.txt` file every time a character changes system, and announces the new system on that file's first line. Two consequences. It is why the Chatlogs directory reaches thousands of files. And **`Local` is exempt from `logs.startFromEnd`**: position is current state, not an event, so skipping the history of an already-open file means never learning where a character is until they next jump — a docked or stationary pilot simply never appears. That bug left the tablet's character list permanently empty. The daemon prints `locations known: N character(s)` on every change; if that stays at 0, nothing downstream can work.
+
 ---
 
 ## Intel parsing

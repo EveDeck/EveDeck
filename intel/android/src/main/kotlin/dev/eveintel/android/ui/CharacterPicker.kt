@@ -53,7 +53,10 @@ fun CharacterPickerRows(state: IntelUiState, viewModel: IntelViewModel) {
         )
     }
 
-    state.locations.values.sortedBy { it.characterName }.forEach { location ->
+    // Most recently moved first. A character parked weeks ago is still technically somewhere, but
+    // the ones worth alerting on are the ones being flown now, and an account set can run to a
+    // dozen or more names.
+    state.locations.values.sortedByDescending { it.sinceMillis }.forEach { location ->
         val isSelected = location.characterName in selected
         Row(
             Modifier
@@ -69,12 +72,33 @@ fun CharacterPickerRows(state: IntelUiState, viewModel: IntelViewModel) {
                 color = if (isSelected) IntelColors.Accent else IntelColors.OnSurface,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             )
-            Text(
-                location.systemName,
-                color = IntelColors.Muted,
-                fontFamily = FontFamily.Monospace,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    location.systemName,
+                    color = IntelColors.Muted,
+                    fontFamily = FontFamily.Monospace,
+                )
+                // How long ago they were last seen moving. Without it a stale position looks
+                // exactly like a live one, which is the whole difficulty in a long character list.
+                Text(
+                    sinceLabel(location.sinceMillis),
+                    color = IntelColors.Muted,
+                    fontSize = 11.sp,
+                )
+            }
         }
+    }
+}
+
+/** Coarse age of a location. Precision past "hours" tells the reader nothing useful here. */
+private fun sinceLabel(millis: Long): String {
+    val minutes = (System.currentTimeMillis() - millis) / 60_000
+    return when {
+        minutes < 0 -> ""
+        minutes < 1 -> "now"
+        minutes < 60 -> "${minutes}m"
+        minutes < 60 * 24 -> "${minutes / 60}h"
+        else -> "${minutes / (60 * 24)}d"
     }
 }
 

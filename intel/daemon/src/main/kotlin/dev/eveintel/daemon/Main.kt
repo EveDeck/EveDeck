@@ -59,8 +59,16 @@ fun main(args: Array<String>) {
             // Local is always tailed: it is how character location is tracked.
             channels = { selectedChannels.value + ChannelRegistry.RESERVED },
             startFromEnd = config.startFromEnd,
+            // Local is where character position comes from, and position is state, not history.
+            alwaysFromStart = ChannelRegistry.RESERVED,
         )
         launch { tailer.messages.collect { pipeline.submit(it) } }
+
+        // Count only, never names: this is the number that tells you whether the tablet will have
+        // anything to measure the alert radius against.
+        launch {
+            pipeline.locations.collect { println("locations known: ${it.size} character(s)") }
+        }
 
         // Every character named in intel gets queued for an ESI lookup; the resolver batches,
         // caches and ignores names it has already failed on.
