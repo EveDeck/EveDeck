@@ -902,25 +902,35 @@ public sealed partial class MainWindowViewModel : ObservableObject
         get
         {
             if (SelectedProfile is null || SelectedProfile.Slots.Count == 0) return "";
-            if (PreviewModeActive) return "";
 
-            var tooSmall = SelectedProfile.Slots
+            // Per-slot RenderMode decides this now, not the profile mode alone: a preview-mode layout
+            // can still contain real windows, and a flat layout can contain previews. Only slots that
+            // will actually hold a CLIENT are subject to EVE's minimum size -- a 480x350 preview tile
+            // is perfectly fine, and warning about it was the thing standing between the user and a
+            // layout that mixes the two.
+            var windowSlots = SelectedProfile.Slots.Where(SlotRendersAsWindow).ToList();
+            if (windowSlots.Count == 0) return "";
+
+            var tooSmall = windowSlots
                 .Select(ResolvePlacementRect)
                 .Where(r => r.Width < MinUsableClientWidth || r.Height < MinUsableClientHeight)
                 .ToList();
             if (tooSmall.Count == 0) return "";
 
             var smallest = tooSmall.OrderBy(r => (long)r.Width * r.Height).First();
-            return $"Warning: {tooSmall.Count} of this layout's {SelectedProfile.Slots.Count} slots are "
+            return $"Warning: {tooSmall.Count} of this layout's {windowSlots.Count} real-window slots are "
                  + $"smaller than EVE's minimum window size ({MinUsableClientWidth}x{MinUsableClientHeight}); "
-                 + $"the smallest is {smallest.Width}x{smallest.Height}. In flat mode those clients are "
-                 + "resized to fit and EVE will clamp them, so they will overlap. Give this layout bigger "
-                 + "slots (spread them across more than one monitor if need be), switch it to live "
-                 + "previews, or use a layout with fewer slots.";
+                 + $"the smallest is {smallest.Width}x{smallest.Height}. Those clients are resized to fit "
+                 + "and EVE will clamp them, so they will overlap. Give those slots more room, set them "
+                 + "to Live preview individually (a preview tile has no minimum size), switch the whole "
+                 + "layout to live previews, or use a layout with fewer slots.";
         }
     }
 
     public bool HasLayoutModeWarning => LayoutModeWarning.Length > 0;
+
+    // Options for the slot table's "Renders as" column; see LayoutSlot.RenderModeDisplay.
+    public string[] SlotRenderModeOptions { get; } = ["Follow layout", "Real window", "Live preview"];
 
     public ObservableCollection<LayoutSlot>? ActiveProfileSlots => SelectedProfile?.Slots;
     public bool SelectedProfileIsBuiltIn => SelectedProfile?.IsBuiltIn == true;

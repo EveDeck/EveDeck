@@ -1077,6 +1077,18 @@
                       <DataGridTextColumn Header="Width" Binding="{Binding Width, UpdateSourceTrigger=PropertyChanged}" Width="85"/>
                       <DataGridTextColumn Header="Height" Binding="{Binding Height, UpdateSourceTrigger=PropertyChanged}" Width="85"/>
                       <DataGridCheckBoxColumn Header="Borderless" Binding="{Binding Borderless}" Width="90"/>
+                      <DataGridComboBoxColumn Header="Renders as" SelectedItemBinding="{Binding RenderModeDisplay, UpdateSourceTrigger=PropertyChanged}" Width="120">
+                        <DataGridComboBoxColumn.ElementStyle>
+                          <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource" Value="{Binding DataContext.SlotRenderModeOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                          </Style>
+                        </DataGridComboBoxColumn.ElementStyle>
+                        <DataGridComboBoxColumn.EditingElementStyle>
+                          <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource" Value="{Binding DataContext.SlotRenderModeOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                          </Style>
+                        </DataGridComboBoxColumn.EditingElementStyle>
+                      </DataGridComboBoxColumn>
                     </DataGrid.Columns>
                   </DataGrid>
                 </Grid>

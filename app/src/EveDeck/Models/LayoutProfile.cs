@@ -110,6 +110,7 @@ public sealed class LayoutProfile
                 Width = slot.Width,
                 Height = slot.Height,
                 Borderless = slot.Borderless,
+                RenderMode = slot.RenderMode,
                 HomeSeat = slot.HomeSeat
             });
         }

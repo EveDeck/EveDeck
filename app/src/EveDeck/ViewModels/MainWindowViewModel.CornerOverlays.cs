@@ -443,8 +443,11 @@ public sealed partial class MainWindowViewModel
         // surfaces above (which Show() them) would silently pop the previews back on.
         ApplyPreviewsSuspended();
 
+        // Skip slots that render as a REAL window (LayoutSlot.RenderMode == "Window"): their client is
+        // sitting at that rect already, so a thumbnail drawn over it would be a blurrier, costlier
+        // copy of the window underneath -- and it would swallow the clicks meant for the client.
         var allGroupCenterSlotNums = groupCenterSlots.Values.ToHashSet();
-        foreach (var slot in SelectedProfile.Slots.Where(s => !allGroupCenterSlotNums.Contains(s.SlotNumber)))
+        foreach (var slot in SelectedProfile.Slots.Where(s => !allGroupCenterSlotNums.Contains(s.SlotNumber) && !SlotRendersAsWindow(s)))
         {
             var position = slot.SlotNumber;
             var rect = slotRects[position];

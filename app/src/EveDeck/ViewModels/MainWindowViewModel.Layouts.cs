@@ -186,6 +186,26 @@ public sealed partial class MainWindowViewModel
     // 854x480 against six at 853x480 -- and taking the first of those made the TOP-RIGHT cell the master
     // off a one-pixel rounding artifact. Layouts with a genuinely dominant master (Center Master, Whammy,
     // Side/Twin Stack) are unaffected: nothing else comes anywhere near their master's area.
+    // Does this slot hold a REAL client window, or a live preview thumbnail?
+    //
+    // Resolves LayoutSlot.RenderMode against the mode the profile is actually running in, so one
+    // layout can mix the two -- three full-size windows across three monitors plus a couple of small
+    // previews, which neither mode could express on its own.
+    //
+    // The MASTER slot is always a real window: it is the client the user actually flies, and a
+    // preview of it would be a picture of a window that is not there.
+    internal static bool SlotRendersAsWindow(LayoutSlot slot, bool previewModeActive, int centerSlotNumber)
+    {
+        if (slot.SlotNumber == centerSlotNumber) return true;
+        if (string.Equals(slot.RenderMode, "Window", StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.Equals(slot.RenderMode, "Preview", StringComparison.OrdinalIgnoreCase)) return false;
+        return !previewModeActive; // "" (and any unknown value) inherits the profile's mode
+    }
+
+    // Instance convenience for the call sites that already have the view-model's live mode to hand.
+    internal bool SlotRendersAsWindow(LayoutSlot slot)
+        => SlotRendersAsWindow(slot, PreviewModeActive, CenterSlotNumber);
+
     internal static int? PickCenterSlot(IEnumerable<LayoutSlot> slots)
     {
         var list = slots as IList<LayoutSlot> ?? slots.ToList();
@@ -346,19 +366,25 @@ public sealed partial class MainWindowViewModel
 
         // Collect non-master assigned windows now; the master is moved separately below so we can
         // requery its ACTUAL post-move size before parking anyone off it (see note below).
+        // Two buckets, because a slot can opt out of preview mode (LayoutSlot.RenderMode == "Window"):
+        // those clients are placed at their OWN slot rect like a flat layout, and only the rest park
+        // off the master and get a thumbnail.
         var nonMasterMoves = new List<(EveWindowInfo window, bool borderless)>();
+        var windowSlotMoves = new List<(EveWindowInfo window, WindowRect rect, bool borderless)>();
         foreach (var assignment in Assignments.Where(a => a.AssignedWindows.Count > 0 && a.SlotNumber != ActiveMasterSeat))
         {
             var slot = SelectedProfile.Slots.FirstOrDefault(s => s.SlotNumber == assignment.SlotNumber);
             var borderless = slot?.Borderless ?? true;
+            var slotRect = slot is not null && SlotRendersAsWindow(slot) ? ResolvePlacementRect(slot) : null;
             foreach (var window in FindAssignedWindows(assignment))
             {
                 if (borderless) SaveStyleSnapshotIfMissing(window);
-                nonMasterMoves.Add((window, borderless));
+                if (slotRect is not null) windowSlotMoves.Add((window, slotRect, borderless));
+                else nonMasterMoves.Add((window, borderless));
             }
         }
 
-        if (masterWindow is null && nonMasterMoves.Count == 0) { Log.Warn("No assigned windows found for preview mode layout."); return; }
+        if (masterWindow is null && nonMasterMoves.Count == 0 && windowSlotMoves.Count == 0) { Log.Warn("No assigned windows found for preview mode layout."); return; }
 
         _applyInProgress = true;
         UndoLastApplyCommand.RaiseCanExecuteChanged();
@@ -398,7 +424,12 @@ public sealed partial class MainWindowViewModel
             Log.Warn($"Master window did not accept the requested size ({masterRect.Width}x{masterRect.Height}); it is actually {actualMasterRect.Width}x{actualMasterRect.Height} (likely a fixed in-game window/resolution setting). Parking alts at the actual size instead.");
         var parkRect = ResolveParkRect(actualMasterRect);
 
-        var moves = nonMasterMoves.Select(m => (m.window, rect: parkRect, m.borderless)).ToList();
+        // Preview seats park off the master; "Window" seats go to their own rect. One list, so both
+        // kinds get the same borderless handling and the same settle-and-retry second pass below.
+        var moves = nonMasterMoves.Select(m => (m.window, rect: parkRect, m.borderless))
+            .Concat(windowSlotMoves.Select(m => (m.window, rect: m.rect, m.borderless)))
+            .ToList();
+        var parkedHandles = nonMasterMoves.Select(m => m.window.Handle).ToHashSet();
 
         await System.Threading.Tasks.Task.Run(async () =>
         {
@@ -408,8 +439,9 @@ public sealed partial class MainWindowViewModel
                 {
                     _windowService.MoveResizeWindow(window.Handle, rect);
                     if (borderless) _windowService.MakeBorderless(window.Handle);
+                    var verb = parkedHandles.Contains(window.Handle) ? "park" : "place";
                     WpfApp.Current.Dispatcher.Invoke(() =>
-                        Log.Info($"{window.Title} → park {rect}."));
+                        Log.Info($"{window.Title} → {verb} {rect}."));
                 }
                 catch (Exception ex)
                 {
