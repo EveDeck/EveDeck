@@ -65,13 +65,28 @@ Listening on :31337
 ### Tuning the parser against real logs
 
 ```bash
-./daemon/build/install/daemon/bin/daemon.bat --validate --limit 60
+./daemon/build/install/daemon/bin/daemon.bat --validate --limit 200 --show 0
 ```
 
-Replays recent history and prints what it understood plus everything it failed to classify. **This
-is the intended workflow for improving `Vocabulary.kt`** — look at what lands under
-`NOT CLASSIFIED AS INTEL` and add the surface forms that alliance actually uses. Current rate is
-~84% of unique lines classified as intel on real `alliance.intel` traffic.
+Replays recent history and prints what it understood plus what it failed to classify. `--limit` is
+how many log files to replay, `--show` how many unclassified lines to print verbatim.
+
+**The section to act on is `UNCLASSIFIED WORD FREQUENCY`**, not the line sample. A sample shows
+whichever lines happened to be logged first, which is mostly chatter; the frequency table over
+*every* unclassified line is what surfaces the shorthand actually costing coverage. It counts
+lower-case words only — capitalised tokens are pilots and systems, they would dominate the ranking,
+and listing them serves no tuning purpose and breaks the OPSEC rule.
+
+`dscan`, `neut`, `red` and the faction-hull suffix rule were all found this way.
+
+Two numbers are reported:
+
+- **PARSED** — share of unique lines classified as intel. ~86% on real traffic. Do not chase this.
+  Most of the remainder genuinely names no system, which is the rule that keeps chatter out, and
+  loosening it visibly increases false positives.
+- **HOSTILE** — share of intel lines that would raise an alert, and how many qualify on a keyword
+  alone. That second figure is the one to watch when changing `HOSTILE_KEYWORDS`, because it is
+  the alerting behaviour rather than the classification rate.
 
 ### Configuration
 
@@ -237,6 +252,12 @@ Other toolchain facts:
 - Install SDK packages with `cmdline-tools/latest/bin/android.exe sdk install "platforms/android-36"`
   (slash form). The old `sdkmanager.bat --install "platforms;android-36"` reports "Package not found".
 
+**The foreground service runs as `specialUse`, not `dataSync`.** Since Android 15 a `dataSync`
+service is capped at six hours cumulative per day, after which the system calls `onTimeout`, stops
+it, and refuses another until the window resets — fatal for a feed meant to run all evening.
+`dataSync` also describes a transfer that finishes, which this never does. `onTimeout` is
+implemented anyway: ignoring that callback costs an ANR rather than a quiet stop.
+
 **`ws://` is cleartext and Android blocks it by default since Android 9.** Handled by
 `network_security_config.xml`. Note that Android's network security config matches domains and
 literal hosts only — **no CIDR** — so "permit private ranges" cannot be expressed and it has to be
@@ -272,13 +293,17 @@ graph, so anything needing jump distance or routing has to bring `universe.json`
 
 ## Known gaps
 
-- **Not soak-tested.** It has run for minutes, not days. Watch for offset drift on log rotation and
-  memory growth in the 500-message ring buffer.
+- **Still not soak-tested across days**, though the known soak hazards are now addressed: the
+  tailer prunes its offset and header maps to the live file set, the pipeline caps both its dedup
+  set and its history, and rotation is handled explicitly rather than by luck. What remains
+  unproven is simply duration.
 - **217 k-space systems have zero stargate entries** in the SDE. Unexplained. They will show as
-  unreachable for jump distance.
-- `universe.json` is packaged twice in the APK (~1 MB wasted).
-- Ship name aliases in `Vocabulary.kt` are a hand-written starter set from one alliance's habits.
-  Expect to grow it — that is the intended maintenance path, via `--validate`.
+  unreachable for jump distance, which surfaces as "range unknown" on an alert rather than silence.
+- `universe.json` is packaged three times (`assets/`, and both source sets' resources), wasting
+  ~2 MB of APK. Harmless but untidy.
+- Ship name aliases in `Vocabulary.kt` are a hand-written starter set. Grow them via `--validate`;
+  the faction-hull suffix rule in `matchShip` covers the "<hull> navy/fleet" family generically, so
+  only genuine shorthand needs an entry.
 - Character name detection is heuristic (capitalised runs inside a segment). It has no corpus to
   validate against before ESI resolution, so unresolvable names are normal and expected.
 - The map projects EVE's 3D coordinates on the x/z plane. Fine for reading a region; it is not
