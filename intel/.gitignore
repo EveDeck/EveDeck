@@ -27,3 +27,6 @@ tools/icon-*.png
 
 # Python bytecode from the tools scripts.
 __pycache__/
+
+# Written beside the config when the daemon runs without a console.
+eveintel.log
