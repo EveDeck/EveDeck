@@ -148,41 +148,7 @@ fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Mod
                 color = IntelColors.Muted,
                 fontSize = 12.sp,
             )
-            if (state.locations.isEmpty()) {
-                Text("No characters seen yet.", color = IntelColors.Muted, fontSize = 13.sp)
-            } else if (settings.alertCharacters.isEmpty()) {
-                // Without an origin nothing can be measured, so every hostile line alerts. Saying
-                // so beats a radius that looks set and quietly does nothing.
-                Text(
-                    "None selected — the jump radius cannot be applied, so every hostile report " +
-                        "alerts. Pick at least one character.",
-                    color = IntelColors.Warning,
-                    fontSize = 13.sp,
-                )
-            }
-            state.locations.values.sortedBy { it.characterName }.forEach { location ->
-                val selected = location.characterName in settings.alertCharacters
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(if (selected) IntelColors.Accent.copy(alpha = 0.15f) else IntelColors.Surface)
-                        .clickable { viewModel.toggleAlertCharacter(location.characterName) }
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        (if (selected) "✓  " else "    ") + location.characterName,
-                        color = if (selected) IntelColors.Accent else IntelColors.OnSurface,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                    )
-                    Text(
-                        location.systemName,
-                        color = IntelColors.Muted,
-                        fontFamily = FontFamily.Monospace,
-                    )
-                }
-            }
+            CharacterPickerRows(state, viewModel)
         }
 
         Section("Alerts") {

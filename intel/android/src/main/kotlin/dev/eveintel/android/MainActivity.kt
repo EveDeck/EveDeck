@@ -29,7 +29,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
@@ -50,6 +50,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import dev.eveintel.android.ui.CharacterPickerDialog
 import dev.eveintel.android.ui.EveDeckBackground
 import dev.eveintel.android.ui.EveIntelTheme
 import dev.eveintel.android.ui.FeedScreen
@@ -59,7 +62,7 @@ import dev.eveintel.android.ui.SettingsScreen
 import kotlinx.coroutines.delay
 
 private enum class Tab(val label: String, val icon: ImageVector) {
-    FEED("Intel", Icons.Filled.List),
+    FEED("Intel", Icons.AutoMirrored.Filled.List),
     MAP("Map", Icons.Filled.Public),
     SETTINGS("Settings", Icons.Filled.Settings),
 }
@@ -97,12 +100,13 @@ class MainActivity : ComponentActivity() {
             }
 
             var tab by remember { mutableStateOf(Tab.FEED) }
+            var pickingCharacters by remember { mutableStateOf(false) }
 
             EveIntelTheme {
                 EveDeckBackground {
                 Scaffold(
                     containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                    topBar = { StatusBar(state) },
+                    topBar = { StatusBar(state) { pickingCharacters = true } },
                     bottomBar = {
                         NavigationBar(containerColor = IntelColors.Chrome) {
                             Tab.entries.forEach { entry ->
@@ -122,6 +126,9 @@ class MainActivity : ComponentActivity() {
                             Tab.MAP -> MapScreen(state, now)
                             Tab.SETTINGS -> SettingsScreen(state, viewModel)
                         }
+                        if (pickingCharacters) {
+                            CharacterPickerDialog(state, viewModel) { pickingCharacters = false }
+                        }
                     }
                 }
                 }
@@ -138,7 +145,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun StatusBar(state: IntelUiState) {
+private fun StatusBar(state: IntelUiState, onPickCharacters: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -164,9 +171,18 @@ private fun StatusBar(state: IntelUiState) {
 
         Spacer(Modifier.weight(1f))
 
+        // The whole right-hand block is the shortcut into the character picker: this is where a
+        // user looks to ask "measured from where?", so it is where the answer is changed.
         val location = state.primaryLocation
-        if (location != null) {
-            Column(horizontalAlignment = Alignment.End) {
+        val extras = (state.settings?.alertCharacters?.size ?: 0) - 1
+        Column(
+            Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .clickable(onClick = onPickCharacters)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalAlignment = Alignment.End,
+        ) {
+            if (location != null) {
                 Text(
                     location.systemName,
                     color = IntelColors.You,
@@ -174,14 +190,22 @@ private fun StatusBar(state: IntelUiState) {
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                 )
-                Text(location.characterName, color = IntelColors.Muted, fontSize = 11.sp)
+                Text(
+                    location.characterName + if (extras > 0) "  +$extras" else "",
+                    color = IntelColors.Muted,
+                    fontSize = 11.sp,
+                )
+            } else if (state.locations.isEmpty()) {
+                Text("no characters yet", color = IntelColors.Muted, fontSize = 12.sp)
+            } else {
+                // Warning colour, because in this state the alert radius is doing nothing at all.
+                Text(
+                    "tap to pick characters",
+                    color = IntelColors.Warning,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                )
             }
-        } else {
-            Text(
-                if (state.locations.isEmpty()) "no characters" else "pick a character",
-                color = IntelColors.Muted,
-                fontSize = 12.sp,
-            )
         }
     }
 }

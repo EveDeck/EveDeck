@@ -2,6 +2,7 @@ package dev.eveintel.daemon
 
 import dev.eveintel.parse.ChatLogFormat
 import dev.eveintel.parse.IntelParser
+import dev.eveintel.parse.isHostile
 import dev.eveintel.parse.isIntel
 import dev.eveintel.universe.Universe
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -89,6 +90,7 @@ fun main(args: Array<String>) {
  */
 private fun validate(config: Config, args: Array<String>) {
     val limit = args.indexOf("--limit").takeIf { it >= 0 }?.let { args[it + 1].toIntOrNull() } ?: 40
+    val show = args.indexOf("--show").takeIf { it >= 0 }?.let { args[it + 1].toIntOrNull() } ?: 40
     val universe = loadUniverse()
     val scopeRegionIds = config.scopeRegionIds(universe)
     val parser = IntelParser(universe, scopeRegionIds)
@@ -114,6 +116,8 @@ private fun validate(config: Config, args: Array<String>) {
 
     var lines = 0
     var intel = 0
+    var hostile = 0
+    var hostileByKeywordAlone = 0
     val seen = mutableSetOf<String>()
     val unrecognised = mutableListOf<String>()
     val systemHits = mutableMapOf<String, Int>()
@@ -130,6 +134,15 @@ private fun validate(config: Config, args: Array<String>) {
             val message = parser.parse(channel, raw)
             if (message.isIntel()) {
                 intel++
+                if (message.isHostile()) {
+                    hostile++
+                    // Lines with no ship, pilot or count: these alert only because a hostile
+                    // keyword says so, and used to pass silently through to the feed.
+                    val named = message.ships.isNotEmpty() ||
+                        message.players.isNotEmpty() ||
+                        message.reportedCount != null
+                    if (!named) hostileByKeywordAlone++
+                }
                 message.systemIds.forEach { id ->
                     val name = universe.system(id)?.name ?: return@forEach
                     systemHits[name] = (systemHits[name] ?: 0) + 1
@@ -157,7 +170,7 @@ private fun validate(config: Config, args: Array<String>) {
                         },
                     )
                 }
-            } else if (unrecognised.size < 40) {
+            } else if (unrecognised.size < UNRECOGNISED_CAP) {
                 unrecognised.add(raw.message.take(90))
             }
         }
@@ -165,6 +178,10 @@ private fun validate(config: Config, args: Array<String>) {
 
     println()
     println("=== PARSED $intel / $lines unique lines as intel (${percent(intel, lines)}) ===")
+    println(
+        "=== HOSTILE $hostile / $intel intel lines (${percent(hostile, intel)}), " +
+            "$hostileByKeywordAlone on a keyword alone ===",
+    )
     samples.forEach(::println)
 
     println()
@@ -173,9 +190,50 @@ private fun validate(config: Config, args: Array<String>) {
         .forEach { println("  ${it.value.toString().padStart(5)}  ${it.key}") }
 
     println()
-    println("=== NOT CLASSIFIED AS INTEL (sample) ===")
-    unrecognised.forEach { println("  $it") }
+    println("=== UNCLASSIFIED WORD FREQUENCY ===")
+    println("  ${unrecognised.size} unclassified line(s) scanned")
+    println("  Lower-case words only: anything capitalised is a pilot or a system, and the point")
+    println("  here is to find missing keywords and ship shorthand, not to list people.")
+    wordFrequency(unrecognised).take(30).forEach { (word, count) ->
+        println("  ${count.toString().padStart(5)}  $word")
+    }
+
+    println()
+    println("=== NOT CLASSIFIED AS INTEL (first $show of ${unrecognised.size}) ===")
+    unrecognised.take(show).forEach { println("  $it") }
 }
+
+/**
+ * Lower-case word counts across the unclassified lines, commonest first.
+ *
+ * This is the signal worth acting on when growing `Vocabulary`. A list of raw lines shows whatever
+ * happened to be logged first, which is mostly chatter; a frequency count surfaces the shorthand
+ * that is actually costing coverage. Capitalised tokens are dropped rather than ranked, because
+ * they are pilot and system names and listing them serves no tuning purpose.
+ */
+private fun wordFrequency(lines: List<String>): List<Pair<String, Int>> {
+    val counts = mutableMapOf<String, Int>()
+    val word = Regex("""[a-z][a-z'-]+""")
+    for (line in lines) {
+        for (match in word.findAll(line.lowercase())) {
+            val text = match.value
+            if (text.length < 2 || text in CHATTER) continue
+            counts[text] = (counts[text] ?: 0) + 1
+        }
+    }
+    return counts.entries.sortedByDescending { it.value }.map { it.key to it.value }
+}
+
+/** Ordinary English that will always top the count and says nothing about intel vocabulary. */
+private val CHATTER = setOf(
+    "the", "and", "for", "you", "are", "not", "but", "was", "his", "her", "its", "out", "get",
+    "got", "can", "all", "any", "one", "two", "how", "who", "why", "did", "has", "had", "him",
+    "she", "they", "them", "this", "that", "with", "have", "from", "just", "like", "what",
+    "when", "will", "your", "yeah", "lol", "there", "here", "then", "than", "into", "over",
+    "some", "were", "been", "does", "dont", "cant", "its", "it's", "im", "i'm",
+)
+
+private const val UNRECOGNISED_CAP = 20_000
 
 private fun percent(part: Int, whole: Int): String =
     if (whole == 0) "0%" else "${(part * 100.0 / whole).toInt()}%"

@@ -6,6 +6,7 @@ import dev.eveintel.model.QuestionKind
 import dev.eveintel.model.Token
 import dev.eveintel.parse.ChatLogFormat
 import dev.eveintel.parse.IntelParser
+import dev.eveintel.parse.isHostile
 import dev.eveintel.parse.isIntel
 import dev.eveintel.universe.Universe
 import kotlin.test.Test
@@ -143,6 +144,54 @@ class IntelParserTest {
         val jumps = assertNotNull(universe.jumps(from.id, to.id))
         assertTrue(jumps in 1..20, "expected a sane jump count, got $jumps")
         assertEquals(0, universe.jumps(from.id, from.id))
+    }
+
+    @Test
+    fun `a keyword alone makes a system hostile`() {
+        // No ship, no pilot, no count - but "camped" is the whole point of the report. These
+        // reached the feed and never raised an alert.
+        assertTrue(parse("FZ-6A5 camped").isHostile())
+        assertTrue(parse("FZ-6A5 spiked").isHostile())
+        assertTrue(parse("FZ-6A5 bubbles").isHostile())
+        assertTrue(parse("FZ-6A5 neut").isHostile())
+    }
+
+    @Test
+    fun `clear always wins over a hostile keyword`() {
+        assertFalse(parse("FZ-6A5 camp clear").isHostile())
+        assertFalse(parse("FZ-6A5 clr").isHostile())
+    }
+
+    @Test
+    fun `observation and stand-down keywords are not hostile on their own`() {
+        // How something was seen, or a threat docking up, is not itself a threat.
+        assertFalse(parse("FZ-6A5 dscan").isHostile())
+        assertFalse(parse("FZ-6A5 docked up").isHostile())
+    }
+
+    @Test
+    fun `a named ship is still hostile without any keyword`() {
+        assertTrue(parse("FZ-6A5  Varro Kaine (Cyclone)").isHostile())
+    }
+
+    @Test
+    fun `faction hulls resolve without the trailing Issue`() {
+        assertEquals(
+            "Caracal Navy Issue",
+            tokens("FZ-6A5 caracal navy").filterIsInstance<Token.Ship>().single().name,
+        )
+        assertEquals(
+            "Stabber Fleet Issue",
+            tokens("FZ-6A5 stabber fleet").filterIsInstance<Token.Ship>().single().name,
+        )
+    }
+
+    @Test
+    fun `the bare hull still resolves to itself`() {
+        assertEquals(
+            "Caracal",
+            tokens("FZ-6A5 caracal").filterIsInstance<Token.Ship>().single().name,
+        )
     }
 
     private fun parse(line: String) = parser.parse(

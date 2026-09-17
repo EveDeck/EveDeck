@@ -55,6 +55,43 @@ object Vocabulary {
         "docked" to Keyword.DOCKED,
         "dockedup" to Keyword.DOCKED,
         "docked up" to Keyword.DOCKED,
+
+        // Added from a --validate pass over real traffic, where "dscan" was the commonest
+        // unrecognised word by a distance.
+        "dscan" to Keyword.D_SCAN,
+        "d-scan" to Keyword.D_SCAN,
+        "dscanned" to Keyword.D_SCAN,
+        "on dscan" to Keyword.D_SCAN,
+
+        "neut" to Keyword.NEUTRAL,
+        "neuts" to Keyword.NEUTRAL,
+        "neutral" to Keyword.NEUTRAL,
+        "neutrals" to Keyword.NEUTRAL,
+
+        "red" to Keyword.HOSTILE,
+        "reds" to Keyword.HOSTILE,
+        "hostile" to Keyword.HOSTILE,
+        "hostiles" to Keyword.HOSTILE,
+    )
+
+    /**
+     * Keywords that on their own mean the system is not safe.
+     *
+     * A report can name no ship and no pilot and still be the most urgent line in the channel:
+     * `<system> camped` or `<system> spiked` is exactly what should raise an alert. Without this
+     * those lines were classified as intel, shown in the feed, and then never alerted on.
+     *
+     * Deliberately excluded: [Keyword.D_SCAN] (how something was seen, not what), [Keyword.DOCKED]
+     * (a threat standing down), and [Keyword.NO_VISUAL] / [Keyword.STATUS] (requests and negatives).
+     */
+    val HOSTILE_KEYWORDS: Set<Keyword> = setOf(
+        Keyword.SPIKE,
+        Keyword.GATE_CAMP,
+        Keyword.BUBBLES,
+        Keyword.CYNO,
+        Keyword.COMBAT_PROBES,
+        Keyword.NEUTRAL,
+        Keyword.HOSTILE,
     )
 
     /**

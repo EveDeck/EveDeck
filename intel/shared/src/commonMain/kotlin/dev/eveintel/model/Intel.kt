@@ -21,6 +21,15 @@ enum class Keyword {
     SKYHOOK,
     COMBAT_PROBES,
     DOCKED,
+
+    /** Seen on directional scan. How the sighting was made, not a threat level in itself. */
+    D_SCAN,
+
+    /** A pilot who is not blue. In nullsec that is a threat until proven otherwise. */
+    NEUTRAL,
+
+    /** Explicitly red / hostile standing. */
+    HOSTILE,
 }
 
 /** How a numeric count relates to what was already reported. */

@@ -306,6 +306,10 @@ private fun Keyword.label(): String = when (this) {
     Keyword.SKYHOOK -> "skyhook"
     Keyword.COMBAT_PROBES -> "probes"
     Keyword.DOCKED -> "docked"
+    Keyword.D_SCAN -> "dscan"
+    // Upper case marks the ones that raise an alert on their own, matching SPIKE and GATECAMP.
+    Keyword.NEUTRAL -> "NEUT"
+    Keyword.HOSTILE -> "HOSTILE"
 }
 
 private fun age(millis: Long): String {

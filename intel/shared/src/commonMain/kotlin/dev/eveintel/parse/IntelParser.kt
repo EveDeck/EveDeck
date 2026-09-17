@@ -145,6 +145,13 @@ class IntelParser(
             val id = shipsByLowerName[alias.lowercase()]
             return id to alias
         }
+        // "caracal navy", "stabber fleet": nobody types the trailing "Issue". A rule beats listing
+        // them, because the SDE carries dozens of faction hulls and a hand-written list would rot.
+        for (suffix in ISSUE_SUFFIXES) {
+            if (!lower.endsWith(suffix)) continue
+            val full = "$lower issue"
+            shipsByLowerName[full]?.let { return it to canonicalShipName(full) }
+        }
         return null
     }
 
@@ -240,6 +247,9 @@ class IntelParser(
 
     companion object {
         private const val LINK_MARKER = "*"
+
+        /** Faction hull suffixes people shorten by dropping the trailing "Issue". */
+        private val ISSUE_SUFFIXES = listOf(" navy", " fleet")
         private const val MIN_ABBREVIATION = 3
         private val TRIM_CHARS = charArrayOf(',', '.', '!', '?', ':', ';', '(', ')', '[', ']', '"', '\'', ' ')
         private val SEGMENT_SPLIT = Regex("""\s{2,}""")
@@ -282,6 +292,15 @@ fun IntelMessage.isIntel(): Boolean {
     return unmatchedWords == 0 && (questions.isNotEmpty() || keywords.isNotEmpty())
 }
 
-/** Intel that implies the system is currently hostile, rather than a "clear" report. */
-fun IntelMessage.isHostile(): Boolean =
-    Keyword.CLEAR !in keywords && (ships.isNotEmpty() || players.isNotEmpty() || reportedCount != null)
+/**
+ * Intel that implies the system is currently hostile, rather than a "clear" report.
+ *
+ * A named ship, pilot or count is the usual evidence. But a line can carry none of those and still
+ * be the most urgent thing in the channel -- `<system> camped`, `<system> spiked` -- so the
+ * hostile keywords count too. Those lines previously reached the feed and then never alerted.
+ */
+fun IntelMessage.isHostile(): Boolean {
+    if (Keyword.CLEAR in keywords) return false
+    if (ships.isNotEmpty() || players.isNotEmpty() || reportedCount != null) return true
+    return keywords.any { it in Vocabulary.HOSTILE_KEYWORDS }
+}
