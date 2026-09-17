@@ -99,7 +99,7 @@ class IntelService : LifecycleService() {
         val distanceText = jumps?.let { if (it == 0) " — YOUR SYSTEM" else " — $it jump${if (it == 1) "" else "s"}" } ?: ""
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ALERTS)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_stat_intel)
             .setContentTitle("$systemName$distanceText")
             .setContentText(message.raw)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message.raw))
@@ -129,7 +129,7 @@ class IntelService : LifecycleService() {
 
     private fun serviceNotification(text: String): Notification =
         NotificationCompat.Builder(this, CHANNEL_SERVICE)
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setSmallIcon(R.drawable.ic_stat_intel)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setOngoing(true)

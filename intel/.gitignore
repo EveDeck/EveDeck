@@ -21,3 +21,6 @@ tools/sde/
 *.jks
 *.keystore
 keystore.properties
+
+# Generated icon previews (regenerate with tools/gen_icon.py)
+tools/icon-*.png
