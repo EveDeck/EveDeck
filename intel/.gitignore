@@ -1,0 +1,23 @@
+# Build output
+.gradle/
+build/
+.kotlin/
+
+# Local machine configuration
+local.properties
+*.iml
+.idea/
+
+# OPSEC: the live daemon config names your real intel channels and home regions,
+# and the caches hold real character names pulled from those channels.
+# Ship eveintel.properties.example instead.
+eveintel.properties
+cache/
+
+# Downloaded SDE dumps (regenerate with tools/build_universe.py)
+tools/sde/
+
+# Signing material
+*.jks
+*.keystore
+keystore.properties

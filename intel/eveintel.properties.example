@@ -1,0 +1,22 @@
+# EveDeck Intel daemon configuration.
+# Copy this file to `eveintel.properties` and edit. That copy is gitignored, because the channels
+# and regions you fill in identify where you live and who you fly with.
+
+# Where EVE writes chat logs. Leave blank to auto-detect Documents and OneDrive\Documents.
+chatlogs.dir=
+
+# Channels to treat as intel. Comma separated, matched against the log filename prefix.
+# "Local" is always tailed regardless, because it is how character location is tracked.
+intel.channels=alliance.intel
+
+# Regions the intel channel covers. Short forms like "9UY" are resolved against these first,
+# which is what keeps abbreviations unambiguous. Taken from the channel MOTD.
+scope.regions=Providence,Catch
+
+# LAN WebSocket server. Do not port-forward this: there is no auth and no TLS.
+server.port=31337
+server.bind=0.0.0.0
+
+# true  = only report lines written after the daemon starts (normal operation)
+# false = replay each active log file from the beginning on startup
+logs.startFromEnd=true
