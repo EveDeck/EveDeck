@@ -177,13 +177,13 @@ fun MapScreen(state: IntelUiState, now: Long, modifier: Modifier = Modifier) {
         Text(
             text = regionIds.mapNotNull { universe.regions[it] }.joinToString(),
             color = IntelColors.Muted,
-            fontSize = 12.sp,
+            fontSize = 14.sp,
             modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
         )
         Text(
             text = "pinch to zoom · drag to pan",
             color = IntelColors.Muted.copy(alpha = 0.6f),
-            fontSize = 10.sp,
+            fontSize = 12.sp,
             modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
         )
     }
@@ -262,6 +262,6 @@ private class Bounds(
 @Composable
 private fun Centered(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, color = IntelColors.Muted, fontSize = 15.sp)
+        Text(text, color = IntelColors.Muted, fontSize = 17.sp)
     }
 }

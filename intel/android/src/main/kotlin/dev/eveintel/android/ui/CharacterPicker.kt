@@ -38,7 +38,7 @@ fun CharacterPickerRows(state: IntelUiState, viewModel: IntelViewModel) {
         Text(
             "No characters seen yet. They appear once the daemon reads a Local channel.",
             color = IntelColors.Muted,
-            fontSize = 13.sp,
+            fontSize = 15.sp,
         )
         return
     }
@@ -49,7 +49,7 @@ fun CharacterPickerRows(state: IntelUiState, viewModel: IntelViewModel) {
         Text(
             "None selected — the jump radius cannot be applied, so every hostile report alerts.",
             color = IntelColors.Warning,
-            fontSize = 13.sp,
+            fontSize = 15.sp,
         )
     }
 
@@ -83,7 +83,7 @@ fun CharacterPickerRows(state: IntelUiState, viewModel: IntelViewModel) {
                 Text(
                     sinceLabel(location.sinceMillis),
                     color = IntelColors.Muted,
-                    fontSize = 11.sp,
+                    fontSize = 13.sp,
                 )
             }
         }
@@ -124,7 +124,7 @@ fun CharacterPickerDialog(state: IntelUiState, viewModel: IntelViewModel, onDism
                 Text(
                     "Jump distance is measured from whichever of these is closest.",
                     color = IntelColors.Muted,
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                 )
                 CharacterPickerRows(state, viewModel)
             }

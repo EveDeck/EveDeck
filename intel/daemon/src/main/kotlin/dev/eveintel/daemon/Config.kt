@@ -40,7 +40,10 @@ data class Config(
          */
         fun save(path: Path, values: Map<String, String>) {
             val existing = if (Files.isRegularFile(path)) Files.readAllLines(path) else emptyList()
-            val remaining = values.toMutableMap()
+            // Properties.load() (below) un-escapes backslashes on read, so a raw Windows path
+            // written here without doubling them comes back mangled next launch -- silently, since
+            // a garbled chatlogs.dir just finds no files rather than throwing.
+            val remaining = values.mapValues { (_, value) -> value.replace("\\", "\\\\") }.toMutableMap()
             val updated = existing.map { line ->
                 val key = remaining.keys.firstOrNull { line.trimStart().startsWith("$it=") }
                     ?: return@map line

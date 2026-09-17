@@ -51,7 +51,7 @@ fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Mod
             Text(
                 "The PC running EVE prints its address when the daemon starts.",
                 color = IntelColors.Muted,
-                fontSize = 12.sp,
+                fontSize = 14.sp,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
@@ -83,7 +83,7 @@ fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Mod
                 "Every channel the daemon can see logs for. Tick the ones carrying intel. " +
                     "Local is always read, for your position.",
                 color = IntelColors.Muted,
-                fontSize = 12.sp,
+                fontSize = 14.sp,
             )
             if (state.channels.available.isEmpty()) {
                 Text(
@@ -93,7 +93,7 @@ fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Mod
                         "Connect to the daemon to see channels."
                     },
                     color = IntelColors.Muted,
-                    fontSize = 13.sp,
+                    fontSize = 15.sp,
                 )
             }
             state.channels.available.forEach { channel ->
@@ -128,7 +128,7 @@ fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Mod
                                 "${channel.fileCount} log file" + if (channel.fileCount == 1) "" else "s"
                             },
                             color = IntelColors.Muted,
-                            fontSize = 11.sp,
+                            fontSize = 13.sp,
                         )
                     }
                     if (!channel.reserved) {
@@ -146,7 +146,7 @@ fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Mod
                 "Jump distance is measured from whichever of these characters is closest, using " +
                     "the system their Local channel last reported.",
                 color = IntelColors.Muted,
-                fontSize = 12.sp,
+                fontSize = 14.sp,
             )
             CharacterPickerRows(state, viewModel)
         }
@@ -166,7 +166,7 @@ fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Mod
             Text(
                 if (settings.alertJumpRadius == 0) "Alerts are off." else "0 turns alerts off.",
                 color = IntelColors.Muted,
-                fontSize = 12.sp,
+                fontSize = 14.sp,
             )
             ToggleRow("Also alert on 'clear' reports", settings.alertOnClear, viewModel::setAlertOnClear)
             ToggleRow("Keep the screen on", settings.keepScreenOn, viewModel::setKeepScreenOn)
@@ -177,7 +177,7 @@ fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Mod
                 "Reads your alliance intel channels from the EVE client's chat logs on the PC and " +
                     "mirrors them here. LAN only — no account, no TLS, nothing leaves your network.",
                 color = IntelColors.Muted,
-                fontSize = 12.sp,
+                fontSize = 14.sp,
             )
         }
     }
@@ -189,7 +189,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
         Text(
             title.uppercase(),
             color = IntelColors.Accent,
-            fontSize = 12.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
         )
         content()
@@ -203,7 +203,7 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = IntelColors.OnSurface, fontSize = 14.sp)
+        Text(label, color = IntelColors.OnSurface, fontSize = 16.sp)
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }

@@ -2,6 +2,7 @@
 .gradle/
 build/
 .kotlin/
+bin/
 
 # Local machine configuration
 local.properties

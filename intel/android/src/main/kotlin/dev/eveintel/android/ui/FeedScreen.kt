@@ -78,7 +78,7 @@ private fun EmptyFeed(state: IntelUiState, modifier: Modifier) {
                     }
             },
             color = IntelColors.Muted,
-            fontSize = 16.sp,
+            fontSize = 18.sp,
         )
     }
 }
@@ -119,7 +119,7 @@ private fun IntelRow(state: IntelUiState, message: IntelMessage, now: Long) {
                     color = accent,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 17.sp,
+                    fontSize = 19.sp,
                 )
                 system?.let { token ->
                     state.sovHolderOf(token.systemId)?.let { holder ->
@@ -134,7 +134,7 @@ private fun IntelRow(state: IntelUiState, message: IntelMessage, now: Long) {
                     text = age(now - message.timestampMillis),
                     color = IntelColors.Muted,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                 )
             }
 
@@ -147,7 +147,7 @@ private fun IntelRow(state: IntelUiState, message: IntelMessage, now: Long) {
                 Text(
                     text = extras.joinToString(" · "),
                     color = if (isClear) IntelColors.Clear else IntelColors.Warning,
-                    fontSize = 13.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -155,7 +155,7 @@ private fun IntelRow(state: IntelUiState, message: IntelMessage, now: Long) {
             Text(
                 text = "${message.author}: ${message.raw}",
                 color = IntelColors.Muted,
-                fontSize = 11.sp,
+                fontSize = 14.sp,
                 maxLines = 1,
             )
         }
@@ -186,7 +186,7 @@ private fun Ships(state: IntelUiState, message: IntelMessage) {
                 Text(
                     text = ship.count?.let { "${it}× " }.orEmpty() + ship.name,
                     color = IntelColors.OnSurface,
-                    fontSize = 14.sp,
+                    fontSize = 16.sp,
                     fontWeight = if (ship.count != null) FontWeight.Bold else FontWeight.Normal,
                 )
             }
@@ -214,20 +214,20 @@ private fun Hostiles(state: IntelUiState, message: IntelMessage) {
                     )
                     Spacer(Modifier.width(5.dp))
                 }
-                Text(name, color = IntelColors.OnSurface, fontSize = 13.sp)
+                Text(name, color = IntelColors.OnSurface, fontSize = 15.sp)
                 info?.allianceTicker?.let { ticker ->
                     Spacer(Modifier.width(4.dp))
                     Text(
                         text = "[$ticker]",
                         color = IntelColors.Accent,
-                        fontSize = 11.sp,
+                        fontSize = 13.sp,
                         fontFamily = FontFamily.Monospace,
                     )
                 }
             }
         }
         if (players.size > 6) {
-            Text("+${players.size - 6}", color = IntelColors.Muted, fontSize = 12.sp)
+            Text("+${players.size - 6}", color = IntelColors.Muted, fontSize = 14.sp)
         }
     }
 }
@@ -237,7 +237,7 @@ private fun ChannelChip(channel: String) {
     Text(
         text = channel,
         color = IntelColors.Muted,
-        fontSize = 10.sp,
+        fontSize = 12.sp,
         fontFamily = FontFamily.Monospace,
         modifier = Modifier
             .clip(RoundedCornerShape(3.dp))
@@ -251,7 +251,7 @@ private fun SovChip(label: String) {
     Text(
         text = label,
         color = IntelColors.You,
-        fontSize = 10.sp,
+        fontSize = 12.sp,
         fontFamily = FontFamily.Monospace,
         modifier = Modifier
             .clip(RoundedCornerShape(3.dp))
@@ -264,7 +264,7 @@ private fun SovChip(label: String) {
 private fun JumpBadge(jumps: Int?, color: Color, inRange: Boolean) {
     Box(
         modifier = Modifier
-            .size(width = 44.dp, height = 36.dp)
+            .size(width = 48.dp, height = 40.dp)
             .clip(RoundedCornerShape(4.dp))
             .background(color.copy(alpha = if (inRange) 0.28f else 0.13f)),
         contentAlignment = Alignment.Center,
@@ -278,7 +278,7 @@ private fun JumpBadge(jumps: Int?, color: Color, inRange: Boolean) {
             color = color,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
-            fontSize = if (jumps == 0) 11.sp else 15.sp,
+            fontSize = if (jumps == 0) 13.sp else 17.sp,
         )
     }
 }

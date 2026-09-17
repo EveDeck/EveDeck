@@ -7,6 +7,7 @@ import dev.eveintel.parse.isIntel
 import dev.eveintel.daemon.ui.DesktopSession
 import dev.eveintel.daemon.ui.Tray
 import dev.eveintel.universe.Universe
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.launch
@@ -93,7 +94,12 @@ fun main(args: Array<String>) {
             // Local is where character position comes from, and position is state, not history.
             alwaysFromStart = ChannelRegistry.RESERVED,
         )
-        launch { tailer.messages.collect { pipeline.submit(it) } }
+        // UNDISPATCHED: runs synchronously up to its first suspension point, so the collector is
+        // actually subscribed before tailer.start() below puts anything on the flow. tailer.messages
+        // has no replay -- a plain `launch` only schedules the collector, and polling (on its own
+        // Dispatchers.IO coroutine) was winning that race and emitting the whole Local backlog to
+        // zero subscribers, silently losing every character's position on every daemon start.
+        launch(start = CoroutineStart.UNDISPATCHED) { tailer.messages.collect { pipeline.submit(it) } }
 
         // Count only, never names: this is the number that tells you whether the tablet will have
         // anything to measure the alert radius against.
@@ -102,8 +108,9 @@ fun main(args: Array<String>) {
         }
 
         // Every character named in intel gets queued for an ESI lookup; the resolver batches,
-        // caches and ignores names it has already failed on.
-        launch { pipeline.intel.collect { characters.submit(it.players) } }
+        // caches and ignores names it has already failed on. Same subscribe-before-emit hazard as
+        // tailer.messages above.
+        launch(start = CoroutineStart.UNDISPATCHED) { pipeline.intel.collect { characters.submit(it.players) } }
 
         characters.start(this)
         universeStatus.start(this)
