@@ -145,6 +145,18 @@ public sealed partial class MainWindowViewModel
         return PickCenterSlot(groupSlots) ?? CenterSlotNumber;
     }
 
+    // Does this seat come to rest in a slot that holds a real client window rather than a preview
+    // tile? Uses the HOME arrangement (which slot the seat belongs to at rest), not live occupancy,
+    // so the answer is stable regardless of what is currently centered.
+    internal bool SeatLivesInWindowSlot(int seat)
+    {
+        if (SelectedProfile is null || seat == ActiveMasterSeat) return false;
+        var position = ComputeHomeArrangement().FirstOrDefault(kv => kv.Value == seat).Key;
+        if (position == 0) return false; // seat has no home slot in this profile
+        var slot = SelectedProfile.Slots.FirstOrDefault(s => s.SlotNumber == position);
+        return slot is not null && SlotRendersAsWindow(slot);
+    }
+
     private int OccupantAtPosition(int position)
     {
         foreach (var (_, corners) in _cornerSeatByGroup)
@@ -898,6 +910,22 @@ public sealed partial class MainWindowViewModel
         if (masterSlot is null) { Log.Warn("Corner mode requires a layout with a center slot."); return; }
 
         if (_centeredSeatByGroup.Count == 0) ResetCornerOccupancy();
+
+        // A seat whose home slot renders as a REAL window is already full size on its own monitor --
+        // there is nothing to promote, and swapping it in would park whoever currently holds the
+        // master rect. Just focus it. Without this, cycling seats in a mixed layout drags the
+        // window-slot clients through the master rect one by one and leaves them parked off-screen
+        // at master resolution, which is exactly what such a layout exists to avoid.
+        if (SeatLivesInWindowSlot(seat))
+        {
+            var live = FindSeatWindow(seat);
+            if (live is not null)
+            {
+                try { _windowService.FocusWindow(live.Handle); } catch { /* best-effort focus */ }
+                Log.Info($"Seat {seat} ({SeatLabel(seat)}) has its own window slot; focused it instead of centering.");
+            }
+            return;
+        }
 
         var currentCenteredSeat = _centeredSeatByGroup.GetValueOrDefault(groupId, 0);
         if (seat == currentCenteredSeat)

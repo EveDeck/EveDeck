@@ -369,11 +369,20 @@ public sealed partial class MainWindowViewModel
         // Two buckets, because a slot can opt out of preview mode (LayoutSlot.RenderMode == "Window"):
         // those clients are placed at their OWN slot rect like a flat layout, and only the rest park
         // off the master and get a thumbnail.
+        // A seat's POSITION is not its seat number -- ComputeHomeArrangement decides which slot each
+        // seat comes to rest in (HomeSeat pins, then leftovers), and it deliberately excludes the
+        // center slot because the master seat owns that rect. Looking the slot up by seat number
+        // instead put a non-master seat at the master's rect, right on top of the master.
+        var homePositionBySeat = ComputeHomeArrangement()
+            .ToDictionary(kv => kv.Value, kv => kv.Key);
+
         var nonMasterMoves = new List<(EveWindowInfo window, bool borderless)>();
         var windowSlotMoves = new List<(EveWindowInfo window, WindowRect rect, bool borderless)>();
         foreach (var assignment in Assignments.Where(a => a.AssignedWindows.Count > 0 && a.SlotNumber != ActiveMasterSeat))
         {
-            var slot = SelectedProfile.Slots.FirstOrDefault(s => s.SlotNumber == assignment.SlotNumber);
+            var slot = homePositionBySeat.TryGetValue(assignment.SlotNumber, out var position)
+                ? SelectedProfile.Slots.FirstOrDefault(s => s.SlotNumber == position)
+                : null;
             var borderless = slot?.Borderless ?? true;
             var slotRect = slot is not null && SlotRendersAsWindow(slot) ? ResolvePlacementRect(slot) : null;
             foreach (var window in FindAssignedWindows(assignment))
