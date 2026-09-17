@@ -12,7 +12,17 @@ namespace EveDeck.Services.Wgc;
 /// for that tile instead. It never throws out of the interface methods.
 internal sealed class WgcTileCaptureSession : ITileCaptureSession
 {
-    private readonly object _gate = new();
+    // TWO locks, deliberately. _captureGate covers the expensive half -- the GPU readback and the
+    // rescale -- and is taken ONLY by the capture thread and Dispose. _publishGate covers a pointer
+    // swap and nothing else, and is the only lock the UI thread ever touches.
+    //
+    // They used to be one lock, and that was the bug: TextureReadback.CopyToBgra blocks on
+    // ID3D11DeviceContext.Map against a device context SHARED by every session, so with five seats
+    // the capture threads serialised on the GPU *while holding the lock the UI thread needed to
+    // draw*. The window stopped responding, and it got worse with each account added. Nothing on the
+    // draw path may take _captureGate.
+    private readonly object _captureGate = new();
+    private readonly object _publishGate = new();
     private readonly Action<string>? _log;
     private readonly int _minFrameIntervalMs;
 
@@ -22,12 +32,10 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
     private int _w;
     private int _h;
     private int _stride;
-    private long _seq;
-    private long _renderedSeq = -1;
     private long _lastFrameTick;
     private Bitmap? _full;
     private bool _dirty;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     // Last size the surface asked to draw at. Frames arrive on the capture thread, before any draw
     // call, so the readback uses the previous request as its hint -- tile sizes change rarely, and a
@@ -44,7 +52,11 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
     // serialised onto one core no matter how many tiles were live. Each capture session already has
     // its own free-threaded callback, so doing the work there spreads it across cores and leaves the
     // draw call a small copy.
-    private Bitmap? _scaled;
+    // Double-buffered tile-sized output. The capture thread draws into _spare, then swaps it with
+    // _published under _publishGate -- so handing a finished frame to the UI costs one reference
+    // swap, and neither side ever allocates per frame.
+    private Bitmap? _published;
+    private Bitmap? _spare;
 
     public bool Faulted { get; private set; }
     public string? FaultReason { get; private set; }
@@ -81,12 +93,20 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
                 _lastFrameTick = now;
             }
 
-            lock (_gate)
+            // The GPU readback and the rescale happen under _captureGate only. The UI thread is not
+            // blocked for any of it.
+            lock (_captureGate)
             {
                 if (_disposed || _readback is null) return;
                 _readback.CopyToBgra(frame.Texture, ref _bgra, out _w, out _h, out _stride, _targetWidth);
-                BuildScaled();
-                _seq++;
+                if (!BuildScaled()) return;
+            }
+
+            // Publish: a swap, nothing more.
+            lock (_publishGate)
+            {
+                if (_disposed) return;
+                (_published, _spare) = (_spare, _published);
                 _dirty = true;
             }
         }
@@ -98,7 +118,7 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
 
     public bool ConsumeFrameDirty()
     {
-        lock (_gate)
+        lock (_publishGate)
         {
             if (!_dirty) return false;
             _dirty = false;
@@ -106,12 +126,13 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
         }
     }
 
-    // Runs on the capture thread, inside _gate.
-    private void BuildScaled()
+    // Runs on the capture thread, inside _captureGate. Draws into _spare (capture-thread-owned)
+    // and returns whether _spare now holds a frame worth publishing.
+    private bool BuildScaled()
     {
         var destWidth = _targetWidth;
         var destHeight = _targetHeight;
-        if (destWidth < 1 || destHeight < 1 || _w < 2 || _h < 2) return;
+        if (destWidth < 1 || destHeight < 1 || _w < 2 || _h < 2) return false;
 
         if (_full is null || _full.Width != _w || _full.Height != _h)
         {
@@ -134,20 +155,20 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
         }
         finally { _full.UnlockBits(bits); }
 
-        if (_scaled is null || _scaled.Width != destWidth || _scaled.Height != destHeight)
+        if (_spare is null || _spare.Width != destWidth || _spare.Height != destHeight)
         {
-            _scaled?.Dispose();
-            _scaled = new Bitmap(destWidth, destHeight, PixelFormat.Format32bppArgb);
+            _spare?.Dispose();
+            _spare = new Bitmap(destWidth, destHeight, PixelFormat.Format32bppArgb);
         }
 
-        using var g = Graphics.FromImage(_scaled);
+        using var g = Graphics.FromImage(_spare);
         g.InterpolationMode = _w > destWidth * 2
             ? System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear
             : System.Drawing.Drawing2D.InterpolationMode.Bilinear;
         g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
         g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
         g.DrawImage(_full, new Rectangle(0, 0, destWidth, destHeight));
-        _renderedSeq = _seq;
+        return true;
     }
 
     public Bitmap? TryGetResizedFrame(int destWidth, int destHeight)
@@ -158,52 +179,34 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
 
         try
         {
-            lock (_gate)
+            // Take a tile-sized copy of the published frame under a lock that is never held across
+            // anything slow, then release it before doing any drawing. The old slow path rescaled
+            // from the full-resolution _bgra buffer here, which meant the draw thread contended with
+            // the capture thread for the megapixel buffers; the capture thread produces a
+            // tile-sized frame on its own now, so that path is gone.
+            Bitmap snapshot;
+            lock (_publishGate)
             {
-                // Fast path: the capture thread already produced this exact size. Copying a
-                // tile-sized bitmap is far cheaper than rescaling a megapixel one, and it keeps the
-                // UI thread free.
-                if (_scaled is not null && _scaled.Width == destWidth && _scaled.Height == destHeight)
-                    return new Bitmap(_scaled);
+                if (_disposed || _published is null) return null;
+                snapshot = new Bitmap(_published);
+            }
 
-                if (_w < 2 || _h < 2 || _bgra.Length < _stride * _h) return null;
+            // Already the requested size on the overwhelming majority of frames: _targetWidth was
+            // set from the last draw, so the capture thread is producing exactly this.
+            if (snapshot.Width == destWidth && snapshot.Height == destHeight) return snapshot;
 
-                if (_renderedSeq != _seq)
-                {
-                    if (_full is null || _full.Width != _w || _full.Height != _h)
-                    {
-                        _full?.Dispose();
-                        _full = new Bitmap(_w, _h, PixelFormat.Format32bppArgb);
-                    }
-
-                    var bits = _full.LockBits(new Rectangle(0, 0, _w, _h), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-                    try
-                    {
-                        unsafe
-                        {
-                            var d = (byte*)bits.Scan0;
-                            fixed (byte* s = _bgra)
-                            {
-                                for (var y = 0; y < _h; y++)
-                                    Buffer.MemoryCopy(s + (long)y * _stride, d + (long)y * bits.Stride, bits.Stride, _stride);
-                            }
-                        }
-                    }
-                    finally { _full.UnlockBits(bits); }
-                    _renderedSeq = _seq;
-                }
-
-                if (_full is null) return null;
-
-                // The GPU has already filtered this down to near the tile size, so the remaining
-                // step is short and HighQualityBilinear stays affordable.
+            // Size just changed. Bridge this one frame from the small published bitmap rather than
+            // from the full-resolution capture -- the source is already near the tile size, so this
+            // is cheap, and the next captured frame will land at the new size.
+            using (snapshot)
+            {
                 var dst = new Bitmap(destWidth, destHeight, PixelFormat.Format32bppArgb);
                 using var g = Graphics.FromImage(dst);
-                g.InterpolationMode = _w > destWidth * 2
+                g.InterpolationMode = snapshot.Width > destWidth * 2
                     ? System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear
                     : System.Drawing.Drawing2D.InterpolationMode.Bilinear;
                 g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-                g.DrawImage(_full, new Rectangle(0, 0, destWidth, destHeight));
+                g.DrawImage(snapshot, new Rectangle(0, 0, destWidth, destHeight));
                 return dst;
             }
         }
@@ -224,10 +227,18 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
 
     public void Dispose()
     {
-        lock (_gate)
+        // Flag first, under the publish lock, so a draw already in flight bails out instead of
+        // cloning a bitmap the capture side is about to free. Then take _captureGate, which waits
+        // for any in-flight readback to finish -- that wait is on the disposing thread, never on
+        // the UI thread's draw path.
+        lock (_publishGate)
         {
             if (_disposed) return;
             _disposed = true;
+        }
+
+        lock (_captureGate)
+        {
             try { if (_source is not null) _source.FrameArrived -= OnFrame; } catch { /* ignore */ }
             try { _source?.Dispose(); } catch { /* ignore */ }
             try { _readback?.Dispose(); } catch { /* ignore */ }
@@ -235,8 +246,14 @@ internal sealed class WgcTileCaptureSession : ITileCaptureSession
             _readback = null;
             _full?.Dispose();
             _full = null;
-            _scaled?.Dispose();
-            _scaled = null;
+            _spare?.Dispose();
+            _spare = null;
+        }
+
+        lock (_publishGate)
+        {
+            _published?.Dispose();
+            _published = null;
         }
     }
 }
