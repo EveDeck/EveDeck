@@ -140,11 +140,22 @@ class IntelServer(
         localAddresses().forEach { println("  tablet URL:  ws://$it:${config.port}/intel") }
     }
 
-    private fun localAddresses(): List<String> = runCatching {
-        NetworkInterface.getNetworkInterfaces().toList()
-            .filter { it.isUp && !it.isLoopback }
-            .flatMap { it.inetAddresses.toList() }
-            .filter { it.hostAddress?.contains('.') == true && !it.isLoopbackAddress }
-            .mapNotNull { it.hostAddress }
-    }.getOrDefault(emptyList())
+    companion object {
+        /**
+         * The LAN addresses a tablet could reach this machine on.
+         *
+         * Shared with the tray, which shows the same URL the console prints -- there is no way to
+         * know which interface the tablet is on, so every plausible one is offered.
+         */
+        fun localAddresses(): List<String> = runCatching {
+            NetworkInterface.getNetworkInterfaces().toList()
+                .filter { it.isUp && !it.isLoopback }
+                .flatMap { it.inetAddresses.toList() }
+                // Link-local (169.254.x) addresses belong to interfaces that failed to get a lease;
+                // offering one as a tablet URL only invites someone to type an address that cannot
+                // possibly answer.
+                .filter { it.hostAddress?.contains('.') == true && !it.isLoopbackAddress && !it.isLinkLocalAddress }
+                .mapNotNull { it.hostAddress }
+        }.getOrDefault(emptyList())
+    }
 }

@@ -24,3 +24,6 @@ keystore.properties
 
 # Generated icon previews (regenerate with tools/gen_icon.py)
 tools/icon-*.png
+
+# Python bytecode from the tools scripts.
+__pycache__/

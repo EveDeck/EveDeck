@@ -4,6 +4,8 @@ import dev.eveintel.parse.ChatLogFormat
 import dev.eveintel.parse.IntelParser
 import dev.eveintel.parse.isHostile
 import dev.eveintel.parse.isIntel
+import dev.eveintel.daemon.ui.DesktopSession
+import dev.eveintel.daemon.ui.Tray
 import dev.eveintel.universe.Universe
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
@@ -13,6 +15,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.name
+import kotlin.system.exitProcess
 
 fun loadUniverse(): Universe {
     val stream = Universe::class.java.classLoader.getResourceAsStream("universe.json")
@@ -22,11 +25,39 @@ fun loadUniverse(): Universe {
 
 fun main(args: Array<String>) {
     val configPath = args.indexOf("--config").takeIf { it >= 0 }?.let { Paths.get(args[it + 1]) }
-        ?: Paths.get("eveintel.properties")
+        ?: DesktopSession.defaultConfigPath()
+    // A first run has nothing worth listening to yet -- no channels are selected -- so it opens the
+    // settings window rather than sitting silently in the tray waiting to be discovered.
+    val firstRun = !Files.exists(configPath)
+    if (DesktopSession.isPackaged) DesktopSession.seedConfig(configPath)
     val config = Config.load(configPath)
 
     if (args.contains("--validate")) {
         validate(config, args)
+        return
+    }
+
+    // A packaged launcher has no console. Capture the output before anything is printed, so the
+    // startup lines below end up somewhere a user can be pointed at.
+    val useTray = DesktopSession.isPackaged && !args.contains("--console")
+    val logFile = if (useTray) DesktopSession.redirectOutput(configPath) else null
+
+    // Checked up front rather than left to the server's own bind. Started from Explorer with no
+    // console, a BindException is completely silent: the second copy dies, the first keeps the
+    // tray icon, and the user is left double-clicking an exe that appears to do nothing.
+    portInUse(config.bindAddress, config.port)?.let { reason ->
+        val message = "Port ${config.port} is already in use ($reason).\n\n" +
+            "EveDeck Intel is probably already running - look for its icon in the system tray. " +
+            "If it is not, change the port in Settings or stop whatever else is using it."
+        if (useTray) {
+            javax.swing.JOptionPane.showMessageDialog(
+                null,
+                message,
+                "EveDeck Intel",
+                javax.swing.JOptionPane.WARNING_MESSAGE,
+            )
+        }
+        System.err.println(message)
         return
     }
 
@@ -77,6 +108,27 @@ fun main(args: Array<String>) {
         characters.start(this)
         universeStatus.start(this)
         tailer.start(this)
+
+        if (useTray) {
+            var tray: Tray? = null
+            tray = DesktopSession.install(
+                configPath = configPath,
+                config = config,
+                // Derived from the systems rather than read from `regions`: the SDE's region table
+                // carries every wormhole and abyssal region, none of which can appear in an intel
+                // channel, and 100-odd of those ahead of the first real name makes the list useless.
+                regionNames = universe.systems.map { it.regionName }.distinct().sorted(),
+                registry = registry,
+                knownLocations = { pipeline.locations.value.size },
+                logFile = logFile,
+                openSettings = firstRun || args.contains("--settings"),
+                onExit = {
+                    tray?.remove()
+                    exitProcess(0)
+                },
+            )
+        }
+
         IntelServer(
             config = config,
             configPath = configPath,
@@ -88,6 +140,17 @@ fun main(args: Array<String>) {
             images = images,
         ).start(this)
     }
+}
+
+/** Returns why the port cannot be bound, or null if it is free. */
+private fun portInUse(bindAddress: String, port: Int): String? = try {
+    java.net.ServerSocket().use { socket ->
+        socket.reuseAddress = false
+        socket.bind(java.net.InetSocketAddress(bindAddress, port))
+    }
+    null
+} catch (ex: java.io.IOException) {
+    ex.message ?: "in use"
 }
 
 /**

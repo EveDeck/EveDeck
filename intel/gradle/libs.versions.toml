@@ -7,6 +7,7 @@ coroutines = "1.10.2"
 serialization = "1.9.0"
 sqlite-jdbc = "3.50.1.0"
 slf4j = "2.0.16"
+flatlaf = "3.6.1"
 kotest = "5.9.1"
 # Pinned to what compiles against API 36. Newer AndroidX requires compileSdk 37, which CCP-era
 # tooling does not have yet — android-37 is not in the SDK repository.
@@ -44,6 +45,7 @@ ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx
 
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+flatlaf = { module = "com.formdev:flatlaf", version.ref = "flatlaf" }
 
 kotest-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }

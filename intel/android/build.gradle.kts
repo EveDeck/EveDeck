@@ -1,3 +1,18 @@
+import java.util.Properties
+
+/**
+ * Release signing material lives outside both repositories -- this one is public, and an Android
+ * signing key is the only thing standing between a user and an app that claims to be this one.
+ * Without it the release build is simply unsigned, which is what any machine that is not the
+ * maintainer's should get.
+ */
+val signingProperties = Properties().apply {
+    val path = System.getenv("EVEINTEL_SIGNING")
+        ?: "${System.getProperty("user.home")}/.eveintel/signing.properties"
+    val file = File(path)
+    if (file.isFile) file.inputStream().use { load(it) }
+}
+
 plugins {
     // AGP 9 provides Kotlin support itself; applying `kotlin.android` alongside it is an error.
     alias(libs.plugins.android.application)
@@ -14,7 +29,23 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1"
+        versionName = "0.1.0"
+    }
+
+    signingConfigs {
+        if (signingProperties.getProperty("storeFile") != null) {
+            create("release") {
+                storeFile = File(signingProperties.getProperty("storeFile"))
+                storePassword = signingProperties.getProperty("storePassword")
+                keyAlias = signingProperties.getProperty("keyAlias")
+                keyPassword = signingProperties.getProperty("keyPassword")
+                // v3 carries the rotation record, so this key can be replaced later without
+                // orphaning everyone who already installed. v1 is dead weight above API 24.
+                enableV1Signing = false
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
     }
 
     buildFeatures {
@@ -24,6 +55,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

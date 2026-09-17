@@ -28,15 +28,27 @@ data class Config(
          * Called when the tablet changes the selection, so the choice survives a daemon restart.
          */
         fun saveChannels(path: Path, channels: Collection<String>) {
-            val line = "intel.channels=${channels.sorted().joinToString(",")}"
+            save(path, mapOf("intel.channels" to channels.sorted().joinToString(",")))
+        }
+
+        /**
+         * Rewrites the given keys in place, preserving comments, ordering and every key not named.
+         *
+         * The properties file is hand-edited as often as it is written by the settings window, and
+         * `Properties.store` would flatten its comments into a single timestamp line -- so this
+         * edits the lines rather than round-tripping through [Properties].
+         */
+        fun save(path: Path, values: Map<String, String>) {
             val existing = if (Files.isRegularFile(path)) Files.readAllLines(path) else emptyList()
-            val updated = if (existing.any { it.trimStart().startsWith("intel.channels=") }) {
-                existing.map { if (it.trimStart().startsWith("intel.channels=")) line else it }
-            } else {
-                existing + line
-            }
+            val remaining = values.toMutableMap()
+            val updated = existing.map { line ->
+                val key = remaining.keys.firstOrNull { line.trimStart().startsWith("$it=") }
+                    ?: return@map line
+                "$key=${remaining.remove(key)}"
+            } + remaining.map { (key, value) -> "$key=$value" }
+
             runCatching { Files.write(path, updated) }
-                .onFailure { System.err.println("could not save channel selection: ${it.message}") }
+                .onFailure { System.err.println("could not save configuration: ${it.message}") }
         }
 
         fun load(path: Path?): Config {
@@ -45,7 +57,10 @@ data class Config(
                 Files.newBufferedReader(path).use { properties.load(it) }
             }
 
-            fun string(key: String, default: String) = properties.getProperty(key, default).trim()
+            // A present-but-empty key means "work it out for me", not "use an empty value" -- the
+            // shipped template leaves `chatlogs.dir=` blank precisely so autodetection runs.
+            fun string(key: String, default: String) =
+                properties.getProperty(key, default).trim().ifEmpty { default }
             fun set(key: String, default: String) = string(key, default)
                 .split(',')
                 .map { it.trim() }

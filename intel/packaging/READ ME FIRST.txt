@@ -1,0 +1,72 @@
+EveDeck Intel - daemon
+======================
+
+This is the PC half of EveDeck Intel. It reads the chat logs EVE Online already writes to your
+disk, works out what the intel channels are saying, and serves it to the tablet app over your own
+network. Nothing leaves your network. There is no account and no cloud service.
+
+Nothing needs to be installed first. Java is bundled.
+
+
+Getting started
+---------------
+
+1. Unzip this folder somewhere permanent - it writes its settings beside the launcher, so a folder
+   inside your Downloads is a bad home for it.
+
+2. Run "EveDeck Intel.exe". It puts an icon in the system tray (the arrow at the right-hand end of
+   the taskbar hides it by default - drag it out if you want it visible).
+
+3. Right-click the tray icon, choose Settings, and:
+
+   - check that the chat logs folder is the right one. It is usually found automatically.
+   - tick your intel channels. If the list is empty, join them in game first, say something in
+     each, and reopen Settings.
+   - pick the regions your channels cover. This is what lets an abbreviated system name in a
+     channel resolve to the right system.
+
+   Local is always read whether or not it is in the list, because it is how the daemon knows where
+   your characters are. Nothing is read from any other channel you have not ticked.
+
+4. Press Save, then Copy URL. That is the address you type into the tablet app's settings.
+
+
+The tray menu
+-------------
+
+  Settings       everything above, plus the port
+  Copy tablet URL   the ws:// address for the tablet
+  Open log       the last run's output, if something is not working
+  Restart        needed after changing the port, log folder or regions
+  Exit           stops the daemon
+
+
+A note on security
+------------------
+
+The connection to the tablet has no password and no encryption. That is a deliberate choice for a
+service on your own LAN carrying information that everybody in the channel can already see.
+
+Do not forward its port through your router. If you want it from outside the house, put the PC and
+the tablet on the same Tailscale tailnet instead.
+
+
+Troubleshooting
+---------------
+
+Nothing in the feed
+  Check the log (tray > Open log). The most common causes are the wrong chat logs folder and no
+  channels ticked.
+
+The tablet cannot connect
+  Both devices have to be on the same network, and Windows Firewall has to allow the daemon. It
+  asks the first time it runs - if that prompt was dismissed, allow "EveDeck Intel" for private
+  networks in Windows Defender Firewall.
+
+The channel list is empty
+  EVE only creates a channel's log file once there is something to write. Join the channel and
+  wait for a line to appear in it.
+
+
+EVE Online and all related material are the property of CCP hf. This is independent work and is
+not endorsed by or affiliated with CCP.
