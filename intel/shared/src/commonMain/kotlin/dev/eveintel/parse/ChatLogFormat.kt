@@ -81,9 +81,20 @@ object ChatLogFormat {
         return RawMessage(
             timestampMillis = timestamp,
             author = match.groups["author"]!!.value.trim(),
-            message = match.groups["message"]!!.value.trim(),
+            message = stripLinks(match.groups["message"]!!.value.trim()),
         )
     }
+
+    /**
+     * Most linked items (`<url=showinfo:5//30004807>UALX-3</url>`) get written to the log already
+     * flattened to `UALX-3*` by the client. At least one link shape doesn't -- a dragged/targeted
+     * ship reference, which logs its full markup verbatim -- so this collapses any that slipped
+     * through to the same `text*` convention [IntelParser] already understands, rather than
+     * leaving raw markup for it to choke on.
+     */
+    private fun stripLinks(message: String): String = LINK_TAG.replace(message) { "${it.groupValues[1]}*" }
+
+    private val LINK_TAG = Regex("""<url=[^>]*>(.*?)</url>""")
 
     /** Returns the system name if this is a Local-channel system change announcement. */
     fun parseLocalSystemChange(message: RawMessage): String? {

@@ -61,7 +61,14 @@ enum class QuestionKind {
 sealed interface Token {
     val text: String
 
-    /** A resolved solar system. [text] is what was typed, [name] the canonical SDE name. */
+    /**
+     * A resolved solar system. [text] is what was typed, [name] the canonical SDE name.
+     *
+     * [inferred] marks a system nobody in this message actually typed: [dev.eveintel.daemon.IntelPipeline]
+     * borrowed it from the channel's most recent explicit report because this line was a terse
+     * follow-up (`nv`, a bare ship name) that carries no location of its own. The UI must show the
+     * difference rather than silently presenting a guess as a stated fact.
+     */
     @Serializable
     @SerialName("system")
     data class System(
@@ -69,6 +76,7 @@ sealed interface Token {
         val systemId: Int,
         val name: String,
         val linked: Boolean = false,
+        val inferred: Boolean = false,
     ) : Token
 
     /** A probable character name. Not validated against ESI — see [IntelParser] for the heuristic. */
@@ -143,7 +151,12 @@ data class IntelMessage(
         get() = tokens.filterIsInstance<Token.Kw>().map { it.keyword }.distinct()
 
     val players: List<String>
-        get() = tokens.filterIsInstance<Token.Player>().map { it.text }
+        get() = tokens.filterIsInstance<Token.Player>()
+            // The same pilot is often linked twice in one line -- bare, and again with their
+            // ship ("Nhar*  Nhar (Stork)*") -- so this normalises off the link marker before
+            // deduping, matching systemIds/keywords/questions below.
+            .map { it.text.removeSuffix("*") }
+            .distinct()
 
     val ships: List<Token.Ship>
         get() = tokens.filterIsInstance<Token.Ship>()

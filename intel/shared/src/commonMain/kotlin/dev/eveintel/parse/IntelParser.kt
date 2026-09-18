@@ -68,6 +68,13 @@ class IntelParser(
         // A segment is usually exactly one entity, so try the whole thing first.
         matchEntity(segment)?.let { out.add(it); return }
 
+        // A dragged/targeted ship link ("Nhar (Stork)*") names a pilot and their hull in one
+        // segment. Handled before the generic word loop below, which would otherwise split it into
+        // "Nhar" (an unmatched word) and "(Stork)*" (a ship) -- and since the same pilot is usually
+        // *also* linked bare elsewhere in the line, that leftover "Nhar" became a second, phantom
+        // Player token: the same person shown twice in the feed.
+        matchPlayerWithShip(segment)?.let { out.addAll(it); return }
+
         val words = segment.split(' ').filter { it.isNotBlank() }
         var i = 0
         val pendingName = mutableListOf<String>()
@@ -151,6 +158,47 @@ class IntelParser(
             if (!lower.endsWith(suffix)) continue
             val full = "$lower issue"
             shipsByLowerName[full]?.let { return it to canonicalShipName(full) }
+        }
+        // Plural hull report ("2 sabres", "caracal navy issues"): strip a trailing "s" and retry
+        // once, rather than listing every hull's plural by hand.
+        if (lower.endsWith("s") && lower.length > 1) {
+            val singular = lower.dropLast(1)
+            shipsByLowerName[singular]?.let { return it to canonicalShipName(singular) }
+            Vocabulary.SHIP_ALIASES[singular]?.let { alias ->
+                val id = shipsByLowerName[alias.lowercase()]
+                return id to alias
+            }
+        }
+
+        matchChineseShip(lower)?.let { return it }
+
+        return null
+    }
+
+    /** `Nhar (Stork)*` -> a pilot token plus the ship token they're currently flying. */
+    private fun matchPlayerWithShip(segment: String): List<Token>? {
+        val match = PLAYER_SHIP.matchEntire(segment) ?: return null
+        val namePart = match.groupValues[1].trim()
+        val shipPart = match.groupValues[2].trim()
+        val linked = match.groupValues[3] == LINK_MARKER
+        if (!looksLikeCharacterName(namePart)) return null
+        val (typeId, shipName) = matchShip(shipPart.lowercase()) ?: return null
+        return listOf(
+            Token.Player(text = namePart, linked = linked),
+            Token.Ship(text = shipPart, typeId = typeId, name = shipName, linked = linked),
+        )
+    }
+
+    /** Chinese-client hull report ("洛基级", "狞獾级海军型"). See [Vocabulary.SHIP_ALIASES_ZH]. */
+    private fun matchChineseShip(text: String): Pair<Int?, String>? {
+        Vocabulary.SHIP_ALIASES_ZH[text]?.let { base ->
+            return shipsByLowerName[base.lowercase()] to base
+        }
+        for ((zhSuffix, enSuffix) in Vocabulary.ZH_ISSUE_SUFFIXES) {
+            if (!text.endsWith(zhSuffix)) continue
+            val base = Vocabulary.SHIP_ALIASES_ZH["${text.removeSuffix(zhSuffix)}级"] ?: continue
+            val full = "$base $enSuffix"
+            shipsByLowerName[full.lowercase()]?.let { return it to full }
         }
         return null
     }
@@ -239,9 +287,11 @@ class IntelParser(
         if (words.isEmpty() || words.size > 3) return false
         return words.all { word ->
             val clean = word.trim(*TRIM_CHARS).removeSuffix(LINK_MARKER)
-            clean.isNotEmpty() &&
-                clean.first().isUpperCase() &&
-                clean.all { it.isLetterOrDigit() || it in "'-." }
+            if (clean.isEmpty() || !clean.all { it.isLetterOrDigit() || it in "'-." }) return@all false
+            // Ordinary title-cased pilot name, or a stylised handle with a digit swapped in for a
+            // letter ("dedmustd1e") -- real chatter never mixes letters and digits like that, and a
+            // bare number is already claimed by Token.Count before a word ever reaches here.
+            clean.first().isUpperCase() || clean.any { it.isDigit() }
         }
     }
 
@@ -252,6 +302,7 @@ class IntelParser(
         private val ISSUE_SUFFIXES = listOf(" navy", " fleet")
         private const val MIN_ABBREVIATION = 3
         private val TRIM_CHARS = charArrayOf(',', '.', '!', '?', ':', ';', '(', ')', '[', ']', '"', '\'', ' ')
+        private val PLAYER_SHIP = Regex("""^(.+?)\s+\((.+)\)(\*?)$""")
         private val SEGMENT_SPLIT = Regex("""\s{2,}""")
         private val URL = Regex("""https?://\S+""")
         private val COUNT_PLUS = Regex("""\+\s?(\d{1,4})""")

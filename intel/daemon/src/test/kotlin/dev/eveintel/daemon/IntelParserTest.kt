@@ -194,6 +194,65 @@ class IntelParserTest {
         )
     }
 
+    @Test
+    fun `plural hull names resolve to the singular ship`() {
+        assertEquals(
+            "Sabre",
+            tokens("FZ-6A5 Sabres").filterIsInstance<Token.Ship>().single().name,
+        )
+        assertEquals(
+            "Caracal Navy Issue",
+            tokens("FZ-6A5 Caracal Navy Issues").filterIsInstance<Token.Ship>().single().name,
+        )
+    }
+
+    @Test
+    fun `chinese client hull names resolve to the SDE name`() {
+        assertEquals(
+            "Loki",
+            tokens("FZ-6A5  洛基级").filterIsInstance<Token.Ship>().single().name,
+        )
+        assertEquals(
+            "Caracal Navy Issue",
+            tokens("FZ-6A5  狞獾级海军型").filterIsInstance<Token.Ship>().single().name,
+        )
+    }
+
+    @Test
+    fun `ship type question aliases are recognised`() {
+        val question = tokens("Petra Vance shiptypes? types?").filterIsInstance<Token.Question>()
+        assertEquals(listOf(QuestionKind.SHIP_TYPE, QuestionKind.SHIP_TYPE), question.map { it.kind })
+    }
+
+    @Test
+    fun `stylised digit handles are still recognised as players`() {
+        val result = tokens("FZ-6A5  Varro Kaine  d3adsh0t")
+        val players = result.filterIsInstance<Token.Player>()
+        assertEquals(2, players.size)
+        assertEquals("Varro Kaine", players[0].text)
+        assertEquals("d3adsh0t", players[1].text)
+    }
+
+    @Test
+    fun `raw url markup is flattened before tokenising`() {
+        val raw = assertNotNull(
+            ChatLogFormat.parseMessage(
+                "﻿[ 2026.09.17 17:32:24 ] Quiet mantis > " +
+                    "<url=showinfo:5//30004807>FZ-6A5</url>  Varro Kaine",
+            ),
+        )
+        val system = tokens(raw.message)[0] as Token.System
+        assertEquals("FZ-6A5", system.name)
+        assertTrue(system.linked)
+    }
+
+    @Test
+    fun `a pilot linked twice via a compound ship link is not duplicated`() {
+        val message = parse("FZ-6A5  Kelvra  Kelvra (Stork)")
+        assertEquals(listOf("Kelvra"), message.players)
+        assertEquals("Stork", message.ships.single().name)
+    }
+
     private fun parse(line: String) = parser.parse(
         "alliance.intel",
         ChatLogFormat.RawMessage(timestampMillis = 0L, author = "Tester", message = line),

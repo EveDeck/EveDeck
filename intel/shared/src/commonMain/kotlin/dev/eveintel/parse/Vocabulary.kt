@@ -108,7 +108,9 @@ object Vocabulary {
         "ship?" to QuestionKind.SHIP_TYPE,
         "ships?" to QuestionKind.SHIP_TYPE,
         "ship types?" to QuestionKind.SHIP_TYPE,
+        "shiptypes?" to QuestionKind.SHIP_TYPE,
         "type?" to QuestionKind.SHIP_TYPE,
+        "types?" to QuestionKind.SHIP_TYPE,
 
         "status?" to QuestionKind.STATUS,
         "stat?" to QuestionKind.STATUS,
@@ -157,6 +159,41 @@ object Vocabulary {
         "fax" to "Apostle",
         "titan" to "Erebus",
         "super" to "Nyx",
+    )
+
+    /**
+     * Chinese-client hull names, keyed by the base "X级" form the way CCP's own zh locale writes
+     * it (confirmed via ESI's `?language=zh` on each typeId, then cross-checked against real
+     * traffic in the archive — every key here was actually seen in a live intel report).
+     *
+     * The Russian client does not translate ship names at all (ESI's `ru` name is byte-identical
+     * to `en` for every hull checked), so there is no equivalent `SHIP_ALIASES_RU` — there is
+     * nothing to alias. Only base forms are listed; [ZH_ISSUE_SUFFIXES] derives the Navy/Fleet
+     * Issue variants the same way [ISSUE_SUFFIXES] does for English.
+     */
+    val SHIP_ALIASES_ZH: Map<String, String> = mapOf(
+        "狞獾级" to "Caracal",
+        "洛基级" to "Loki",
+        "维德马克级" to "Vedmak",
+        "海神级" to "Proteus",
+        "送葬者级" to "Exequror",
+        "秃鹫级" to "Condor",
+        "剑齿虎级" to "Sabre",
+        "刺客级" to "Stabber",
+        "苍鹭级" to "Heron",
+        "咒灭级" to "Malediction",
+        "圣卒级" to "Legion",
+        "黑鸦级" to "Crow",
+        "流浪级" to "Vagabond",
+        "太阳神级" to "Helios",
+        "多米尼克斯级" to "Dominix",
+        "飓风级" to "Cyclone",
+    )
+
+    /** Chinese equivalents of [IntelParser]'s english "navy"/"fleet" suffix rule. */
+    val ZH_ISSUE_SUFFIXES: Map<String, String> = mapOf(
+        "级海军型" to "Navy Issue",
+        "级舰队型" to "Fleet Issue",
     )
 
     /**
