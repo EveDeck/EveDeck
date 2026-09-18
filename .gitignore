@@ -28,8 +28,10 @@ CLAUDE.local.md
 CLAUDE.md
 AGENTS.md
 # Anchored: the nested EveDeck-site repository at the root, not every directory named `site`.
-# Unanchored, this also swallowed intel/site, which is tracked source in this repository.
 /site/
+
+# Nested EveDeck-Intel repository (split out 2026-09-18, same pattern as /site/ above).
+/intel/
 
 # Stray working copies of the logo dropped in the repo root — the canonical
 # app icon/logo assets live under app/src/EveDeck.
