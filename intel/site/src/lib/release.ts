@@ -5,8 +5,8 @@
  * them is worse than one that updates none -- a download page disagreeing with itself is the kind
  * of thing that makes people assume the binary is wrong too.
  */
-export const RELEASE_TAG = "intel-v0.1.0";
-export const VERSION = "0.1.0";
+export const RELEASE_TAG = "intel-v0.1.2";
+export const VERSION = "0.1.2";
 
 const BASE = `https://github.com/EveDeck/EveDeck/releases/download/${RELEASE_TAG}`;
 
@@ -33,8 +33,8 @@ export const DOWNLOADS: Download[] = [
     file: `EveDeckIntel-daemon-${VERSION}-win-x64.zip`,
     href: `${BASE}/EveDeckIntel-daemon-${VERSION}-win-x64.zip`,
     size: "40 MB",
-    sha256: "a281ee99c8ec45a46cd59d5ffb1811deff6841dc5b98d5889419dddc4ce60b49",
-    requirement: "Windows 10 or 11, 64-bit",
+    sha256: "ca6ce6bd37f057c45f82fa21276871f35ffb591701858ff327d8a9e97f3ff091",
+    requirement: "Windows 10 or 11, 64-bit — ~150 MB RAM, near-idle CPU while running",
     detail:
       "Reads the chat logs and serves them to the tablet. Unzip and run — Java is bundled, so nothing has to be installed first."
   },
@@ -45,8 +45,8 @@ export const DOWNLOADS: Download[] = [
     file: `EveDeckIntel-${VERSION}.apk`,
     href: `${BASE}/EveDeckIntel-${VERSION}.apk`,
     size: "15 MB",
-    sha256: "ae270a422f33b5abd1848f797e7d0c8e1442953e9430c9e06a774e2384094db9",
-    requirement: "Android 8.0 or newer, tablet",
+    sha256: "8ab6c0cf8889ab5a82e29ac5c729573a62478b4df84b47cb1a6ed2760cd2fd69",
+    requirement: "Android 8.0 or newer, tablet — ~170 MB RAM",
     detail:
       "The feed, the map and the alerts. Sideloaded, so Android asks once whether to allow installs from your browser."
   }
