@@ -31,7 +31,7 @@ const features = [
   {
     title: "Runs on the tablet you already have",
     body:
-      "Android 8.0 and up. The daemon bundles its own Java runtime, so the PC side is unzip-and-run with nothing to install first."
+      "Android 8.0 and up, light enough to leave running all session: around 150 MB of RAM and close to idle CPU for the daemon, around 170 MB for the tablet app. The daemon bundles its own Java runtime, so the PC side is unzip-and-run with nothing to install first."
   }
 ];
 
