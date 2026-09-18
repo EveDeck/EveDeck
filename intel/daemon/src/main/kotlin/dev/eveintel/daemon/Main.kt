@@ -69,6 +69,7 @@ fun main(args: Array<String>) {
     val selectedChannels = MutableStateFlow(config.intelChannels)
     val registry = ChannelRegistry(config.chatLogsDirectory, selectedChannels)
     val pipeline = IntelPipeline(universe, parser, selectedChannels)
+    val displaySettings = MutableStateFlow(config.displaySettings)
 
     val cacheDirectory = configPath.toAbsolutePath().parent.resolve("cache")
     val esi = dev.eveintel.daemon.esi.EsiClient()
@@ -127,6 +128,7 @@ fun main(args: Array<String>) {
                 regionNames = universe.systems.map { it.regionName }.distinct().sorted(),
                 registry = registry,
                 knownLocations = { pipeline.locations.value.size },
+                displaySettings = displaySettings,
                 logFile = logFile,
                 openSettings = firstRun || args.contains("--settings"),
                 onExit = {
@@ -145,6 +147,7 @@ fun main(args: Array<String>) {
             characters = characters,
             universeStatus = universeStatus,
             images = images,
+            display = displaySettings,
         ).start(this)
     }
 }

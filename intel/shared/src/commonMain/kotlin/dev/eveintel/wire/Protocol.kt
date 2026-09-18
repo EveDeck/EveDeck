@@ -1,6 +1,7 @@
 package dev.eveintel.wire
 
 import dev.eveintel.model.CharacterLocation
+import dev.eveintel.model.DisplaySettings
 import dev.eveintel.model.IntelMessage
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -24,6 +25,7 @@ sealed interface ServerMessage {
         val scopeRegionIds: List<Int>,
         val serverTimeMillis: Long,
         val channels: Channels = Channels(),
+        val display: DisplaySettings = DisplaySettings(),
     ) : ServerMessage
 
     /**
@@ -69,6 +71,11 @@ sealed interface ServerMessage {
     @Serializable
     @SerialName("heartbeat")
     data class Heartbeat(val serverTimeMillis: Long) : ServerMessage
+
+    /** Sent on connect and whenever changed, from either side -- see [DisplaySettings]. */
+    @Serializable
+    @SerialName("display")
+    data class Display(val settings: DisplaySettings = DisplaySettings()) : ServerMessage
 }
 
 /**
@@ -141,6 +148,11 @@ sealed interface ClientMessage {
     @Serializable
     @SerialName("setChannels")
     data class SetChannels(val channels: List<String>) : ClientMessage
+
+    /** Replaces the display settings for every connected tablet. The daemon persists this. */
+    @Serializable
+    @SerialName("setDisplay")
+    data class SetDisplay(val settings: DisplaySettings) : ClientMessage
 }
 
 const val PROTOCOL_VERSION = 1

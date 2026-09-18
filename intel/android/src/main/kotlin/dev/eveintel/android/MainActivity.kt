@@ -39,6 +39,10 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -144,6 +148,35 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// EVE Online's in-game clock is always UTC ("EVE time"), and downtime starts 11:00 UTC and
+// nominally runs to ~11:15-11:30 (longer on patch days). The feed goes quiet during that window
+// because nothing new is being logged, not because anything is broken -- so this needs to read as
+// "the server is down for maintenance", not as a dead connection.
+private val EVE_CLOCK_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneOffset.UTC)
+
+@Composable
+private fun EveClock() {
+    var now by remember { mutableStateOf(Instant.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = Instant.now()
+            val utc = now.atZone(ZoneOffset.UTC)
+            val millisToNextMinute = 60_000L - (utc.second * 1_000L + utc.nano / 1_000_000L)
+            delay(millisToNextMinute)
+        }
+    }
+
+    val utc = now.atZone(ZoneOffset.UTC)
+    val inDowntime = utc.hour == 11 && utc.minute <= 30
+    Text(
+        text = EVE_CLOCK_FORMATTER.format(now) + if (inDowntime) " · DOWNTIME" else "",
+        color = if (inDowntime) IntelColors.Warning else IntelColors.Muted,
+        fontFamily = FontFamily.Monospace,
+        fontWeight = if (inDowntime) FontWeight.Bold else FontWeight.Normal,
+        fontSize = 12.sp,
+    )
+}
+
 @Composable
 private fun StatusBar(state: IntelUiState, onPickCharacters: () -> Unit) {
     Row(
@@ -170,6 +203,9 @@ private fun StatusBar(state: IntelUiState, onPickCharacters: () -> Unit) {
         Text("INTEL", color = IntelColors.OnSurface, fontWeight = FontWeight.Bold, fontSize = 15.sp)
 
         Spacer(Modifier.weight(1f))
+
+        EveClock()
+        Spacer(Modifier.width(14.dp))
 
         // The whole right-hand block is the shortcut into the character picker: this is where a
         // user looks to ask "measured from where?", so it is where the answer is changed.

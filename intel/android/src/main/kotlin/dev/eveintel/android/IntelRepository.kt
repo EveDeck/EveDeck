@@ -48,6 +48,19 @@ object IntelRepository {
         _channels.value = channels
     }
 
+    private val _display = MutableStateFlow(dev.eveintel.model.DisplaySettings())
+
+    /** Synced from the daemon, not kept per-device -- see [dev.eveintel.model.DisplaySettings]. */
+    val display: StateFlow<dev.eveintel.model.DisplaySettings> = _display.asStateFlow()
+
+    /** Set by the client so the settings screen can push a display-settings change. */
+    @Volatile
+    var requestDisplaySettings: ((dev.eveintel.model.DisplaySettings) -> Unit)? = null
+
+    fun setDisplay(settings: dev.eveintel.model.DisplaySettings) {
+        _display.value = settings
+    }
+
     private val _characters = MutableStateFlow<Map<String, dev.eveintel.wire.CharacterInfo>>(emptyMap())
 
     /** ESI-resolved character detail, keyed by the name as it appears in chat. */

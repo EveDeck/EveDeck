@@ -25,18 +25,93 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import dev.eveintel.android.ConnectionState
 import dev.eveintel.android.IntelUiState
+import dev.eveintel.model.DisplaySettings
 import dev.eveintel.model.IntelMessage
 import dev.eveintel.model.Keyword
 import dev.eveintel.model.Token
 import kotlin.math.max
+
+private fun DisplaySettings.parsedTextColor(): Color =
+    runCatching { Color(android.graphics.Color.parseColor(textColor)) }.getOrDefault(IntelColors.OnSurface)
+
+/**
+ * Renders [text] once, or — when glow and/or drop shadow are enabled — layers extra copies
+ * behind it, since Compose's [TextStyle] only supports a single [Shadow] per [Text].
+ */
+@Composable
+private fun ShadowedText(
+    text: String,
+    color: Color,
+    display: DisplaySettings,
+    modifier: Modifier = Modifier,
+    fontWeight: FontWeight? = null,
+    fontFamily: FontFamily? = null,
+    fontStyle: FontStyle? = null,
+    fontSize: TextUnit = TextUnit.Unspecified,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    if (!display.glowEnabled && !display.dropShadowEnabled) {
+        Text(
+            text,
+            color = color,
+            modifier = modifier,
+            fontWeight = fontWeight,
+            fontFamily = fontFamily,
+            fontStyle = fontStyle,
+            fontSize = fontSize,
+            maxLines = maxLines,
+        )
+        return
+    }
+    Box(modifier) {
+        if (display.glowEnabled) {
+            Text(
+                text,
+                color = color.copy(alpha = 0.85f),
+                fontWeight = fontWeight,
+                fontFamily = fontFamily,
+                fontStyle = fontStyle,
+                fontSize = fontSize,
+                maxLines = maxLines,
+                style = TextStyle(shadow = Shadow(color.copy(alpha = 0.85f), Offset.Zero, blurRadius = 18f)),
+            )
+        }
+        if (display.dropShadowEnabled) {
+            Text(
+                text,
+                color = color,
+                fontWeight = fontWeight,
+                fontFamily = fontFamily,
+                fontStyle = fontStyle,
+                fontSize = fontSize,
+                maxLines = maxLines,
+                style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.75f), Offset(2f, 2f), blurRadius = 4f)),
+            )
+        }
+        Text(
+            text,
+            color = color,
+            fontWeight = fontWeight,
+            fontFamily = fontFamily,
+            fontStyle = fontStyle,
+            fontSize = fontSize,
+            maxLines = maxLines,
+        )
+    }
+}
 
 @Composable
 fun FeedScreen(state: IntelUiState, now: Long, modifier: Modifier = Modifier) {
@@ -78,7 +153,7 @@ private fun EmptyFeed(state: IntelUiState, modifier: Modifier) {
                     }
             },
             color = IntelColors.Muted,
-            fontSize = 18.sp,
+            fontSize = (18 * state.display.fontScale).sp,
         )
     }
 }
@@ -109,32 +184,37 @@ private fun IntelRow(state: IntelUiState, message: IntelMessage, now: Long) {
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        JumpBadge(jumps = jumps, color = accent, inRange = inRange)
+        JumpBadge(state = state, jumps = jumps, color = accent, inRange = inRange)
         Spacer(Modifier.width(10.dp))
 
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = system?.name ?: "—",
-                    color = accent,
+                ShadowedText(
+                    // "~" flags a system this line never actually named -- IntelPipeline borrowed
+                    // it from the channel's last stated report because this was a bare follow-up
+                    // (`nv`, a ship name with nothing else). Never show a guess as a stated fact.
+                    text = (if (system?.inferred == true) "~" else "") + (system?.name ?: "—"),
+                    color = if (system?.inferred == true) accent.copy(alpha = 0.7f) else accent,
+                    display = state.display,
+                    fontStyle = if (system?.inferred == true) FontStyle.Italic else FontStyle.Normal,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 19.sp,
+                    fontSize = (19 * state.display.fontScale).sp,
                 )
                 system?.let { token ->
                     state.sovHolderOf(token.systemId)?.let { holder ->
                         Spacer(Modifier.width(6.dp))
-                        SovChip(holder.ticker ?: holder.name)
+                        SovChip(state, holder.ticker ?: holder.name)
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                ChannelChip(message.channel)
+                ChannelChip(state, message.channel)
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = age(now - message.timestampMillis),
                     color = IntelColors.Muted,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 14.sp,
+                    fontSize = (14 * state.display.fontScale).sp,
                 )
             }
 
@@ -144,10 +224,12 @@ private fun IntelRow(state: IntelUiState, message: IntelMessage, now: Long) {
 
             val extras = extraLabels(message)
             if (extras.isNotEmpty()) {
-                Text(
+                val extrasColor = if (isClear) IntelColors.Clear else IntelColors.Warning
+                ShadowedText(
                     text = extras.joinToString(" · "),
-                    color = if (isClear) IntelColors.Clear else IntelColors.Warning,
-                    fontSize = 15.sp,
+                    color = extrasColor,
+                    display = state.display,
+                    fontSize = (15 * state.display.fontScale).sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -155,7 +237,7 @@ private fun IntelRow(state: IntelUiState, message: IntelMessage, now: Long) {
             Text(
                 text = "${message.author}: ${message.raw}",
                 color = IntelColors.Muted,
-                fontSize = 14.sp,
+                fontSize = (14 * state.display.fontScale).sp,
                 maxLines = 1,
             )
         }
@@ -179,14 +261,15 @@ private fun Ships(state: IntelUiState, message: IntelMessage) {
                     AsyncImage(
                         model = url,
                         contentDescription = ship.name,
-                        modifier = Modifier.size(26.dp).clip(RoundedCornerShape(3.dp)),
+                        modifier = Modifier.size((26 * state.display.iconScale).dp).clip(RoundedCornerShape(3.dp)),
                     )
                     Spacer(Modifier.width(5.dp))
                 }
-                Text(
+                ShadowedText(
                     text = ship.count?.let { "${it}× " }.orEmpty() + ship.name,
-                    color = IntelColors.OnSurface,
-                    fontSize = 16.sp,
+                    color = state.display.parsedTextColor(),
+                    display = state.display,
+                    fontSize = (16 * state.display.fontScale).sp,
                     fontWeight = if (ship.count != null) FontWeight.Bold else FontWeight.Normal,
                 )
             }
@@ -210,34 +293,39 @@ private fun Hostiles(state: IntelUiState, message: IntelMessage) {
                     AsyncImage(
                         model = url,
                         contentDescription = name,
-                        modifier = Modifier.size(24.dp).clip(CircleShape),
+                        modifier = Modifier.size((24 * state.display.iconScale).dp).clip(CircleShape),
                     )
                     Spacer(Modifier.width(5.dp))
                 }
-                Text(name, color = IntelColors.OnSurface, fontSize = 15.sp)
+                ShadowedText(
+                    name,
+                    color = state.display.parsedTextColor(),
+                    display = state.display,
+                    fontSize = (15 * state.display.fontScale).sp,
+                )
                 info?.allianceTicker?.let { ticker ->
                     Spacer(Modifier.width(4.dp))
                     Text(
                         text = "[$ticker]",
                         color = IntelColors.Accent,
-                        fontSize = 13.sp,
+                        fontSize = (13 * state.display.fontScale).sp,
                         fontFamily = FontFamily.Monospace,
                     )
                 }
             }
         }
         if (players.size > 6) {
-            Text("+${players.size - 6}", color = IntelColors.Muted, fontSize = 14.sp)
+            Text("+${players.size - 6}", color = IntelColors.Muted, fontSize = (14 * state.display.fontScale).sp)
         }
     }
 }
 
 @Composable
-private fun ChannelChip(channel: String) {
+private fun ChannelChip(state: IntelUiState, channel: String) {
     Text(
         text = channel,
         color = IntelColors.Muted,
-        fontSize = 12.sp,
+        fontSize = (12 * state.display.fontScale).sp,
         fontFamily = FontFamily.Monospace,
         modifier = Modifier
             .clip(RoundedCornerShape(3.dp))
@@ -247,11 +335,11 @@ private fun ChannelChip(channel: String) {
 }
 
 @Composable
-private fun SovChip(label: String) {
+private fun SovChip(state: IntelUiState, label: String) {
     Text(
         text = label,
         color = IntelColors.You,
-        fontSize = 12.sp,
+        fontSize = (12 * state.display.fontScale).sp,
         fontFamily = FontFamily.Monospace,
         modifier = Modifier
             .clip(RoundedCornerShape(3.dp))
@@ -261,7 +349,7 @@ private fun SovChip(label: String) {
 }
 
 @Composable
-private fun JumpBadge(jumps: Int?, color: Color, inRange: Boolean) {
+private fun JumpBadge(state: IntelUiState, jumps: Int?, color: Color, inRange: Boolean) {
     Box(
         modifier = Modifier
             .size(width = 48.dp, height = 40.dp)
@@ -278,7 +366,7 @@ private fun JumpBadge(jumps: Int?, color: Color, inRange: Boolean) {
             color = color,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
-            fontSize = if (jumps == 0) 13.sp else 17.sp,
+            fontSize = ((if (jumps == 0) 13 else 17) * state.display.fontScale).sp,
         )
     }
 }

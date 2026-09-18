@@ -60,6 +60,9 @@ class IntelService : LifecycleService() {
                     IntelRepository.requestChannels = { channels ->
                         newClient.send(dev.eveintel.wire.ClientMessage.SetChannels(channels))
                     }
+                    IntelRepository.requestDisplaySettings = { settings ->
+                        newClient.send(dev.eveintel.wire.ClientMessage.SetDisplay(settings))
+                    }
                     connectionJob = lifecycleScope.launch {
                         newClient.run("ws://$host:$port/intel")
                     }

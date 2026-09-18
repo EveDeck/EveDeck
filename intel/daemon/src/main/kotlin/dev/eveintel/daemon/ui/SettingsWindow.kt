@@ -1,6 +1,7 @@
 package dev.eveintel.daemon.ui
 
 import dev.eveintel.daemon.Config
+import dev.eveintel.model.DisplaySettings
 import dev.eveintel.wire.ChannelInfo
 import java.awt.BorderLayout
 import java.awt.Component
@@ -18,12 +19,14 @@ import javax.swing.BoxLayout
 import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JCheckBox
+import javax.swing.JColorChooser
 import javax.swing.JFileChooser
 import javax.swing.JFrame
 import javax.swing.JLabel
 import javax.swing.JList
 import javax.swing.JPanel
 import javax.swing.JScrollPane
+import javax.swing.JSlider
 import javax.swing.JTextField
 import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
@@ -48,6 +51,8 @@ class SettingsWindow(
     private val regionNames: List<String>,
     private val availableChannels: () -> List<ChannelInfo>,
     private val onChannelsChanged: (Set<String>) -> Unit,
+    private val currentDisplay: () -> DisplaySettings,
+    private val onDisplayChanged: (DisplaySettings) -> Unit,
     private val status: () -> List<String>,
     private val tabletUrl: () -> String?,
     private val onRestart: (() -> Unit)?,
@@ -79,6 +84,29 @@ class SettingsWindow(
         isVisible = false
         addActionListener { onRestart?.invoke() }
     }
+
+    // Applies live to every connected tablet on Save -- see [onDisplayChanged]. Values are reset
+    // from [currentDisplay] in [refresh] each time the window opens, since another tablet could
+    // have changed them since this window was last shown.
+    private val fontScaleSlider = scaleSlider(1f)
+    private val iconScaleSlider = scaleSlider(1f)
+    private var textColor = parseHexColor(DisplaySettings.DEFAULT_TEXT_COLOR)
+    private val textColorSwatch = JButton().apply {
+        preferredSize = Dimension(28, 22)
+        isFocusPainted = false
+        background = textColor
+        toolTipText = "Feed text colour"
+        addActionListener {
+            val chosen = JColorChooser.showDialog(frame, "Feed text colour", textColor)
+            if (chosen != null) {
+                textColor = chosen
+                background = chosen
+            }
+        }
+    }
+    // Independent, not mutually exclusive -- both can be checked at once.
+    private val glowCheck = JCheckBox("Glow").apply { background = Theme.BACKGROUND }
+    private val dropShadowCheck = JCheckBox("Drop shadow").apply { background = Theme.BACKGROUND }
 
     /** Held separately from the list: filtering the visible rows must not clear the selection. */
     private val selectedRegions = linkedSetOf<String>().apply { addAll(initial.scopeRegions) }
@@ -210,6 +238,53 @@ class SettingsWindow(
             row++,
         )
 
+        add(heading("Feed appearance"), 0, row)
+        add(
+            transparent(GridBagLayout()).apply {
+                fun labeled(label: String, component: Component, gy: Int) {
+                    add(
+                        Theme.hint(label),
+                        GridBagConstraints().apply {
+                            gridx = 0; gridy = gy; anchor = GridBagConstraints.WEST
+                            insets = Insets(2, 0, 2, 10)
+                        },
+                    )
+                    add(
+                        component,
+                        GridBagConstraints().apply {
+                            gridx = 1; gridy = gy; anchor = GridBagConstraints.WEST
+                            insets = Insets(2, 0, 2, 0)
+                        },
+                    )
+                }
+                labeled("Font size", fontScaleSlider, 0)
+                labeled("Icon size", iconScaleSlider, 1)
+                labeled(
+                    "Text colour",
+                    transparent(FlowLayout(FlowLayout.LEFT, 6, 0)).apply {
+                        add(textColorSwatch)
+                        add(Theme.hint("(system-name colour and status colours are unaffected)"))
+                    },
+                    2,
+                )
+                labeled(
+                    "Text effect",
+                    transparent(FlowLayout(FlowLayout.LEFT, 8, 0)).apply {
+                        add(glowCheck)
+                        add(dropShadowCheck)
+                    },
+                    3,
+                )
+            },
+            1,
+            row++,
+        )
+        add(
+            Theme.hint("Applies immediately to every connected tablet — no restart needed."),
+            1,
+            row++,
+        )
+
         add(
             transparent(BorderLayout()).apply {
                 border = BorderFactory.createEmptyBorder(12, 0, 0, 0)
@@ -283,6 +358,14 @@ class SettingsWindow(
         }
         refreshChannels()
         refreshRegions()
+
+        val display = currentDisplay()
+        fontScaleSlider.value = (display.fontScale * 100).toInt().coerceIn(75, 175)
+        iconScaleSlider.value = (display.iconScale * 100).toInt().coerceIn(75, 175)
+        textColor = parseHexColor(display.textColor)
+        textColorSwatch.background = textColor
+        glowCheck.isSelected = display.glowEnabled
+        dropShadowCheck.isSelected = display.dropShadowEnabled
     }
 
     private fun refreshChannels() {
@@ -353,6 +436,16 @@ class SettingsWindow(
         )
         onChannelsChanged(channels.toSet())
 
+        onDisplayChanged(
+            DisplaySettings(
+                fontScale = fontScaleSlider.value / 100f,
+                iconScale = iconScaleSlider.value / 100f,
+                textColor = textColor.rgbHex(),
+                glowEnabled = glowCheck.isSelected,
+                dropShadowEnabled = dropShadowCheck.isSelected,
+            ).coerced(),
+        )
+
         val needsRestart = logsField.text.trim() != initial.chatLogsDirectory.toString() ||
             port != initial.port ||
             selectedRegions != initial.scopeRegions ||
@@ -368,4 +461,18 @@ class SettingsWindow(
     }
 
     private fun java.awt.Color.rgbHex() = String.format("#%02x%02x%02x", red, green, blue)
+
+    private fun parseHexColor(hex: String): java.awt.Color =
+        runCatching { java.awt.Color.decode(hex) }.getOrDefault(java.awt.Color(0xd7, 0xe1, 0xec))
+
+    /** 75%-175%, matching [DisplaySettings]'s clamp range. */
+    private fun scaleSlider(initial: Float) = JSlider(75, 175, (initial * 100).toInt().coerceIn(75, 175)).apply {
+        background = Theme.BACKGROUND
+        foreground = Theme.MUTED
+        preferredSize = Dimension(180, preferredSize.height)
+        majorTickSpacing = 25
+        paintTicks = true
+        toolTipText = "$value%"
+        addChangeListener { toolTipText = "$value%" }
+    }
 }

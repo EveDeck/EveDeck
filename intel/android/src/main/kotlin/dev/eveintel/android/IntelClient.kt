@@ -104,9 +104,11 @@ class IntelClient(private val deviceName: String) {
                 IntelRepository.setScope(message.scopeRegionIds.toSet())
                 IntelRepository.replaceAll(message.messages, message.locations)
                 IntelRepository.setChannels(message.channels)
+                IntelRepository.setDisplay(message.display)
                 IntelRepository.setHeartbeat(System.currentTimeMillis())
             }
             is ServerMessage.Channels -> IntelRepository.setChannels(message)
+            is ServerMessage.Display -> IntelRepository.setDisplay(message.settings)
             is ServerMessage.Characters -> IntelRepository.addCharacters(message.characters)
             is ServerMessage.Sovereignty -> IntelRepository.setSovereignty(message)
             is ServerMessage.Stats -> IntelRepository.setStats(message.systems)

@@ -1,16 +1,20 @@
 package dev.eveintel.android.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -26,12 +30,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.eveintel.android.IntelUiState
 import dev.eveintel.android.IntelViewModel
+import dev.eveintel.model.DisplaySettings
+import kotlin.math.roundToInt
 
 @Composable
 fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Modifier = Modifier) {
@@ -172,6 +179,71 @@ fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Mod
             ToggleRow("Keep the screen on", settings.keepScreenOn, viewModel::setKeepScreenOn)
         }
 
+        Section("Feed appearance") {
+            Text(
+                "Applies to every connected tablet — set from either the tablet or the PC's " +
+                    "settings window.",
+                color = IntelColors.Muted,
+                fontSize = 12.sp,
+            )
+
+            Text(
+                "Font size: ${(state.display.fontScale * 100).roundToInt()}%",
+                color = IntelColors.OnSurface,
+            )
+            Slider(
+                value = state.display.fontScale,
+                onValueChange = { value -> viewModel.setDisplay { it.copy(fontScale = value) } },
+                valueRange = DisplaySettings.MIN_SCALE..DisplaySettings.MAX_SCALE,
+            )
+
+            Text(
+                "Icon size: ${(state.display.iconScale * 100).roundToInt()}%",
+                color = IntelColors.OnSurface,
+            )
+            Slider(
+                value = state.display.iconScale,
+                onValueChange = { value -> viewModel.setDisplay { it.copy(iconScale = value) } },
+                valueRange = DisplaySettings.MIN_SCALE..DisplaySettings.MAX_SCALE,
+            )
+
+            Text("Text colour", color = IntelColors.OnSurface)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TEXT_COLOR_PRESETS.forEach { hex ->
+                    val selected = state.display.textColor.equals(hex, ignoreCase = true)
+                    Box(
+                        Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(android.graphics.Color.parseColor(hex)))
+                            .border(
+                                width = if (selected) 2.dp else 0.dp,
+                                color = if (selected) IntelColors.Accent else Color.Transparent,
+                                shape = CircleShape,
+                            )
+                            .clickable { viewModel.setDisplay { it.copy(textColor = hex) } },
+                    )
+                }
+            }
+            Text(
+                "Doesn't affect the hostile/clear/warning status colours — those stay fixed, they carry meaning.",
+                color = IntelColors.Muted,
+                fontSize = 12.sp,
+            )
+
+            Text("Text effect", color = IntelColors.OnSurface)
+            ToggleRow(
+                "Glow",
+                state.display.glowEnabled,
+                { value -> viewModel.setDisplay { it.copy(glowEnabled = value) } },
+            )
+            ToggleRow(
+                "Drop shadow",
+                state.display.dropShadowEnabled,
+                { value -> viewModel.setDisplay { it.copy(dropShadowEnabled = value) } },
+            )
+        }
+
         Section("About") {
             Text(
                 "Reads your alliance intel channels from the EVE client's chat logs on the PC and " +
@@ -182,6 +254,16 @@ fun SettingsScreen(state: IntelUiState, viewModel: IntelViewModel, modifier: Mod
         }
     }
 }
+
+/** Presets shown as swatches — includes the shipped default plus a spread of cool/warm/neutral tones. */
+private val TEXT_COLOR_PRESETS = listOf(
+    DisplaySettings.DEFAULT_TEXT_COLOR,
+    "#FFFFFF",
+    "#FFD180",
+    "#FF8A80",
+    "#B9F6CA",
+    "#B388FF",
+)
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {

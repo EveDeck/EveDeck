@@ -1,5 +1,6 @@
 package dev.eveintel.daemon
 
+import dev.eveintel.model.DisplaySettings
 import dev.eveintel.wire.ClientMessage
 import dev.eveintel.wire.ServerMessage
 import dev.eveintel.wire.WireJson
@@ -20,6 +21,7 @@ import io.ktor.websocket.readText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.net.NetworkInterface
@@ -38,6 +40,11 @@ class IntelServer(
     private val characters: dev.eveintel.daemon.esi.CharacterResolver,
     private val universeStatus: dev.eveintel.daemon.esi.UniverseStatusService,
     private val images: dev.eveintel.daemon.esi.ImageProxy,
+    /**
+     * Shared with the settings window: either side writes it, this class broadcasts and persists
+     * whatever lands here regardless of which one changed it.
+     */
+    private val display: MutableStateFlow<DisplaySettings>,
 ) {
     private val broadcast = MutableSharedFlow<ServerMessage>(extraBufferCapacity = 256)
 
@@ -60,6 +67,12 @@ class IntelServer(
         }
         scope.launch {
             channels.selected.collect { broadcast.emit(channelState()) }
+        }
+        scope.launch {
+            display.collect { settings ->
+                broadcast.emit(ServerMessage.Display(settings))
+                Config.saveDisplaySettings(configPath, settings)
+            }
         }
         scope.launch {
             characters.updates.collect { broadcast.emit(ServerMessage.Characters(it)) }
@@ -101,6 +114,7 @@ class IntelServer(
                         scopeRegionIds = scopeRegionIds.toList(),
                         serverTimeMillis = System.currentTimeMillis(),
                         channels = channelState(),
+                        display = display.value,
                     )
                     send(Frame.Text(WireJson.encodeToString(ServerMessage.serializer(), snapshot)))
 
@@ -124,6 +138,7 @@ class IntelServer(
                                         println("intel channels: ${channels.selected.value.sorted().joinToString()}")
                                     }
                                     is ClientMessage.Follow -> Unit
+                                    is ClientMessage.SetDisplay -> display.value = client.settings.coerced()
                                 }
                             }
                         }

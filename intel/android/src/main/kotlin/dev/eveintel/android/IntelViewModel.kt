@@ -20,6 +20,7 @@ data class IntelUiState(
     val universe: Universe? = null,
     val scopeRegionIds: Set<Int> = emptySet(),
     val channels: dev.eveintel.wire.ServerMessage.Channels = dev.eveintel.wire.ServerMessage.Channels(),
+    val display: dev.eveintel.model.DisplaySettings = dev.eveintel.model.DisplaySettings(),
     val characters: Map<String, dev.eveintel.wire.CharacterInfo> = emptyMap(),
     val sovereignty: dev.eveintel.wire.ServerMessage.Sovereignty = dev.eveintel.wire.ServerMessage.Sovereignty(),
     val stats: Map<Int, dev.eveintel.wire.SystemStats> = emptyMap(),
@@ -113,8 +114,14 @@ class IntelViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    // combine() only has a typed overload up to five flows, and this needs six -- folding display
+    // in first keeps every downstream combine call typed rather than casting out of an array.
+    private val withDisplay = combine(core, IntelRepository.display) { base, display ->
+        base.copy(display = display)
+    }
+
     val state: StateFlow<IntelUiState> = combine(
-        core,
+        withDisplay,
         IntelRepository.channels,
         IntelRepository.characters,
         IntelRepository.sovereignty,
@@ -159,5 +166,14 @@ class IntelViewModel(application: Application) : AndroidViewModel(application) {
         val current = state.value.channels.selected.toMutableSet()
         if (enabled) current.add(name) else current.remove(name)
         IntelRepository.requestChannels?.invoke(current.sorted())
+    }
+
+    /**
+     * Pushes a display-settings change to the daemon, which persists it and rebroadcasts to every
+     * connected tablet -- including this one, so the UI updates from the round trip rather than an
+     * optimistic local write, the same as [toggleChannel].
+     */
+    fun setDisplay(update: (dev.eveintel.model.DisplaySettings) -> dev.eveintel.model.DisplaySettings) {
+        IntelRepository.requestDisplaySettings?.invoke(update(state.value.display).coerced())
     }
 }

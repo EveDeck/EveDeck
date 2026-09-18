@@ -1,5 +1,6 @@
 package dev.eveintel.daemon
 
+import dev.eveintel.model.DisplaySettings
 import dev.eveintel.universe.Universe
 import java.nio.file.Files
 import java.nio.file.Path
@@ -17,6 +18,7 @@ data class Config(
     val port: Int,
     val bindAddress: String,
     val startFromEnd: Boolean,
+    val displaySettings: DisplaySettings,
 ) {
     fun scopeRegionIds(universe: Universe): Set<Int> =
         scopeRegions.mapNotNull { universe.regionIdsByLowerName[it.lowercase()] }.toSet()
@@ -29,6 +31,21 @@ data class Config(
          */
         fun saveChannels(path: Path, channels: Collection<String>) {
             save(path, mapOf("intel.channels" to channels.sorted().joinToString(",")))
+        }
+
+        /** Mirrors [saveChannels]: called whenever either side changes the display settings. */
+        fun saveDisplaySettings(path: Path, settings: DisplaySettings) {
+            val coerced = settings.coerced()
+            save(
+                path,
+                mapOf(
+                    "display.fontScale" to coerced.fontScale.toString(),
+                    "display.iconScale" to coerced.iconScale.toString(),
+                    "display.textColor" to coerced.textColor,
+                    "display.glow" to coerced.glowEnabled.toString(),
+                    "display.dropShadow" to coerced.dropShadowEnabled.toString(),
+                ),
+            )
         }
 
         /**
@@ -70,6 +87,14 @@ data class Config(
                 .filter { it.isNotEmpty() }
                 .toSet()
 
+            val display = DisplaySettings(
+                fontScale = string("display.fontScale", "1.0").toFloatOrNull() ?: 1f,
+                iconScale = string("display.iconScale", "1.0").toFloatOrNull() ?: 1f,
+                textColor = string("display.textColor", DisplaySettings.DEFAULT_TEXT_COLOR),
+                glowEnabled = string("display.glow", "false").toBooleanStrictOrNull() ?: false,
+                dropShadowEnabled = string("display.dropShadow", "false").toBooleanStrictOrNull() ?: false,
+            ).coerced()
+
             return Config(
                 chatLogsDirectory = Paths.get(string("chatlogs.dir", defaultChatLogsDirectory())),
                 intelChannels = set("intel.channels", ""),
@@ -77,6 +102,7 @@ data class Config(
                 port = string("server.port", "31337").toIntOrNull() ?: 31337,
                 bindAddress = string("server.bind", "0.0.0.0"),
                 startFromEnd = string("logs.startFromEnd", "true").toBooleanStrictOrNull() ?: true,
+                displaySettings = display,
             )
         }
 
