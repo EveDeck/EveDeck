@@ -2394,15 +2394,6 @@ Tick as many as you like. Leaving one character parked in known space while the 
 Drag the overlay anywhere to position it, then lock it. Locking also makes it click-through, so it stops intercepting clicks meant for the client underneath.
                         </TextBlock>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center"
-                                    IsEnabled="{Binding IntelOverlayEnabled}">
-                          <TextBlock Text="Background" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
-                          <Slider Minimum="10" Maximum="100" Value="{Binding IntelOverlayOpacityPercent}" Width="150" VerticalAlignment="Center"
-                                  IsSnapToTickEnabled="True" TickFrequency="5"
-                                  ToolTip="Opacity of the card behind the intel text -- lower to see more of the client through it."/>
-                          <TextBlock Text="{Binding IntelOverlayOpacityPercent, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
-                        </StackPanel>
-
                         <WrapPanel VerticalAlignment="Center" IsEnabled="{Binding IntelOverlayEnabled}">
                           <TextBlock Text="Show" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                           <TextBox Text="{Binding IntelOverlayMaxRows, UpdateSourceTrigger=PropertyChanged}" Width="44" Margin="6,0" VerticalAlignment="Center"/>
