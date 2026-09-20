@@ -58,6 +58,8 @@ public sealed class IntelFeedService : IDisposable
 
     public event Action<IntelFeedEntry>? EntryAdded;
 
+    public event Action<CharacterLocation>? LocationUpdated;
+
     public IntelFeedService(Universe universe, IntelLogTailer tailer)
     {
         _universe = universe;
@@ -68,6 +70,27 @@ public sealed class IntelFeedService : IDisposable
     public IReadOnlyList<IntelFeedEntry> History
     {
         get { lock (_gate) return [.._history]; }
+    }
+
+    /// <summary>Every known character position, including those with no k-space system.</summary>
+    public IReadOnlyList<CharacterLocation> Locations
+    {
+        get { lock (_gate) return _locationByCharacter.Values.ToList(); }
+    }
+
+    /// <summary>
+    /// The union of every watched channel's MOTD region scope, which is what a connected client uses
+    /// to decide how much of the map is worth drawing.
+    /// </summary>
+    public IReadOnlyList<int> ScopeRegionIds
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _scopeByChannel.Values.SelectMany(s => s).Distinct().ToList();
+            }
+        }
     }
 
     public FollowedOriginStatus OriginStatus
@@ -129,6 +152,7 @@ public sealed class IntelFeedService : IDisposable
         }
 
         if (relevant) RecomputeDistances();
+        LocationUpdated?.Invoke(location);
     }
 
     /// <summary>

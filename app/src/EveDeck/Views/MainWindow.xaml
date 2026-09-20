@@ -2388,17 +2388,11 @@ Tick as many as you like. Leaving one character parked in known space while the 
                         <Button Content="Rescan channels and characters" Command="{Binding RefreshIntelOptionsCommand}"
                                 HorizontalAlignment="Left" FontSize="12" Margin="0,0,0,10"/>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8" IsEnabled="{Binding IntelOverlayEnabled}">
-                          <TextBlock Text="Position" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Margin="0,0,8,0"/>
-                          <ComboBox Width="150" SelectedValuePath="Tag" FontSize="12" SelectedValue="{Binding IntelOverlayAnchor}">
-                            <ComboBoxItem Tag="TopLeft" Content="Top left"/>
-                            <ComboBoxItem Tag="TopCenter" Content="Top center"/>
-                            <ComboBoxItem Tag="TopRight" Content="Top right"/>
-                            <ComboBoxItem Tag="BottomLeft" Content="Bottom left"/>
-                            <ComboBoxItem Tag="BottomCenter" Content="Bottom center"/>
-                            <ComboBoxItem Tag="BottomRight" Content="Bottom right"/>
-                          </ComboBox>
-                        </StackPanel>
+                        <CheckBox Content="Lock position" IsChecked="{Binding IntelOverlayLocked}" FontSize="12"
+                                  IsEnabled="{Binding IntelOverlayEnabled}" Margin="0,0,0,2"/>
+                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="20,0,0,10" MaxWidth="600">
+Drag the overlay anywhere to position it, then lock it. Locking also makes it click-through, so it stops intercepting clicks meant for the client underneath.
+                        </TextBlock>
 
                         <WrapPanel VerticalAlignment="Center" IsEnabled="{Binding IntelOverlayEnabled}">
                           <TextBlock Text="Show" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>

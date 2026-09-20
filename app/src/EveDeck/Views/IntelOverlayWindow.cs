@@ -18,7 +18,10 @@ namespace EveDeck.Views;
 /// </summary>
 internal sealed class IntelOverlayWindow : Window
 {
-    private const int EdgeMargin = 12;
+    /// <summary>Where the card lands the first time, when no position has been saved yet.</summary>
+    private const double DefaultLeft = 120d;
+
+    private const double DefaultTop = 120d;
 
     private static readonly Brush HostileBrush = new SolidColorBrush(Color.FromRgb(0xF8, 0x71, 0x71));
     private static readonly Brush MutedBrush = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF));
@@ -26,28 +29,22 @@ internal sealed class IntelOverlayWindow : Window
 
     private readonly StackPanel _rows;
     private readonly TextBlock _status;
-    private readonly int _workX;
-    private readonly int _workY;
-    private readonly int _workWidth;
-    private readonly int _workHeight;
-    private readonly ToastAnchor _anchor;
+    private readonly TextBlock _dragHint;
     private readonly double _fontSize;
+    private readonly Action<int, int>? _onMoved;
+    private bool _locked;
 
     public IntelOverlayWindow(
-        int workX,
-        int workY,
-        int workWidth,
-        int workHeight,
-        ToastAnchor anchor,
+        int savedX,
+        int savedY,
+        bool locked,
         double fontSize,
-        double opacity)
+        double opacity,
+        Action<int, int>? onMoved = null)
     {
-        _workX = workX;
-        _workY = workY;
-        _workWidth = workWidth;
-        _workHeight = workHeight;
-        _anchor = anchor;
         _fontSize = fontSize;
+        _onMoved = onMoved;
+        _locked = locked;
 
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
@@ -57,7 +54,11 @@ internal sealed class IntelOverlayWindow : Window
         Background = Brushes.Transparent;
         Topmost = true;
         SizeToContent = SizeToContent.WidthAndHeight;
-        IsHitTestVisible = false;
+
+        // 0,0 means the card has never been placed; drop it somewhere visible rather than in the
+        // very corner where it can end up under other chrome.
+        Left = savedX == 0 && savedY == 0 ? DefaultLeft : savedX;
+        Top = savedX == 0 && savedY == 0 ? DefaultTop : savedY;
 
         _status = new TextBlock
         {
@@ -70,11 +71,22 @@ internal sealed class IntelOverlayWindow : Window
 
         _rows = new StackPanel();
 
+        _dragHint = new TextBlock
+        {
+            Text = "Drag to move · lock it in Options when you are happy with the spot",
+            Foreground = MutedBrush,
+            FontSize = Math.Max(9.0, fontSize - 3.0),
+            Margin = new Thickness(0, 6, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 420,
+        };
+
         var content = new StackPanel();
         content.Children.Add(_status);
         content.Children.Add(_rows);
+        content.Children.Add(_dragHint);
 
-        Content = new Border
+        var root = new Border
         {
             CornerRadius = new CornerRadius(OverlayChrome.RadiusMd),
             Padding = new Thickness(
@@ -86,8 +98,40 @@ internal sealed class IntelOverlayWindow : Window
                 (byte)Math.Clamp(opacity * 255.0, 0, 255), 0x11, 0x14, 0x1A)),
             Child = content,
         };
+        root.MouseLeftButtonDown += OnRootMouseLeftButtonDown;
 
-        Loaded += (_, _) => PinPosition();
+        Content = root;
+        ApplyLock(locked);
+    }
+
+    /// <summary>
+    /// Locked does two things at once: it stops the card being dragged, and it makes the whole window
+    /// click-through so it cannot swallow a click aimed at the client underneath. Unlocked it must be
+    /// hit-testable, or there is nothing to grab.
+    /// </summary>
+    public void ApplyLock(bool locked)
+    {
+        _locked = locked;
+        IsHitTestVisible = !locked;
+        Cursor = locked ? null : System.Windows.Input.Cursors.SizeAll;
+        _dragHint.Visibility = locked ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void OnRootMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (_locked) return;
+
+        try
+        {
+            // DragMove blocks until the button is released, so persisting straight after it is safe.
+            DragMove();
+        }
+        catch (InvalidOperationException)
+        {
+            return; // no active drag (button already released) -- nothing to persist
+        }
+
+        _onMoved?.Invoke((int)Left, (int)Top);
     }
 
     /// <summary>
@@ -114,7 +158,6 @@ internal sealed class IntelOverlayWindow : Window
             });
         }
 
-        if (IsLoaded) Dispatcher.BeginInvoke(new Action(PinPosition));
     }
 
     /// <summary>
@@ -162,19 +205,4 @@ internal sealed class IntelOverlayWindow : Window
         return row;
     }
 
-    private void PinPosition()
-    {
-        var w = ActualWidth;
-        var h = ActualHeight;
-
-        Left = _anchor switch
-        {
-            ToastAnchor.TopLeft or ToastAnchor.BottomLeft => _workX + EdgeMargin,
-            ToastAnchor.TopRight or ToastAnchor.BottomRight => _workX + _workWidth - w - EdgeMargin,
-            _ => _workX + Math.Max(0, (_workWidth - w) / 2),
-        };
-
-        var isTop = _anchor is ToastAnchor.TopLeft or ToastAnchor.TopCenter or ToastAnchor.TopRight;
-        Top = isTop ? _workY + EdgeMargin : _workY + _workHeight - h - EdgeMargin;
-    }
 }
