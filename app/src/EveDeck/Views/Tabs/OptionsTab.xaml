@@ -440,6 +440,23 @@ Drag the overlay anywhere to position it, then lock it. Locking also makes it cl
                         <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" MaxWidth="600">
 A report with no known range never raises a toast -- an unknown distance is not treated as nearby.
                         </TextBlock>
+
+                        <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,14,0,0" IsEnabled="{Binding IntelOverlayEnabled}">
+                          <StackPanel>
+                            <CheckBox Content="Feed the EveDeck Intel tablet app and web UI from this PC" FontSize="12"
+                                      IsChecked="{Binding IntelServerEnabled}" Margin="0,0,0,2"/>
+                            <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="20,0,0,8" MaxWidth="600">
+Serves the same feed on your LAN that the standalone EveDeck Intel daemon does, so the Android app or a browser can connect to this PC directly instead of running a second program. Same port as the daemon (31337) -- if the daemon is already running, leave this off, or stop the daemon first. No login, no encryption: anyone on your LAN can connect, same as the daemon.
+                            </TextBlock>
+                            <StackPanel Orientation="Horizontal" Margin="20,0,0,6" IsEnabled="{Binding IntelServerEnabled}">
+                              <TextBlock Text="Port" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,8,0"/>
+                              <TextBox Text="{Binding IntelServerPort, UpdateSourceTrigger=PropertyChanged}" Width="70" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding IntelServerStatus}" Foreground="{StaticResource MutedBrush}" FontSize="11"
+                                       TextWrapping="Wrap" Margin="20,0,0,0" MaxWidth="600"/>
+                          </StackPanel>
+                        </Border>
                       </StackPanel>
                     </Border>
 
