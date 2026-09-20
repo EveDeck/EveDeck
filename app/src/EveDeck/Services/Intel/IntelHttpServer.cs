@@ -278,20 +278,15 @@ public sealed class IntelHttpServer : IAsyncDisposable
             keepAliveInterval: HeartbeatInterval);
 
         var session = new Session(client, webSocket);
+        lock (_gate) _sessions.Add(session);
+        _log($"Intel client connected ({ClientCount} connected).");
 
         try
         {
-            // Snapshot is built and sent BEFORE this session joins the broadcast list -- matching the
-            // Kotlin daemon's order (send snapshot, then subscribe to the broadcast flow). Registering
-            // first and snapshotting after (the original order here) left a window where a message
-            // landing in between was captured by _snapshotFactory()'s history read AND separately
-            // broadcast to the now-registered session, arriving twice. Doing it in this order means a
-            // message in that same window is picked up by at most one of the two paths, never both.
+            // Snapshot first and unconditionally: a client joining mid-fight must see recent history
+            // before any incremental message reaches it.
             var snapshot = Encoding.UTF8.GetBytes(WireProtocol.Serialize(_snapshotFactory()));
             await session.TrySendAsync(snapshot).ConfigureAwait(false);
-
-            lock (_gate) _sessions.Add(session);
-            _log($"Intel client connected ({ClientCount} connected).");
 
             await ReceiveLoopAsync(session, token).ConfigureAwait(false);
         }
