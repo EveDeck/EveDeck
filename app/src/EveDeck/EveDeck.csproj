@@ -67,7 +67,4 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Resources\universe.json" />
-  </ItemGroup>
 </Project>
