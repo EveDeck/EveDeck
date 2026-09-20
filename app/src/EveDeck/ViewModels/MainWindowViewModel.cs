@@ -300,9 +300,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         InitConfigProfiles();
         InitCharacterRoster();
         InitDowntime();
-        // After InitChatAlerts: the intel feed seeds its starting positions from the character/system
-        // map that the chat-alert path populates while the chatlog watcher primes.
-        InitIntel();
 
         // After InitConfigProfiles (which wires the commands) and after the startup LAYOUT profile
         // above: a config profile can select a different layout, so it must get the last word.

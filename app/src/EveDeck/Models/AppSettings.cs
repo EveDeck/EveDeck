@@ -69,30 +69,6 @@ public sealed class AppSettings
     // Master slot for the swap-focused-with-master hotkey action.
     public int MasterSlotNumber { get; set; } = 1;
 
-    // Intel overlay: an in-app feed of the EVE intel channels this PC's chatlogs already carry,
-    // parsed in-process (see Services\Intel). Off by default -- it only makes sense for pilots who
-    // fly in space where intel channels are used at all.
-    public bool IntelOverlayEnabled { get; set; }
-
-    // Channels to tail, by their chatlog name. Local is never listed here: it is read separately for
-    // character locations and is not an intel channel.
-    public ObservableCollection<string> IntelChannels { get; set; } = new();
-
-    // Characters whose position anchors jump distance. Several at once is the normal case -- a pilot
-    // running multiple clients wants "how far from ANY of mine", so range is reported from the
-    // nearest. A character in abyssal space has no position in the stargate graph and is excluded
-    // from the measurement, which the overlay states rather than hiding.
-    public ObservableCollection<string> IntelFollowedCharacters { get; set; } = new();
-
-    public string IntelOverlayAnchor { get; set; } = "TopRight";
-    public int IntelOverlayMaxRows { get; set; } = 8;
-    public double IntelOverlayFontSize { get; set; } = 13.0;
-    public double IntelOverlayOpacity { get; set; } = 0.85;
-
-    // Raise a toast when hostile intel lands this many jumps or fewer from a followed character.
-    // Zero means the reported system itself only; -1 disables the toast and leaves the panel alone.
-    public int IntelHostileToastJumps { get; set; } = 3;
-
     // Corner overlay mode: all clients run at master resolution; corners show DWM thumbnails.
     // On by default — this is the primary grid experience. Profiles that can't form a grid
     // (single-client and stacked layouts) automatically fall back to plain window placement
