@@ -4,7 +4,6 @@ using System.IO;
 using System.Windows.Input;
 using EveDeck.Models.Intel;
 using EveDeck.Services.Intel;
-using EveDeck.Services.Intel.Wire;
 using EveDeck.Utilities;
 using EveDeck.Views;
 using Application = System.Windows.Application;
@@ -21,7 +20,6 @@ public sealed partial class MainWindowViewModel
 
     private IntelLogTailer? _intelTailer;
     private IntelFeedService? _intelFeed;
-    private IntelHttpServer? _intelServer;
     private Universe? _intelUniverse;
     private IntelOverlayWindow? _intelOverlayWindow;
     private readonly Dictionary<int, DateTimeOffset> _intelLastToastBySystem = [];
@@ -117,187 +115,17 @@ public sealed partial class MainWindowViewModel
         }
     }
 
-    /// <summary>
-    /// Locked stops the card being dragged and makes it click-through, so it cannot intercept a click
-    /// meant for the client beneath it. Applied to the live window rather than recreating it, so
-    /// locking never loses the feed that is already on screen.
-    /// </summary>
-    public bool IntelOverlayLocked
+    public string IntelOverlayAnchor
     {
-        get => _settings.IntelOverlayLocked;
+        get => _settings.IntelOverlayAnchor;
         set
         {
-            if (_settings.IntelOverlayLocked == value) return;
-            _settings.IntelOverlayLocked = value;
+            if (_settings.IntelOverlayAnchor == value) return;
+            _settings.IntelOverlayAnchor = value;
             OnPropertyChanged();
             Save();
-            _intelOverlayWindow?.ApplyLock(value);
+            RecreateIntelOverlay();
         }
-    }
-
-    private void OnIntelOverlayMoved(int x, int y)
-    {
-        _settings.IntelOverlayX = x;
-        _settings.IntelOverlayY = y;
-        Save();
-    }
-
-    /// <summary>
-    /// Serves the daemon's endpoints from EveDeck so the tablet app and browser UI can point here
-    /// instead of a second process. Opt-in: it opens an unauthenticated LAN socket, same as the
-    /// daemon.
-    /// </summary>
-    public bool IntelServerEnabled
-    {
-        get => _settings.IntelServerEnabled;
-        set
-        {
-            if (_settings.IntelServerEnabled == value) return;
-            _settings.IntelServerEnabled = value;
-            OnPropertyChanged();
-            Save();
-            if (value) StartIntelServer();
-            else StopIntelServer();
-        }
-    }
-
-    public int IntelServerPort
-    {
-        get => _settings.IntelServerPort;
-        set
-        {
-            var v = Math.Clamp(value, 1024, 65535);
-            if (_settings.IntelServerPort == v) return;
-            _settings.IntelServerPort = v;
-            OnPropertyChanged();
-            Save();
-
-            if (!_settings.IntelServerEnabled) return;
-            StopIntelServer();
-            StartIntelServer();
-        }
-    }
-
-    private string _intelServerStatus = "Not running.";
-
-    /// <summary>What the server is actually doing, shown in Options so a port clash is never silent.</summary>
-    public string IntelServerStatus
-    {
-        get => _intelServerStatus;
-        private set
-        {
-            if (_intelServerStatus == value) return;
-            _intelServerStatus = value;
-            OnPropertyChanged();
-        }
-    }
-
-    private void StartIntelServer()
-    {
-        if (_intelServer is not null) return;
-
-        // The server answers with the feed's own state, so it cannot run before the feed exists.
-        if (_intelFeed is null)
-        {
-            IntelServerStatus = "Waiting for the intel overlay to start.";
-            return;
-        }
-
-        var cacheFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "EveDeck", "cache", "intel-images");
-
-        var server = new IntelHttpServer(
-            _settings.IntelServerPort,
-            cacheFolder,
-            BuildIntelSnapshot,
-            OnClientSetChannels,
-            OnClientSetDisplay,
-            msg => Log.Info(msg));
-
-        if (!server.TryStart(out var error))
-        {
-            IntelServerStatus = error ?? "Could not start.";
-            Log.Warn($"Intel server did not start: {error}");
-            Status = IntelServerStatus;
-            return;
-        }
-
-        _intelServer = server;
-        IntelServerStatus = $"Listening on port {_settings.IntelServerPort}. Tablet URL: ws://<this-pc>:{_settings.IntelServerPort}/intel";
-    }
-
-    private void StopIntelServer()
-    {
-        var server = _intelServer;
-        _intelServer = null;
-        if (server is null) return;
-
-        _ = server.DisposeAsync();
-        IntelServerStatus = "Not running.";
-    }
-
-    private WireServerMessage.Snapshot BuildIntelSnapshot()
-    {
-        var feed = _intelFeed;
-        var history = feed?.History ?? [];
-        var discovered = IntelChannelDiscovery.Discover();
-
-        return new WireServerMessage.Snapshot
-        {
-            Messages = history.Select(e => e.Message.ToWire()).ToList(),
-            Locations = (feed?.Locations ?? []).Select(l => l.ToWire()).ToList(),
-            ScopeRegionIds = feed?.ScopeRegionIds ?? [],
-            ServerTimeMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Channels = new WireChannels(
-                discovered
-                    .Select(c => new WireChannelInfo(c.Name, c.FileCount, c.LastActivityMillis, c.Reserved))
-                    .ToList(),
-                _settings.IntelChannels.ToList()),
-            DisplayValue = new WireDisplaySettings(),
-
-            // Empty by design: corp/alliance resolution was not ported, so clients fall back to plain
-            // pilot names. See the note on IntelServerEnabled in AppSettings.
-            CharactersValue = [],
-        };
-    }
-
-    /// <summary>A client picked a different channel set; treat it as authoritative and persist it.</summary>
-    private void OnClientSetChannels(IReadOnlyList<string> channels)
-    {
-        Application.Current?.Dispatcher.BeginInvoke(() =>
-        {
-            var wanted = channels
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .Select(c => c.Trim())
-                .ToList();
-
-            if (_settings.IntelChannels.SequenceEqual(wanted, StringComparer.OrdinalIgnoreCase)) return;
-
-            _settings.IntelChannels.Clear();
-            foreach (var channel in wanted) _settings.IntelChannels.Add(channel);
-
-            RefreshIntelOptions();
-            _ = BroadcastChannelsAsync();
-        });
-    }
-
-    private void OnClientSetDisplay(WireDisplaySettings settings) =>
-        _ = _intelServer?.BroadcastAsync(new WireServerMessage.Display { Settings = settings });
-
-    private async Task BroadcastChannelsAsync()
-    {
-        var server = _intelServer;
-        if (server is null) return;
-
-        var discovered = IntelChannelDiscovery.Discover();
-        await server.BroadcastAsync(new WireServerMessage.ChannelsMessage
-        {
-            Available = discovered
-                .Select(c => new WireChannelInfo(c.Name, c.FileCount, c.LastActivityMillis, c.Reserved))
-                .ToList(),
-            Selected = _settings.IntelChannels.ToList(),
-        });
     }
 
     public ObservableCollection<string> IntelChannels => _settings.IntelChannels;
@@ -305,17 +133,35 @@ public sealed partial class MainWindowViewModel
     public ObservableCollection<string> IntelFollowedCharacters => _settings.IntelFollowedCharacters;
 
     /// <summary>
-    /// Channel names the settings UI can offer, newest activity first. Reserved channels (Local) are
-    /// dropped here but still reported to connected clients, which show them greyed out.
+    /// Channel names found in the chatlog folder, so the settings UI can offer what this install has
+    /// actually seen rather than asking the user to type a name exactly right. Local is excluded: it
+    /// is read for character positions and is not an intel channel.
     /// </summary>
     public IReadOnlyList<string> DiscoverIntelChannels()
     {
         try
         {
-            return IntelChannelDiscovery.Discover()
-                .Where(c => !c.Reserved)
-                .Select(c => c.Name)
-                .ToList();
+            var folder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "EVE", "logs", "Chatlogs");
+            if (!Directory.Exists(folder)) return [];
+
+            var cutoff = DateTime.Now.AddDays(-30);
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var path in Directory.EnumerateFiles(folder, "*.txt"))
+            {
+                try
+                {
+                    if (File.GetLastWriteTime(path) < cutoff) continue;
+                    var parsed = ChatLogFormat.ParseFileName(Path.GetFileName(path));
+                    if (parsed is null) continue;
+                    if (parsed.Channel.Equals("Local", StringComparison.OrdinalIgnoreCase)) continue;
+                    names.Add(parsed.Channel);
+                }
+                catch { /* unreadable entry -- skip */ }
+            }
+
+            return names.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
         }
         catch (Exception ex)
         {
@@ -446,7 +292,6 @@ public sealed partial class MainWindowViewModel
 
                     _intelFeed = new IntelFeedService(universe, _intelTailer);
                     _intelFeed.EntryAdded += OnIntelEntryAdded;
-                    _intelFeed.LocationUpdated += OnIntelLocationUpdated;
                     _intelFeed.SetFollowedCharacters(_settings.IntelFollowedCharacters);
 
                     // Seed positions already known from Local so range works before the next jump.
@@ -461,9 +306,6 @@ public sealed partial class MainWindowViewModel
 
                     RefreshIntelOverlay();
                     Log.Info($"Intel overlay started ({_settings.IntelChannels.Count} channel(s)).");
-
-                    // The server serves the feed's state, so it can only come up once the feed has.
-                    if (_settings.IntelServerEnabled) StartIntelServer();
                 });
             });
     }
@@ -476,8 +318,6 @@ public sealed partial class MainWindowViewModel
 
     private void StopIntel()
     {
-        StopIntelServer();
-
         if (_intelTailer is not null)
         {
             _intelTailer.Stop();
@@ -505,12 +345,7 @@ public sealed partial class MainWindowViewModel
             RefreshIntelOverlay();
             MaybeToastIntel(entry);
         });
-
-        _ = _intelServer?.BroadcastAsync(new WireServerMessage.Intel { Message = entry.Message.ToWire() });
     }
-
-    private void OnIntelLocationUpdated(CharacterLocation location) =>
-        _ = _intelServer?.BroadcastAsync(new WireServerMessage.Location { LocationValue = location.ToWire() });
 
     private void MaybeToastIntel(IntelFeedEntry entry)
     {
@@ -543,13 +378,17 @@ public sealed partial class MainWindowViewModel
 
         if (_intelOverlayWindow is null)
         {
+            var monitor = Monitors.FirstOrDefault(m => m.Id == LayoutTargetMonitorId) ?? Monitors.FirstOrDefault();
+            if (monitor is null) return;
+
             _intelOverlayWindow = new IntelOverlayWindow(
-                _settings.IntelOverlayX,
-                _settings.IntelOverlayY,
-                _settings.IntelOverlayLocked,
+                monitor.WorkArea.X,
+                monitor.WorkArea.Y,
+                monitor.WorkArea.Width,
+                monitor.WorkArea.Height,
+                ParseToastAnchor(_settings.IntelOverlayAnchor),
                 _settings.IntelOverlayFontSize,
-                _settings.IntelOverlayOpacity,
-                OnIntelOverlayMoved);
+                _settings.IntelOverlayOpacity);
             _intelOverlayWindow.Show();
         }
 

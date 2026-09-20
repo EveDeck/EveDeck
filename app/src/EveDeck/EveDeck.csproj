@@ -69,11 +69,5 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\universe.json" />
-    <!-- The intel web UI, served by IntelHttpServer on the same endpoints the standalone EveDeck
-         Intel daemon serves, so the existing tablet app and browser UI work against either one.
-         Copied from EveDeck-Intel daemon/src/main/resources; see IntelHttpServer for provenance. -->
-    <EmbeddedResource Include="Resources\IntelWeb\index.html" />
-    <EmbeddedResource Include="Resources\IntelWeb\manifest.webmanifest" />
-    <EmbeddedResource Include="Resources\IntelWeb\icon-256.png" />
   </ItemGroup>
 </Project>

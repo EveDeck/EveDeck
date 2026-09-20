@@ -84,14 +84,7 @@ public sealed class AppSettings
     // from the measurement, which the overlay states rather than hiding.
     public ObservableCollection<string> IntelFollowedCharacters { get; set; } = new();
 
-    // Free-form position in WPF DIPs, dragged by the user rather than snapped to a corner. 0,0 is
-    // treated as "never placed" and falls back to a visible default, matching how the old utility
-    // overlays behaved. Locked stops the drag AND makes the card click-through, so it cannot steal a
-    // click meant for a client underneath it.
-    public int IntelOverlayX { get; set; }
-    public int IntelOverlayY { get; set; }
-    public bool IntelOverlayLocked { get; set; }
-
+    public string IntelOverlayAnchor { get; set; } = "TopRight";
     public int IntelOverlayMaxRows { get; set; } = 8;
     public double IntelOverlayFontSize { get; set; } = 13.0;
     public double IntelOverlayOpacity { get; set; } = 0.85;
@@ -99,15 +92,6 @@ public sealed class AppSettings
     // Raise a toast when hostile intel lands this many jumps or fewer from a followed character.
     // Zero means the reported system itself only; -1 disables the toast and leaves the panel alone.
     public int IntelHostileToastJumps { get; set; } = 3;
-
-    // Serve the same endpoints as the standalone EveDeck Intel daemon, so the Android app and the
-    // browser UI can point at EveDeck instead of running a second process. Off by default: this opens
-    // a LAN listening socket with no auth and no TLS (identical to the daemon, and the same rule
-    // applies -- do not port-forward it), so it is opt-in rather than something a user gets unaware.
-    // 31337 is the daemon's own port, so existing clients need no reconfiguration; it clashes with a
-    // running daemon by design, and EveDeck reports that rather than failing quietly.
-    public bool IntelServerEnabled { get; set; }
-    public int IntelServerPort { get; set; } = 31337;
 
     // Corner overlay mode: all clients run at master resolution; corners show DWM thumbnails.
     // On by default — this is the primary grid experience. Profiles that can't form a grid
