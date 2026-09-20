@@ -1,10 +1,13 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using EveDeck.Models;
+using EveDeck.Services;
 using EveDeck.Services.Intel;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
+using Image = System.Windows.Controls.Image;
 using Orientation = System.Windows.Controls.Orientation;
 
 namespace EveDeck.Views;
@@ -12,9 +15,10 @@ namespace EveDeck.Views;
 /// <summary>
 /// A small always-on-top card showing the most recent intel lines and how far away each one is.
 ///
-/// Follows <see cref="DowntimeCountdownWindow"/>'s shape: borderless, transparent, never activated,
-/// pinned to a <see cref="ToastAnchor"/> corner of the work area. It deliberately does not draw over
-/// the master preview — it sits beside the layout so it never competes with a client's own pixels.
+/// Follows the shape of the removed utility overlays (see <c>TalkerOverlayWindow</c> in git history):
+/// borderless, transparent, never activated, dragged into place with <c>DragMove()</c> rather than
+/// pinned to a corner. It deliberately does not draw over the master preview — it sits beside the
+/// layout so it never competes with a client's own pixels.
 /// </summary>
 internal sealed class IntelOverlayWindow : Window
 {
@@ -33,6 +37,14 @@ internal sealed class IntelOverlayWindow : Window
     private readonly double _fontSize;
     private readonly Action<int, int>? _onMoved;
     private bool _locked;
+
+    // Portraits and ship icons download asynchronously and land after a row has already been drawn
+    // once (blank), so the last render is kept around purely to redraw when one arrives -- the same
+    // shape LabelSurfaceWindow uses via PortraitCacheService.Changed, but local to this window rather
+    // than routed through the ViewModel.
+    private IReadOnlyList<IntelFeedEntry> _lastEntries = [];
+    private FollowedOriginStatus _lastOrigins = new([], []);
+    private int _lastMaxRows;
 
     public IntelOverlayWindow(
         int savedX,
@@ -102,7 +114,17 @@ internal sealed class IntelOverlayWindow : Window
 
         Content = root;
         ApplyLock(locked);
+
+        PortraitCacheService.Instance.Changed += OnImageCacheChanged;
+        ShipIconCacheService.Instance.Changed += OnImageCacheChanged;
+        Closed += (_, _) =>
+        {
+            PortraitCacheService.Instance.Changed -= OnImageCacheChanged;
+            ShipIconCacheService.Instance.Changed -= OnImageCacheChanged;
+        };
     }
+
+    private void OnImageCacheChanged() => Update(_lastEntries, _lastOrigins, _lastMaxRows);
 
     /// <summary>
     /// Locked does two things at once: it stops the card being dragged, and it makes the whole window
@@ -140,6 +162,10 @@ internal sealed class IntelOverlayWindow : Window
     /// </summary>
     public void Update(IReadOnlyList<IntelFeedEntry> entries, FollowedOriginStatus origins, int maxRows)
     {
+        _lastEntries = entries;
+        _lastOrigins = origins;
+        _lastMaxRows = maxRows;
+
         _status.Text = DescribeOrigins(origins);
         _status.Foreground = origins.AnyUsable ? MutedBrush : HostileBrush;
 
@@ -183,6 +209,7 @@ internal sealed class IntelOverlayWindow : Window
     private UIElement BuildRow(IntelFeedEntry entry)
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+        var iconSize = Math.Max(14.0, _fontSize + 4.0);
 
         row.Children.Add(new TextBlock
         {
@@ -191,7 +218,20 @@ internal sealed class IntelOverlayWindow : Window
             FontSize = _fontSize,
             FontWeight = FontWeights.SemiBold,
             Width = 34,
+            VerticalAlignment = VerticalAlignment.Center,
         });
+
+        // Pilot names are parsed text, never ESI-resolved to an id, so the portrait is looked up by
+        // name -- it renders once ForName's own lookup resolves, same latency as everywhere else that
+        // shows a name-only portrait. Ship icons need no such lookup: the parser already resolved the
+        // hull to a typeId against the SDE.
+        var pilotName = entry.Message.Players.FirstOrDefault();
+        var portrait = pilotName is null ? null : PortraitCacheService.Instance.ForName(pilotName);
+        AddIcon(row, portrait?.Image, iconSize);
+
+        var shipTypeId = entry.Message.Ships.FirstOrDefault(s => s.TypeId is > 0)?.TypeId;
+        var shipIcon = shipTypeId is int id ? ShipIconCacheService.Instance.ForId(id) : null;
+        AddIcon(row, shipIcon?.Image, iconSize);
 
         row.Children.Add(new TextBlock
         {
@@ -200,9 +240,28 @@ internal sealed class IntelOverlayWindow : Window
             FontSize = _fontSize,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxWidth = 380,
+            VerticalAlignment = VerticalAlignment.Center,
         });
 
         return row;
     }
 
+    /// <summary>
+    /// A small square image slot, or nothing at all rather than a placeholder box -- an icon that
+    /// hasn't downloaded yet should not visually claim a pilot/ship was present when the row is really
+    /// just terse (a bare "clr", no ship or name in the line at all).
+    /// </summary>
+    private static void AddIcon(StackPanel row, ImageSource? image, double size)
+    {
+        if (image is null) return;
+
+        row.Children.Add(new Image
+        {
+            Source = image,
+            Width = size,
+            Height = size,
+            Margin = new Thickness(0, 0, 4, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+    }
 }

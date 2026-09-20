@@ -112,9 +112,17 @@ public sealed partial class MainWindowViewModel
             if (Math.Abs(_settings.IntelOverlayOpacity - v) < 0.01) return;
             _settings.IntelOverlayOpacity = v;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IntelOverlayOpacityPercent));
             Save();
             RecreateIntelOverlay();
         }
+    }
+
+    /// <summary>Same value as <see cref="IntelOverlayOpacity"/>, as a 10-100 int for the Options slider.</summary>
+    public int IntelOverlayOpacityPercent
+    {
+        get => (int)Math.Round(_settings.IntelOverlayOpacity * 100.0);
+        set => IntelOverlayOpacity = value / 100.0;
     }
 
     /// <summary>
