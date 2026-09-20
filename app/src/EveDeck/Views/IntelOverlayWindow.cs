@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using EveDeck.Models;
 using EveDeck.Services;
@@ -208,7 +210,8 @@ internal sealed class IntelOverlayWindow : Window
 
     private UIElement BuildRow(IntelFeedEntry entry)
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+        var container = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(0, 1, 0, 1) };
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
         var iconSize = Math.Max(14.0, _fontSize + 4.0);
 
         row.Children.Add(new TextBlock
@@ -229,6 +232,38 @@ internal sealed class IntelOverlayWindow : Window
         var portrait = pilotName is null ? null : PortraitCacheService.Instance.ForName(pilotName);
         AddIcon(row, portrait?.Image, iconSize);
 
+        if (pilotName is not null)
+        {
+            var nameForeground = entry.IsHostile ? HostileBrush : TextBrush;
+            if (portrait?.CharacterId is long charId and > 0)
+            {
+                var link = new Hyperlink(new Run(pilotName)) { TextDecorations = null };
+                link.Click += (_, _) => OpenUrl($"https://zkillboard.com/character/{charId}/");
+                var nameBlock = new TextBlock
+                {
+                    Foreground = nameForeground,
+                    FontSize = _fontSize,
+                    FontWeight = FontWeights.SemiBold,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(2, 0, 4, 0),
+                };
+                nameBlock.Inlines.Add(link);
+                row.Children.Add(nameBlock);
+            }
+            else
+            {
+                row.Children.Add(new TextBlock
+                {
+                    Text = pilotName,
+                    Foreground = nameForeground,
+                    FontSize = _fontSize,
+                    FontWeight = FontWeights.SemiBold,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(2, 0, 4, 0),
+                });
+            }
+        }
+
         var shipTypeId = entry.Message.Ships.FirstOrDefault(s => s.TypeId is > 0)?.TypeId;
         var shipIcon = shipTypeId is int id ? ShipIconCacheService.Instance.ForId(id) : null;
         AddIcon(row, shipIcon?.Image, iconSize);
@@ -243,7 +278,36 @@ internal sealed class IntelOverlayWindow : Window
             VerticalAlignment = VerticalAlignment.Center,
         });
 
-        return row;
+        container.Children.Add(row);
+
+        if (entry.NearestCharacter is string nearest)
+        {
+            var nearestRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(38, 0, 0, 0) };
+            var nearestFontSize = Math.Max(9.0, _fontSize - 2);
+
+            nearestRow.Children.Add(new TextBlock
+            {
+                Text = "near ",
+                Foreground = MutedBrush,
+                FontSize = nearestFontSize,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+
+            var nearestPortrait = PortraitCacheService.Instance.ForName(nearest);
+            AddIcon(nearestRow, nearestPortrait?.Image, Math.Max(12.0, _fontSize));
+
+            nearestRow.Children.Add(new TextBlock
+            {
+                Text = nearest,
+                Foreground = MutedBrush,
+                FontSize = nearestFontSize,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+
+            container.Children.Add(nearestRow);
+        }
+
+        return container;
     }
 
     /// <summary>
@@ -263,5 +327,11 @@ internal sealed class IntelOverlayWindow : Window
             Margin = new Thickness(0, 0, 4, 0),
             VerticalAlignment = VerticalAlignment.Center,
         });
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch { /* best-effort; nothing sensible to do if the shell can't open a browser */ }
     }
 }
