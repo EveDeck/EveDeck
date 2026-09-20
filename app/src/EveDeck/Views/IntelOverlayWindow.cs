@@ -144,7 +144,6 @@ internal sealed class IntelOverlayWindow : Window
     private void OnRootMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (_locked) return;
-        if (OriginatesFromHyperlink(e.OriginalSource)) return;
 
         try
         {
@@ -157,18 +156,6 @@ internal sealed class IntelOverlayWindow : Window
         }
 
         _onMoved?.Invoke((int)Left, (int)Top);
-    }
-
-    private static bool OriginatesFromHyperlink(object? originalSource)
-    {
-        var element = originalSource as DependencyObject;
-        while (element is TextElement textElement)
-        {
-            if (textElement is Hyperlink) return true;
-            element = textElement.Parent;
-        }
-
-        return false;
     }
 
     /// <summary>
