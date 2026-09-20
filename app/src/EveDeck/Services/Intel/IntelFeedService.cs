@@ -41,6 +41,17 @@ public sealed class IntelFeedService : IDisposable
 
     private const int MaxDedupEntries = 4000;
 
+    /// <summary>
+    /// EVE's chat logs carry only second-precision timestamps, each stamped locally by the client that
+    /// received the line. The same broadcast intel report can therefore land in two characters' logs
+    /// one second apart, which gives the strict id (hashing timestamp|author|text, ported byte-for-byte
+    /// from the daemon) two different values for what is really one report. The daemon has this same
+    /// gap; it just shows up more here because this PC runs several of the followed characters at once.
+    /// This near-duplicate window is a deliberate addition on top of the ported id check, not a port of
+    /// anything in Intel.kt/IntelPipeline.kt.
+    /// </summary>
+    private static readonly TimeSpan NearDuplicateWindow = TimeSpan.FromSeconds(3);
+
     private readonly Universe _universe;
     private readonly IntelLogTailer _tailer;
     private readonly Lock _gate = new();
@@ -51,6 +62,8 @@ public sealed class IntelFeedService : IDisposable
     private readonly HashSet<string> _followed = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _seenMessageIds = [];
     private readonly Queue<string> _dedupOrder = new();
+    private readonly Dictionary<string, long> _lastSeenByAuthorText = new(StringComparer.Ordinal);
+    private readonly Queue<string> _authorTextOrder = new();
     private readonly List<IntelFeedEntry> _history = [];
 
     private IReadOnlyDictionary<int, int> _distances = new Dictionary<int, int>();
@@ -209,6 +222,21 @@ public sealed class IntelFeedService : IDisposable
                 if (!_seenMessageIds.Add(message.Id)) return;
                 _dedupOrder.Enqueue(message.Id);
                 while (_dedupOrder.Count > MaxDedupEntries) _seenMessageIds.Remove(_dedupOrder.Dequeue());
+
+                // Catches the same report logged a second apart in two characters' files, where the
+                // strict id above (timestamp-sensitive) does not match. Author+text is enough on its
+                // own here: two different genuine reports with identical text from the same author
+                // within three seconds of each other are not a real scenario worth telling apart.
+                var authorTextKey = $"{message.Author}\u0000{message.Raw}";
+                if (_lastSeenByAuthorText.TryGetValue(authorTextKey, out var lastMillis) &&
+                    Math.Abs(message.TimestampMillis - lastMillis) <= NearDuplicateWindow.TotalMilliseconds)
+                {
+                    return;
+                }
+
+                _lastSeenByAuthorText[authorTextKey] = message.TimestampMillis;
+                _authorTextOrder.Enqueue(authorTextKey);
+                while (_authorTextOrder.Count > MaxDedupEntries) _lastSeenByAuthorText.Remove(_authorTextOrder.Dequeue());
             }
 
             var (jumps, nearest) = NearestRange(message);
