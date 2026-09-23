@@ -265,16 +265,6 @@ public partial class MainWindow : Window
         _viewModel.Save();
     }
 
-    private void RunSetupWizard_Click(object sender, RoutedEventArgs e) => ShowSetupWizard();
-
-    // LayoutSlot is a plain model with no change notification, so edits in the slot table (size,
-    // "Renders as") would leave the minimum-size warning stale until the layout was reselected.
-    // CellEditEnding fires before the value commits, hence the deferred refresh.
-    private void SlotsGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
-        => Dispatcher.BeginInvoke(_viewModel.RaiseLayoutModeDependents, System.Windows.Threading.DispatcherPriority.Background);
-
-    private static readonly double[] UiScaleOptions = { 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0 };
-
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MainWindowViewModel.UiScale))
@@ -292,29 +282,19 @@ public partial class MainWindow : Window
                 // Ensure EveDeck window has keyboard focus so PreviewKeyDown fires when the user
                 // presses their key combo (clicking the Set button can leave focus ambiguous).
                 this.Activate();
-                Keyboard.Focus(HotkeyDataGrid);
+                Keyboard.Focus(HotkeysTabControl.HotkeyDataGrid);
             }
             else
             {
                 RegisterHotkeys();
                 // Force the DataGrid to re-render so the updated Key Combo column is visible.
-                HotkeyDataGrid.Items.Refresh();
+                HotkeysTabControl.HotkeyDataGrid.Items.Refresh();
             }
         }
     }
 
-    private void SyncUiScaleComboBox(double scale)
-    {
-        var idx = Array.FindIndex(UiScaleOptions, v => Math.Abs(v - scale) < 0.001);
-        if (idx >= 0 && UiScaleComboBox.SelectedIndex != idx)
-            UiScaleComboBox.SelectedIndex = idx;
-    }
-
-    private void UiScaleComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        if (UiScaleComboBox.SelectedIndex >= 0 && UiScaleComboBox.SelectedIndex < UiScaleOptions.Length)
-            _viewModel.UiScale = UiScaleOptions[UiScaleComboBox.SelectedIndex];
-    }
+    // Reached from OptionsTab (Interface Scale section moved there with the rest of Options).
+    private void SyncUiScaleComboBox(double scale) => OptionsTabControl.SyncUiScaleComboBox(scale);
 
     private void ApplyUiScale(double scale)
     {
@@ -612,12 +592,15 @@ public partial class MainWindow : Window
 
     // ── Drag-and-drop: window list → slot card ────────────────────────────────
 
-    private void WindowsListBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    // internal: ClientsTab.xaml.cs wraps these (its own code-behind is what XAML event wiring
+    // needs), delegating in via Window.GetWindow(this) as MainWindow so the drag-start field below
+    // stays a single copy.
+    internal void WindowsListBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _windowDragStart = e.GetPosition(null);
     }
 
-    private void WindowsListBox_PreviewMouseMove(object sender, MouseEventArgs e)
+    internal void WindowsListBox_PreviewMouseMove(object sender, MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed || _viewModel.SelectedWindow is null) return;
         var pos = e.GetPosition(null);
@@ -654,42 +637,10 @@ public partial class MainWindow : Window
         return null;
     }
 
-    // Keyboard equivalent of the grip drag, so reordering isn't mouse-only.
-    private void SlotsListBox_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (Keyboard.Modifiers != ModifierKeys.Alt) return;
-        // Alt-chords route through Key.System with the real key in SystemKey.
-        var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (key != Key.Up && key != Key.Down) return;
-        if (_viewModel.SelectedAssignment is not { } selected) return;
-
-        var from = _viewModel.Assignments.IndexOf(selected);
-        if (from < 0) return;
-        var to = key == Key.Up ? from - 1 : from + 1;
-        if (to < 0 || to >= _viewModel.Assignments.Count) return;
-
-        _viewModel.Assignments.Move(from, to);
-        _viewModel.Save();
-        _viewModel.SelectedAssignment = selected;
-        e.Handled = true;
-
-        // Keep keyboard focus on the moved seat's container so repeated Alt+Up/Down keeps walking it.
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            if (SlotsListBox.ItemContainerGenerator.ContainerFromItem(selected) is ListBoxItem container)
-                container.Focus();
-        }), System.Windows.Threading.DispatcherPriority.Input);
-    }
-
-    // F2 renames the selected custom profile, matching the shell convention. The command's own
-    // CanExecute keeps built-in presets out of it, so no extra check here.
-    private void ProfilesListBox_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.F2) return;
-        if (!_viewModel.RenameProfileCommand.CanExecute(null)) return;
-        _viewModel.RenameProfileCommand.Execute(null);
-        e.Handled = true;
-    }
+    // SlotsListBox_PreviewKeyDown and ProfilesListBox_PreviewKeyDown moved fully into
+    // ClientsTab.xaml.cs / LayoutsTab.xaml.cs -- both were self-contained (only their own tab's
+    // named element plus the DataContext-inherited view-model), so there was nothing here worth
+    // keeping a wrapper for.
 
     // ── Minimap drag-drop (Clients tab) ──────────────────────────────────────
 
@@ -707,7 +658,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void MiniMapSlot_DragEnter(object sender, DragEventArgs e)
+    internal void MiniMapSlot_DragEnter(object sender, DragEventArgs e)
     {
         e.Effects = MiniMapAccepts(e) ? DragDropEffects.Move : DragDropEffects.None;
         if (MiniMapAccepts(e) && sender is FrameworkElement { DataContext: MiniMapSlot cell })
@@ -722,7 +673,7 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void MiniMapSlot_DragOver(object sender, DragEventArgs e)
+    internal void MiniMapSlot_DragOver(object sender, DragEventArgs e)
     {
         e.Effects = MiniMapAccepts(e) ? DragDropEffects.Move : DragDropEffects.None;
         if (MiniMapAccepts(e) && sender is FrameworkElement { DataContext: MiniMapSlot cell })
@@ -741,7 +692,7 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void MiniMapSlot_DragLeave(object sender, DragEventArgs e)
+    internal void MiniMapSlot_DragLeave(object sender, DragEventArgs e)
     {
         if (sender is not FrameworkElement fe) return;
         var pos = e.GetPosition(fe);
@@ -749,7 +700,7 @@ public partial class MainWindow : Window
             ClearMiniMapDragIndicator();
     }
 
-    private void MiniMapSlot_Drop(object sender, DragEventArgs e)
+    internal void MiniMapSlot_Drop(object sender, DragEventArgs e)
     {
         // Clear both indicators: a drag that crossed a seat card on its way to the mini-map can leave
         // that card's insert line set, and only ClearAllDragIndicators covers both.
@@ -787,90 +738,11 @@ public partial class MainWindow : Window
     private void CloseButton_Click(object sender, RoutedEventArgs e)
         => Close();
 
-    private void FrameColorPreset_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is System.Windows.Controls.Button { Tag: string color })
-            _viewModel.ActiveFrameColor = color;
-    }
-
-    private void InactiveBorderColorPreset_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is System.Windows.Controls.Button { Tag: string color })
-            _viewModel.InactivePreviewBorderColor = color;
-    }
-
-    private void FrameColorPick_Click(object sender, RoutedEventArgs e)
-    {
-        using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true };
-        try
-        {
-            var current = (Color)System.Windows.Media.ColorConverter.ConvertFromString(_viewModel.ActiveFrameColor);
-            dialog.Color = System.Drawing.Color.FromArgb(current.A, current.R, current.G, current.B);
-        }
-        catch { /* keep dialog's default color if the stored hex fails to parse */ }
-
-        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
-        var c = dialog.Color;
-        _viewModel.ActiveFrameColor = $"#{c.R:X2}{c.G:X2}{c.B:X2}";
-    }
-
-    private static string ColorToHex(System.Drawing.Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
-
-    private void LabelBackgroundColorPick_Click(object sender, RoutedEventArgs e)
-    {
-        using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true };
-        try
-        {
-            var current = (Color)System.Windows.Media.ColorConverter.ConvertFromString(_viewModel.LabelBackgroundColor);
-            dialog.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
-        }
-        catch { /* keep dialog's default color if the stored hex fails to parse */ }
-
-        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
-        _viewModel.LabelBackgroundColor = ColorToHex(dialog.Color);
-    }
-
-    private void LabelBackgroundColor2Pick_Click(object sender, RoutedEventArgs e)
-    {
-        using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true };
-        try
-        {
-            var current = (Color)System.Windows.Media.ColorConverter.ConvertFromString(_viewModel.LabelBackgroundColor2);
-            dialog.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
-        }
-        catch { /* keep dialog's default color if the stored hex fails to parse */ }
-
-        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
-        _viewModel.LabelBackgroundColor2 = ColorToHex(dialog.Color);
-    }
-
-    private void MasterLabelBackgroundColorPick_Click(object sender, RoutedEventArgs e)
-    {
-        using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true };
-        try
-        {
-            var current = (Color)System.Windows.Media.ColorConverter.ConvertFromString(_viewModel.MasterLabelBackgroundColor);
-            dialog.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
-        }
-        catch { /* keep dialog's default color if the stored hex fails to parse */ }
-
-        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
-        _viewModel.MasterLabelBackgroundColor = ColorToHex(dialog.Color);
-    }
-
-    private void MasterLabelBackgroundColor2Pick_Click(object sender, RoutedEventArgs e)
-    {
-        using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true };
-        try
-        {
-            var current = (Color)System.Windows.Media.ColorConverter.ConvertFromString(_viewModel.MasterLabelBackgroundColor2);
-            dialog.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
-        }
-        catch { /* keep dialog's default color if the stored hex fails to parse */ }
-
-        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
-        _viewModel.MasterLabelBackgroundColor2 = ColorToHex(dialog.Color);
-    }
+    // FrameColorPreset_Click, InactiveBorderColorPreset_Click, FrameColorPick_Click, ColorToHex,
+    // LabelBackgroundColor(2)Pick_Click, MasterLabelBackgroundColor(2)Pick_Click moved fully into
+    // PreviewsTab.xaml.cs -- the section they belong to (Active frame / Preview label / Inactive
+    // client border) moved there wholesale. TryPickFont below stays here: SeatCardTemplate.xaml.cs
+    // also calls it (MainWindow.TryPickFont), so it needs to stay a single shared copy.
 
     // Shows a WinForms font+color dialog seeded from the given family / WPF-DIP size / hex colour.
     // Returns the picked font on OK. WPF FontSize is in DIPs (1/96in); the dialog works in points
@@ -918,7 +790,7 @@ public partial class MainWindow : Window
         if (result != System.Windows.Forms.DialogResult.OK) return false;
         outFamily = dialog.Font.Name;
         outSizeDip = dialog.Font.SizeInPoints * 96.0 / 72.0;
-        outColorHex = ColorToHex(dialog.Color);
+        outColorHex = $"#{dialog.Color.R:X2}{dialog.Color.G:X2}{dialog.Color.B:X2}";
         return true;
     }
 
@@ -957,166 +829,36 @@ public partial class MainWindow : Window
         catch { /* best-effort; the ShowDialog guard covers the failure case */ }
     }
 
-    private void LabelFontPick_Click(object sender, RoutedEventArgs e)
-    {
-        var (family, sizeDip, color) = _viewModel.GlobalLabelFont();
-        if (TryPickFont(family, sizeDip, color, out var f, out var s, out var c, _viewModel.Log))
-            _viewModel.ApplyGlobalLabelFont(f, s, c);
-    }
-
-    // The bundled default is loaded from the exe's resources, not installed, so the Win32 font dialog
-    // cannot list it -- this button is the only way back to it once a user picks something else.
-    private void LabelFontDefault_Click(object sender, RoutedEventArgs e)
-    {
-        var (_, sizeDip, color) = _viewModel.GlobalLabelFont();
-        _viewModel.ApplyGlobalLabelFont(Models.AppSettings.BundledLabelFontFamily, sizeDip, color);
-    }
-
-    private void MasterLabelFontPick_Click(object sender, RoutedEventArgs e)
-    {
-        var (family, sizeDip, color) = _viewModel.GlobalMasterLabelFont();
-        if (TryPickFont(family, sizeDip, color, out var f, out var s, out var c, _viewModel.Log))
-            _viewModel.ApplyGlobalMasterLabelFont(f, s, c);
-    }
-
-
-
+    // LabelFontPick_Click, LabelFontDefault_Click, MasterLabelFontPick_Click,
+    // MasterLabelStyleAndFontReset_Click moved fully into PreviewsTab.xaml.cs. RunSetupWizard_Click,
+    // RestoreBackup_Click, CreateBackup_Click, Export/ImportSettings_Click, Export/ImportEsiTokens_Click
+    // moved fully into OptionsTab.xaml.cs (OptionsTab.ShowSetupWizard() calls back into this class's
+    // public ShowSetupWizard()).
+    //
+    // MasterLabelFontReset_Click / MasterLabelStyleReset_Click below are unused dead code (nothing in
+    // any tab wires them -- SeatCardTemplate.xaml uses its own SlotMasterLabelStyleReset_Click) and
+    // were left exactly as found; not in scope for this split.
     private void MasterLabelFontReset_Click(object sender, RoutedEventArgs e)
         => _viewModel.ResetGlobalMasterLabelFont();
 
     private void MasterLabelStyleReset_Click(object sender, RoutedEventArgs e)
         => _viewModel.ResetGlobalMasterLabelStyle();
 
-    // Combined "reset to normal" for the Options-page MASTER label section: clears both the font
-    // override and the style/opacity overrides in one click (was two separate buttons before).
-    private void MasterLabelStyleAndFontReset_Click(object sender, RoutedEventArgs e)
-    {
-        _viewModel.ResetGlobalMasterLabelFont();
-        _viewModel.ResetGlobalMasterLabelStyle();
-    }
-
-    private void RestoreBackup_Click(object sender, RoutedEventArgs e)
-    {
-        var backup = _viewModel.SelectedBackup;
-        if (backup is null) return;
-        var result = System.Windows.MessageBox.Show(
-            $"Restore settings from:\n{backup.DisplayName}\n\nEveDeck will restart. Current settings will be replaced.",
-            "Restore Settings Backup",
-            System.Windows.MessageBoxButton.OKCancel,
-            System.Windows.MessageBoxImage.Question);
-        if (result != System.Windows.MessageBoxResult.OK) return;
-        var error = _viewModel.RestoreSelectedBackup();
-        if (error is not null)
-            System.Windows.MessageBox.Show(
-                $"Restore failed:\n{error}",
-                "Restore Failed",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
-    }
-
-    private void CreateBackup_Click(object sender, RoutedEventArgs e)
-    {
-        _viewModel.CreateBackupNow();
-        _viewModel.RefreshBackups();
-    }
-
-    private void ExportSettings_Click(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.SaveFileDialog
-        {
-            Title = "Export Settings",
-            Filter = "JSON settings|*.json",
-            FileName = $"evedeck_settings_{DateTime.Now:yyyy-MM-dd}.json"
-        };
-        if (dlg.ShowDialog(this) == true)
-            _viewModel.ExportSettings(dlg.FileName);
-    }
-
-    private void ImportSettings_Click(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Title = "Import Settings",
-            Filter = "JSON settings|*.json"
-        };
-        if (dlg.ShowDialog(this) == true)
-            _viewModel.ImportSettings(dlg.FileName);
-    }
-
-    private void ExportEsiTokens_Click(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.SaveFileDialog
-        {
-            Title = "Export Character Links",
-            Filter = "EveDeck character links|*.edtok",
-            FileName = $"evedeck_characters_{DateTime.Now:yyyy-MM-dd}.edtok"
-        };
-        if (dlg.ShowDialog(this) != true) return;
-
-        var prompt = new PassphraseDialog(
-            "Export Character Links",
-            "Choose a passphrase for this file. It holds live ESI credentials, and there is no way to recover it if you forget the passphrase.",
-            "Export", confirm: true) { Owner = this };
-        if (prompt.ShowDialog() != true) return;
-
-        _viewModel.ExportEsiTokens(dlg.FileName, prompt.Passphrase);
-    }
-
-    private void ImportEsiTokens_Click(object sender, RoutedEventArgs e)
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Title = "Import Character Links",
-            Filter = "EveDeck character links|*.edtok"
-        };
-        if (dlg.ShowDialog(this) != true) return;
-
-        var prompt = new PassphraseDialog(
-            "Import Character Links",
-            "Enter the passphrase this file was exported with.",
-            "Import", confirm: false) { Owner = this };
-        if (prompt.ShowDialog() != true) return;
-
-        _viewModel.ImportEsiTokens(dlg.FileName, prompt.Passphrase);
-    }
-
     // Sidebar section search, shared by the Options and Previews tabs. Keyed by section index
     // (matches the IndexToVisibility ConverterParameter on each section StackPanel and the
     // ListBoxItem order in that tab's menu). Built lazily on first search rather than at window
     // construction, since a tab's subtree does not exist until the tab is first selected
     // (TabControl's default template only realizes the SelectedContent -- see App.xaml's
-    // TabControl ControlTemplate). Each tab keeps its own index for that reason.
-    private sealed class SectionSearchIndex
+    // TabControl ControlTemplate). Each tab keeps its own index for that reason -- PreviewsTab and
+    // OptionsTab each hold a MainWindow.SectionSearchIndex instance and call ApplySectionSearchFilter
+    // below directly, since both are internal static and need no MainWindow instance.
+    internal sealed class SectionSearchIndex
     {
         public readonly Dictionary<int, string> Text = new();
         public bool Built;
     }
 
-    private readonly SectionSearchIndex _optionsSearch = new();
-    private readonly SectionSearchIndex _previewsSearch = new();
-
-    private void OptionsSearchBox_TextChanged(object sender, TextChangedEventArgs e)
-        => ApplySectionSearchFilter(_optionsSearch, OptionsSearchBox, OptionsMenu, OptionsSectionsHost, OptionsNoMatchText);
-
-    private void PreviewsSearchBox_TextChanged(object sender, TextChangedEventArgs e)
-        => ApplySectionSearchFilter(_previewsSearch, PreviewsSearchBox, PreviewsMenu, PreviewsSectionsHost, PreviewsNoMatchText);
-
-    private void PreviewsSearchBox_GotFocus(object sender, RoutedEventArgs e)
-        => _previewsSearch.Built = false;
-
-    // Sections whose content is data-driven (Config Profiles, Character Names) change while the app
-    // runs, so a once-only index goes stale -- a profile added mid-session was previously unfindable
-    // until restart. Invalidate whenever focus lands in the search box: you cannot add a profile or
-    // rename a seat without taking focus away from here first, so this catches every realistic edit,
-    // and it costs one rebuild per search session rather than one per keystroke.
-    //
-    // Deliberately NOT done by subscribing to ConfigProfiles/Assignments CollectionChanged:
-    // ConfigProfiles is a pass-through to _settings.ConfigProfiles, and importing settings replaces
-    // that collection wholesale, which would leave the subscription bound to a dead instance.
-    private void OptionsSearchBox_GotFocus(object sender, RoutedEventArgs e)
-        => _optionsSearch.Built = false;
-
-    private static void ApplySectionSearchFilter(
+    internal static void ApplySectionSearchFilter(
         SectionSearchIndex index,
         System.Windows.Controls.TextBox searchBox,
         System.Windows.Controls.ListBox menu,

@@ -1,0 +1,104 @@
+﻿<UserControl x:Class="EveDeck.Views.Tabs.AboutTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer Margin="16">
+            <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+
+              <!-- Logo + title block -->
+              <StackPanel Orientation="Horizontal" Margin="0,4,0,18">
+                <Image Source="/Assets/evedeck-logo.png" Width="120" Height="120"
+                       VerticalAlignment="Top" Margin="0,0,20,0"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                <StackPanel VerticalAlignment="Center">
+                  <TextBlock Text="EveDeck" FontSize="24" FontWeight="Bold"/>
+                  <TextBlock Text="A multibox toolkit for EVE Online — EULA-safe window layout &amp; focus management, plus chat alerts and comms integrations."
+                             Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="420"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <Border Background="#163527" CornerRadius="3" Padding="8,3">
+                      <TextBlock Text="{Binding VersionText}" Foreground="#22C55E" FontWeight="SemiBold" FontSize="12"/>
+                    </Border>
+                    <TextBlock Text="EULA-conscious · no input broadcasting"
+                               Foreground="{StaticResource MutedBrush}" FontSize="11"
+                               VerticalAlignment="Center" Margin="10,0,0,0"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <Button Command="{Binding CheckForUpdateCommand}"
+                            Padding="8,3" FontSize="11" Content="Check for Updates">
+                      <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsCheckingForUpdate}" Value="True">
+                              <Setter Property="IsEnabled" Value="False"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Button.Style>
+                    </Button>
+                    <TextBlock Text="{Binding UpdateCheckStatusText}"
+                               Foreground="{StaticResource MutedBrush}" FontSize="11"
+                               VerticalAlignment="Center" Margin="8,0,0,0"/>
+                  </StackPanel>
+                </StackPanel>
+              </StackPanel>
+
+              <!-- What it does -->
+              <TextBlock Text="What it does" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,16">
+EveDeck arranges your EVE clients into on-screen layouts and lets you switch between them with hotkeys. Frame the active client, dim idle ones, and see parked clients as live corner previews. It only moves, sizes, and focuses windows — it never plays the game.
+              </TextBlock>
+
+              <!-- A quick tour -->
+              <TextBlock Text="The tabs at a glance" FontSize="15" FontWeight="SemiBold" Margin="0,4,0,8"/>
+              <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="110"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Clients" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="Assign detected EVE windows to layout slots." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Layouts" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="Design where slots sit on screen and apply them. Includes VSR/DSR setup for giving the master slot more pixels." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Hotkeys" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="Bind keys to focus a client, cycle, or swap one into the master slot." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Options" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="Customize appearance, previews, alerts, and startup behavior." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Monitors" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="See your displays and their exact coordinates for placing layouts." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Disclaimer" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
+                <TextBlock Grid.Row="5" Grid.Column="1" Text="EULA-safe scope and design guarantees." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Logs" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
+                <TextBlock Grid.Row="6" Grid.Column="1" Text="Activity and error log for troubleshooting." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="Profile Sync" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
+                <TextBlock Grid.Row="7" Grid.Column="1" Text="Mass-copy one character's EVE UI settings to multiple alts in one click." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="About" FontWeight="SemiBold" FontSize="12" Margin="0,2,0,4"/>
+                <TextBlock Grid.Row="8" Grid.Column="1" Text="What EveDeck is, credits, how to support it, and the version you're on." Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,2,0,4" TextWrapping="Wrap"/>
+              </Grid>
+
+              <Separator Margin="0,4,0,16"/>
+
+              <!-- Credits -->
+              <TextBlock Text="Credits" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,16">
+Built by the EveDeck project using native Windows APIs (Win32 and DWM). EVE Online is a trademark of Fenris Creations hf.; EveDeck is an unofficial, community-made tool not affiliated with Fenris Creations.
+              </TextBlock>
+
+              <!-- Compliance -->
+              <TextBlock Text="Fair play" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
+EveDeck respects EVE's one-input-to-one-client rule. It manages windows and shows passive previews only — no input broadcasting, gameplay automation, memory reads, or code injection. See Disclaimer for details.
+              </TextBlock>
+
+              <!-- Support -->
+              <TextBlock Text="Support development" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
+EveDeck is free and open source, with no paywall and no feature held back for a paid tier. If it has earned a spot in your setup, ISK donations are welcome in-game to the corporation EveDeck.Space [EDECK]. Never required, always appreciated, and nothing in EveDeck changes either way.
+              </TextBlock>
+
+            </StackPanel>
+  </ScrollViewer>
+</UserControl>

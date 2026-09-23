@@ -1,0 +1,422 @@
+﻿<UserControl x:Class="EveDeck.Views.Tabs.LayoutsTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="12">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <DockPanel Margin="0,0,0,10">
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Apply Profile" Command="{Binding ApplyProfileCommand}" Style="{StaticResource AccentButton}"/>
+                <Button Content="Undo Last Apply" Command="{Binding UndoLastApplyCommand}" ToolTip="Restore windows to positions they held before the last layout apply"/>
+                <Button Content="Capture Current" Command="{Binding CaptureProfileCommand}"/>
+                <Button Content="Save" Command="{Binding SaveCommand}"/>
+              </StackPanel>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Layouts" FontSize="20" FontWeight="SemiBold"/>
+                <TextBlock Text="Pick a preset layout or design your own. Click Apply Profile to arrange your clients. Built-in presets are read-only; duplicate one to edit it."
+                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </DockPanel>
+
+            <Grid Grid.Row="1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+
+              <!-- Profile list -->
+              <Border Background="{StaticResource PanelBrush}"
+                      BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="6"
+                      Padding="10">
+                <Grid>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <!-- 2d: Profile search filter -->
+                  <StackPanel Margin="0,0,0,8">
+                    <TextBlock Text="Profiles" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBox Text="{Binding ProfileSearchText, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="6,4" FontSize="12"
+                             ToolTip="Filter profiles by name"/>
+                  </StackPanel>
+                  <ListBox Grid.Row="1" ItemsSource="{Binding ProfilesView}"
+                           SelectedItem="{Binding SelectedProfile}"
+                           PreviewKeyDown="ProfilesListBox_PreviewKeyDown"
+                           DisplayMemberPath="Name">
+                    <ListBox.GroupStyle>
+                      <GroupStyle>
+                        <GroupStyle.ContainerStyle>
+                          <Style TargetType="GroupItem">
+                            <Setter Property="Template">
+                              <Setter.Value>
+                                <ControlTemplate TargetType="GroupItem">
+                                  <StackPanel>
+                                    <ToggleButton x:Name="toggle" IsChecked="True"
+                                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                  Padding="6,5" Margin="0,2,0,0">
+                                      <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                          <Border x:Name="bd" Background="#0E1520" Padding="{TemplateBinding Padding}">
+                                            <DockPanel>
+                                              <TextBlock x:Name="arrow" DockPanel.Dock="Right"
+                                                         Text="▲" FontSize="8" Margin="4,0,2,0"
+                                                         Foreground="{StaticResource MutedBrush}"
+                                                         VerticalAlignment="Center"/>
+                                              <ContentPresenter VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                          </Border>
+                                          <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="False">
+                                              <Setter TargetName="arrow" Property="Text" Value="▼"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                              <Setter TargetName="bd" Property="Background" Value="#131D2D"/>
+                                            </Trigger>
+                                          </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                      </ToggleButton.Template>
+                                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11"
+                                                 Foreground="{StaticResource MutedBrush}"/>
+                                    </ToggleButton>
+                                    <ItemsPresenter x:Name="items"/>
+                                  </StackPanel>
+                                  <ControlTemplate.Triggers>
+                                    <Trigger SourceName="toggle" Property="IsChecked" Value="False">
+                                      <Setter TargetName="items" Property="Visibility" Value="Collapsed"/>
+                                    </Trigger>
+                                  </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                              </Setter.Value>
+                            </Setter>
+                          </Style>
+                        </GroupStyle.ContainerStyle>
+                      </GroupStyle>
+                    </ListBox.GroupStyle>
+                  </ListBox>
+                  <WrapPanel Grid.Row="2" Margin="0,8,0,0">
+                    <Button Content="Auto-select" Command="{Binding AutoSelectBestProfileCommand}"
+                            ToolTip="Pick the best built-in profile for your current slot count and target monitor (prefers Center Master for 4-15 accounts)."/>
+                    <Button Content="New" Command="{Binding NewProfileCommand}"/>
+                    <Button Content="Edit on Monitor" Command="{Binding EditLayoutCommand}"
+                            ToolTip="Open a full-screen editor on the target monitor: drag slots to move them, drag edges to resize, add or remove slots. Editing a built-in preset saves a custom copy."/>
+                    <Button Content="Rename" Command="{Binding RenameProfileCommand}"
+                            ToolTip="Rename the selected custom profile (F2). Built-in presets can't be renamed - duplicate one first."/>
+                    <Button Content="Duplicate" Command="{Binding DuplicateProfileCommand}"/>
+                    <Button Content="Delete" Command="{Binding DeleteProfileCommand}" Style="{StaticResource DangerButton}"/>
+                    <Button Content="Import" Command="{Binding ImportProfileCommand}"/>
+                    <Button Content="Export" Command="{Binding ExportProfileCommand}"/>
+                  </WrapPanel>
+                </Grid>
+              </Border>
+
+              <!-- Profile detail -->
+              <Border Grid.Column="2"
+                      Background="{StaticResource PanelBrush}"
+                      BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="6"
+                      Padding="10">
+                <Grid>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                  </Grid.RowDefinitions>
+
+                  <!-- Profile settings row -->
+                  <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Text="Active Profile" FontSize="15" FontWeight="SemiBold"/>
+                      <TextBox Text="{Binding SelectedProfile.Name, UpdateSourceTrigger=PropertyChanged}"
+                               IsReadOnly="{Binding SelectedProfileIsBuiltIn}"
+                               Margin="0,6,8,0"
+                               ToolTip="Profile name"/>
+                      <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="Target monitor" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                        <ComboBox ItemsSource="{Binding Monitors}"
+                                  SelectedValue="{Binding LayoutTargetMonitorId}"
+                                  SelectedValuePath="Id"
+                                  DisplayMemberPath="Summary"
+                                  Width="340"
+                                  Margin="8,0,0,0"/>
+                        <CheckBox Content="Avoid taskbar (this profile)"
+                                  IsChecked="{Binding SelectedProfileAvoidTaskbar}"
+                                  ToolTip="Fit this profile into the monitor work area so the bottom row clears the Windows taskbar. Saved per profile."
+                                  Margin="10,0,0,0"/>
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <StackPanel.Style>
+                          <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding SelectedProfileIsFamilyTemplate}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="Resolution" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                        <ComboBox ItemsSource="{Binding AvailableFamilyResolutions}"
+                                  SelectedItem="{Binding SelectedFamilyResolution}"
+                                  DisplayMemberPath="Label"
+                                  Width="120" Margin="8,0,10,0"
+                                  ToolTip="Monitor resolution this Grid/Center Master layout is built for."/>
+                        <TextBlock Text="Accounts" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                        <ComboBox ItemsSource="{Binding AvailableFamilyCounts}"
+                                  SelectedItem="{Binding SelectedFamilyCount}"
+                                  Width="70" Margin="8,0,0,0"
+                                  ToolTip="Number of accounts this layout arranges."/>
+                        <StackPanel Orientation="Horizontal">
+                          <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                              <Setter Property="Visibility" Value="Collapsed"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedProfileHasFamilySide}" Value="True">
+                                  <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </StackPanel.Style>
+                          <TextBlock Text="Side" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                          <ComboBox ItemsSource="{Binding AvailableFamilySides}"
+                                    SelectedItem="{Binding SelectedFamilySide}"
+                                    Width="90" Margin="8,0,0,0"
+                                    ToolTip="Which edge of the monitor the preview stack sits on."/>
+                        </StackPanel>
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="Master resolution" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"
+                                   ToolTip="Override where EveDeck places the master window. Match this to EVE's Fixed Window resolution when using AMD VSR or Nvidia DSR. Auto = fill the target monitor."/>
+                        <ComboBox ItemsSource="{Binding AvailableMasterResolutions}"
+                                  SelectedItem="{Binding SelectedMasterResolution}"
+                                  DisplayMemberPath="Label"
+                                  Width="180" Margin="8,0,8,0"
+                                  ToolTip="Available display modes. Resolutions above native require AMD VSR or Nvidia DSR — see the guide below."/>
+                        <Button Content="Set" Command="{Binding SetMasterResolutionCommand}" Padding="8,3"
+                                ToolTip="Save this resolution override to the active profile"/>
+                        <Button Content="Auto" Command="{Binding ClearMasterResolutionCommand}" Padding="8,3" Margin="4,0,10,0"
+                                ToolTip="Clear the override — master slot scales to fill the monitor as usual"/>
+                        <TextBlock Text="{Binding MasterResolutionStatus}" FontSize="11" VerticalAlignment="Center">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding MasterResolutionStatusSeverity}" Value="active">
+                                  <Setter Property="Foreground" Value="#22C55E"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding MasterResolutionStatusSeverity}" Value="warn">
+                                  <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </StackPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Bottom">
+                      <TextBlock Text="Built-in preset" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right" FontSize="11">
+                        <TextBlock.Style>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding SelectedProfileIsBuiltIn}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBlock.Style>
+                      </TextBlock>
+                      <CheckBox Content="Use physical pixels" IsChecked="{Binding UsePhysicalPixels}"/>
+                    </StackPanel>
+                  </Grid>
+
+                  <!-- Layout preview -->
+                  <Border Grid.Row="1"
+                          Background="#0E1520"
+                          BorderBrush="{StaticResource BorderBrush}"
+                          BorderThickness="1"
+                          CornerRadius="4"
+                          Padding="10"
+                          Margin="0,0,0,8">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="320"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+                      <Canvas Width="320" Height="200" ClipToBounds="True">
+                        <ItemsControl ItemsSource="{Binding LayoutPreviewSlots}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <Canvas/>
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                              <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                              <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                            </Style>
+                          </ItemsControl.ItemContainerStyle>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <Border Width="{Binding Width}" Height="{Binding Height}"
+                                      Background="#172A45"
+                                      BorderBrush="{StaticResource AccentBrush}"
+                                      BorderThickness="1"
+                                      CornerRadius="2"
+                                      Opacity="0.9">
+                                <Border.Style>
+                                  <Style TargetType="Border">
+                                    <Style.Triggers>
+                                      <DataTrigger Binding="{Binding IsMaster}" Value="True">
+                                        <Setter Property="Background" Value="#2E1F52"/>
+                                        <Setter Property="BorderBrush" Value="#A78BFA"/>
+                                        <Setter Property="BorderThickness" Value="2"/>
+                                      </DataTrigger>
+                                    </Style.Triggers>
+                                  </Style>
+                                </Border.Style>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                  <TextBlock Text="{Binding DisplayText}" HorizontalAlignment="Center" FontWeight="Bold" FontSize="11"/>
+                                  <TextBlock Text="MASTER" HorizontalAlignment="Center" FontSize="8" FontWeight="Bold" Foreground="#C4B5FD"
+                                             Visibility="{Binding IsMaster, Converter={StaticResource BoolToVisibility}}"/>
+                                </StackPanel>
+                              </Border>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </Canvas>
+                      <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="Layout Preview" FontWeight="SemiBold" FontSize="13"/>
+                        <TextBlock Text="Scaled preview of slot positions. See the table below for exact coordinates."
+                                   Foreground="{StaticResource MutedBrush}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding MasterSlotSummary}"
+                                   Foreground="#C4B5FD"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Margin="0,8,0,0"/>
+                        <TextBlock Text="{Binding MasterSlotWarning}"
+                                   Foreground="{StaticResource WarningBrush}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"
+                                   Margin="0,6,0,0"
+                                   Visibility="{Binding HasMasterSlotWarning, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0">
+                          Master on one monitor, previews on another? Use <Run Foreground="{StaticResource TextBrush}">New</Run> and pick
+                          <Run Foreground="{StaticResource TextBrush}">Master + previews</Run> — it builds the layout across two screens for you.
+                          Built-in presets are single-monitor and cannot do this.
+                        </TextBlock>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+
+                  <!-- Slot table -->
+                  <DataGrid Grid.Row="2" ItemsSource="{Binding ActiveProfileSlots}" IsReadOnly="{Binding SelectedProfileIsBuiltIn}" CellEditEnding="SlotsGrid_CellEditEnding">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Slot" Binding="{Binding SlotNumber}" Width="55"/>
+                      <DataGridCheckBoxColumn Header="Master" Binding="{Binding IsMasterSlot, Mode=OneWay}" Width="60" IsReadOnly="True"/>
+                      <DataGridTextColumn Header="Label" Binding="{Binding Label, UpdateSourceTrigger=PropertyChanged}" Width="130"/>
+                      <DataGridTextColumn Header="Monitor" Binding="{Binding MonitorId, UpdateSourceTrigger=PropertyChanged}" Width="120"/>
+                      <DataGridTextColumn Header="X" Binding="{Binding X, UpdateSourceTrigger=PropertyChanged}" Width="75"/>
+                      <DataGridTextColumn Header="Y" Binding="{Binding Y, UpdateSourceTrigger=PropertyChanged}" Width="75"/>
+                      <DataGridTextColumn Header="Width" Binding="{Binding Width, UpdateSourceTrigger=PropertyChanged}" Width="85"/>
+                      <DataGridTextColumn Header="Height" Binding="{Binding Height, UpdateSourceTrigger=PropertyChanged}" Width="85"/>
+                      <DataGridCheckBoxColumn Header="Borderless" Binding="{Binding Borderless}" Width="90"/>
+                      <DataGridComboBoxColumn Header="Renders as" SelectedItemBinding="{Binding RenderModeDisplay, UpdateSourceTrigger=PropertyChanged}" Width="120">
+                        <DataGridComboBoxColumn.ElementStyle>
+                          <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource" Value="{Binding DataContext.SlotRenderModeOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                          </Style>
+                        </DataGridComboBoxColumn.ElementStyle>
+                        <DataGridComboBoxColumn.EditingElementStyle>
+                          <Style TargetType="ComboBox">
+                            <Setter Property="ItemsSource" Value="{Binding DataContext.SlotRenderModeOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                          </Style>
+                        </DataGridComboBoxColumn.EditingElementStyle>
+                      </DataGridComboBoxColumn>
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </Grid>
+              </Border>
+            </Grid>
+
+            <!-- ── VSR / DSR Setup Guide (collapsed by default) ── -->
+            <Expander Grid.Row="2" Header="VSR / DSR Setup Guide" Margin="0,8,0,0">
+              <ScrollViewer MaxHeight="360" Margin="0,8,0,0" Padding="0,0,12,0">
+                <StackPanel>
+                  <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,16">
+Both AMD and Nvidia let you set a virtual resolution higher than your panel's native pixels, then downscale on output — giving EVE a larger canvas to render into. Enable VSR or DSR first, set your desktop to the virtual resolution, match it in EVE's Fixed Window settings, then pick it above with Master resolution and click Set.
+                  </TextBlock>
+                  <TextBlock Text="AMD Virtual Super Resolution (VSR)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                  <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="24"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="1." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock Grid.Row="0" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">Open AMD Software: Adrenalin Edition. Go to <Run Foreground="{StaticResource TextBrush}">Display</Run>, find <Run Foreground="{StaticResource TextBrush}">Virtual Super Resolution</Run>, and toggle it <Run Foreground="{StaticResource TextBrush}">On</Run>.</TextBlock>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="2." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">Open <Run Foreground="{StaticResource TextBrush}">Windows Settings &gt; System &gt; Display &gt; Display resolution</Run>. You will now see resolutions higher than your panel's native size. Select the one you want.</TextBlock>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="3." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">In EVE: <Run Foreground="{StaticResource TextBrush}">ESC &gt; Display &amp; Graphics &gt; Window Mode: Fixed Window &gt; Resolution</Run> — set it to match. All clients must share the same Fixed Window size.</TextBlock>
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="4." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock Grid.Row="3" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">Restart all EVE clients. Use the Master resolution picker above, click Set, then Apply Profile.</TextBlock>
+                  </Grid>
+                  <TextBlock Text="Nvidia Dynamic Super Resolution (DSR)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                  <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="24"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="1." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock Grid.Row="0" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">Open <Run Foreground="{StaticResource TextBrush}">Nvidia Control Panel &gt; Manage 3D Settings &gt; DSR - Factors</Run>. Enable the multipliers you want (e.g. 2.00x for 4K on a 1440p panel).</TextBlock>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="2." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">Open <Run Foreground="{StaticResource TextBrush}">Windows Settings &gt; System &gt; Display &gt; Display resolution</Run> and select the new virtual resolution.</TextBlock>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="3." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">In EVE: <Run Foreground="{StaticResource TextBrush}">ESC &gt; Display &amp; Graphics &gt; Window Mode: Fixed Window &gt; Resolution</Run> — set to match. All clients must share the same Fixed Window size.</TextBlock>
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="4." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <TextBlock Grid.Row="3" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">Restart all EVE clients and reapply your EveDeck layout.</TextBlock>
+                  </Grid>
+                  <TextBlock Text="Things to know" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                  <Border Background="#1A1E14" CornerRadius="4" Padding="10,8" Margin="0,0,0,6">
+                    <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}"><Run Foreground="#C8E870" FontWeight="SemiBold">GPU cost scales with client count.</Run> Every running EVE client renders at the virtual resolution. On a 5-client setup, switching from 1920x1065 to 3840x2160 quadruples pixel work per client. Check GPU utilization before committing.</TextBlock>
+                  </Border>
+                  <Border Background="#1A1018" CornerRadius="4" Padding="10,8" Margin="0,0,0,6">
+                    <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}"><Run Foreground="#E870C8" FontWeight="SemiBold">5210x1440 is not VSR.</Run> That is AMD Eyefinity — a multi-monitor super-wide desktop. Do not select it unless you have two physical monitors combined in Eyefinity.</TextBlock>
+                  </Border>
+                  <Border Background="#0E1520" CornerRadius="4" Padding="10,8">
+                    <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}"><Run Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold">EveDeck profiles are resolution-independent.</Run> Layout slots are stored as fractional rects and scale automatically to whatever resolution your clients run at.</TextBlock>
+                  </Border>
+                </StackPanel>
+              </ScrollViewer>
+            </Expander>
+  </Grid>
+</UserControl>

@@ -1,0 +1,493 @@
+﻿<UserControl x:Class="EveDeck.Views.Tabs.OptionsTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="16">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+              <TextBlock Text="Options" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,2"/>
+              <TextBlock Text="Visual and behavior settings. Changes apply immediately and are saved automatically."
+                         Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <Grid Grid.Row="1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="210"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                  <TextBox x:Name="OptionsSearchBox" Padding="7,5" FontSize="12"
+                           TextChanged="OptionsSearchBox_TextChanged"
+                           GotFocus="OptionsSearchBox_GotFocus"/>
+                  <TextBlock Text="Search settings..." IsHitTestVisible="False"
+                             Foreground="{StaticResource MutedBrush}" FontSize="12"
+                             Margin="10,0,0,0" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding Text, ElementName=OptionsSearchBox}" Value="">
+                            <Setter Property="Visibility" Value="Visible"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                </Grid>
+
+                <Border Grid.Row="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="6" Padding="6">
+                  <Grid>
+                    <ListBox x:Name="OptionsMenu" SelectedIndex="0" BorderThickness="0" Background="Transparent">
+                      <ListBoxItem Content="Character Names"/>
+                      <ListBoxItem Content="Startup &amp; System"/>
+                      <ListBoxItem Content="Interface Scale"/>
+                      <ListBoxItem Content="Settings Backup"/>
+                      <ListBoxItem Content="Hotkey Behavior"/>
+                      <ListBoxItem Content="Performance"/>
+                      <ListBoxItem Content="EVE Launcher"/>
+                      <ListBoxItem Content="Overlay Allow List"/>
+                      <ListBoxItem Content="Notifications"/>
+                      <ListBoxItem Content="Config Profiles"/>
+                    </ListBox>
+                    <TextBlock x:Name="OptionsNoMatchText" Text="No settings match" Visibility="Collapsed"
+                               Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"
+                               Margin="6,10,6,0" HorizontalAlignment="Center"/>
+                  </Grid>
+                </Border>
+              </Grid>
+
+              <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+                <Grid x:Name="OptionsSectionsHost" MaxWidth="700" HorizontalAlignment="Left">
+                  <!-- section 0: Character Names -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=0}">
+                    <TextBlock Text="Character Names" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,14">
+Auto-filled from the EVE window title when a client is assigned — "EVE - Name" becomes "Name". Edit here to rename any slot.
+              </TextBlock>
+              <ItemsControl ItemsSource="{Binding Assignments}" Margin="0,0,0,4">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <DockPanel Margin="0,4">
+                      <Border Width="28" Height="28" CornerRadius="14" VerticalAlignment="Center"
+                              DockPanel.Dock="Left" Margin="0,0,10,0">
+                        <Border.Style>
+                          <Style TargetType="Border">
+                            <Setter Property="Background" Value="#242D3E"/>
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding IsAssigned}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource OnlineChipBrush}"/>
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding SlotNumber}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontWeight="Bold" FontSize="12">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsAssigned}" Value="True">
+                                  <Setter Property="Foreground" Value="{StaticResource OnlineBrush}"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </Border>
+                      <TextBox Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}"
+                               Padding="6,4" FontSize="13"
+                               ToolTip="Character name shown on this slot"/>
+                    </DockPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+                  </StackPanel>
+                  <!-- section 1: Startup & System (merged Startup + Window Behavior + System Integration + Setup, 2026-07-31, each was a sparse one-or-two-control tab) -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=1}">
+                    <TextBlock Text="Startup &amp; System" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+              <TextBlock Text="Startup" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+              <CheckBox Content="Apply a layout profile on startup"
+                        IsChecked="{Binding ApplyProfileOnStartup}"
+                        Margin="0,0,0,10"/>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Text="Profile" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}"/>
+                <ComboBox ItemsSource="{Binding Profiles}"
+                          SelectedValue="{Binding StartupProfileId}"
+                          SelectedValuePath="Id"
+                          DisplayMemberPath="Name"
+                          Width="340"/>
+              </StackPanel>
+              <CheckBox Content="Re-apply active profile when clients are (re)launched"
+                        IsChecked="{Binding AutoApplyOnClientLaunch}"
+                        Margin="0,0,0,4"/>
+              <TextBlock Text="Snaps clients back to their positions when relaunched (requires Auto-refresh enabled)."
+                         Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,16"/>
+
+              <TextBlock Text="Window Behavior" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+              <CheckBox Content="Minimize to system tray instead of taskbar"
+                        IsChecked="{Binding MinimizeToTray}"
+                        Margin="0,0,0,16"/>
+
+              <TextBlock Text="System Integration" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+              <CheckBox Content="Launch EveDeck with Windows"
+                        IsChecked="{Binding LaunchWithWindows}"
+                        Visibility="{Binding CanManageLaunchWithWindows, Converter={StaticResource BoolToVisibility}}"
+                        Margin="0,0,0,6"/>
+              <TextBlock Text="Starts EveDeck automatically when you sign in to Windows."
+                         Visibility="{Binding CanManageLaunchWithWindows, Converter={StaticResource BoolToVisibility}}"
+                         Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,4"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,16"
+                         Visibility="{Binding CanManageLaunchWithWindows, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                This is the Microsoft Store version, so Windows manages startup for you: open Settings &gt; Apps &gt; Startup and turn on EveDeck there.
+              </TextBlock>
+
+              <TextBlock Text="Setup" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
+Re-run the first-time setup wizard.
+              </TextBlock>
+              <Button Content="Run setup wizard" Click="RunSetupWizard_Click"
+                      HorizontalAlignment="Left" MinWidth="150" Margin="0,0,0,4"/>
+                  </StackPanel>
+                  <!-- section 2: Interface Scale -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=2}">
+                    <TextBlock Text="Interface Scale" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,14">
+Scales the entire EveDeck interface up or down. Useful on 4K displays running at 100% Windows scaling where the UI would otherwise appear small.
+              </TextBlock>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,4" VerticalAlignment="Center">
+                <TextBlock Text="Scale" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}"/>
+                <ComboBox x:Name="UiScaleComboBox" Width="120" SelectionChanged="UiScaleComboBox_SelectionChanged">
+                  <ComboBoxItem Content="50%"  Tag="0.5"/>
+                  <ComboBoxItem Content="75%"  Tag="0.75"/>
+                  <ComboBoxItem Content="100%" Tag="1.0"/>
+                  <ComboBoxItem Content="125%" Tag="1.25"/>
+                  <ComboBoxItem Content="150%" Tag="1.5"/>
+                  <ComboBoxItem Content="175%" Tag="1.75"/>
+                  <ComboBoxItem Content="200%" Tag="2.0"/>
+                  <ComboBoxItem Content="250%" Tag="2.5"/>
+                  <ComboBoxItem Content="300%" Tag="3.0"/>
+                </ComboBox>
+              </StackPanel>
+                  </StackPanel>
+                  <!-- section 3: Settings Backup -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=3}">
+                    <TextBlock Text="Settings Backup" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
+EveDeck snapshots your settings on every launch, keeping 5 from today plus 1 per day for the past week. Select one to restore, or create a manual backup before big changes. Export/Import lets you save settings to a file.
+              </TextBlock>
+
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <ComboBox ItemsSource="{Binding AvailableBackups}"
+                          SelectedItem="{Binding SelectedBackup}"
+                          DisplayMemberPath="DisplayName"
+                          Width="260" Margin="0,0,8,0"/>
+                <Button Content="Restore" Click="RestoreBackup_Click"
+                        IsEnabled="{Binding HasSelectedBackup}"
+                        ToolTip="Restore the selected backup and restart EveDeck"
+                        MinWidth="80" Margin="0,0,6,0"/>
+                <Button Content="Create backup now" Click="CreateBackup_Click"
+                        MinWidth="130"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <Button Content="Export settings..." Click="ExportSettings_Click"
+                        MinWidth="140" Margin="0,0,8,0"
+                        ToolTip="Save current settings.json to a file of your choice"/>
+                <Button Content="Import settings..." Click="ImportSettings_Click"
+                        MinWidth="140"
+                        ToolTip="Load settings from a JSON file and restart EveDeck"/>
+              </StackPanel>
+
+              <TextBlock Text="ESI Character Links" FontWeight="SemiBold" FontSize="12" Margin="0,18,0,6"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
+Your EVE SSO links are encrypted to this Windows user account, so they are NOT included in a settings export and do not survive reinstalling Windows or moving to a new PC. Export them to a passphrase-protected file to carry them across, or you will have to re-link every character by hand.
+              </TextBlock>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <Button Content="Export character links..." Click="ExportEsiTokens_Click"
+                        MinWidth="170" Margin="0,0,8,0"
+                        ToolTip="Save all linked ESI characters to an encrypted file"/>
+                <Button Content="Import character links..." Click="ImportEsiTokens_Click"
+                        MinWidth="170"
+                        ToolTip="Restore linked ESI characters from an encrypted export file"/>
+              </StackPanel>
+                  </StackPanel>
+                  <!-- section 4: Hotkey Behavior -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=4}">
+                    <TextBlock Text="Hotkey Behavior" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <CheckBox Content="Only fire hotkeys when an EVE client is the active window"
+                        IsChecked="{Binding RequireEveFocusForHotkeys}"
+                        Margin="0,0,0,6"/>
+              <CheckBox Content="Suspend all hotkeys (panic pause)"
+                        IsChecked="{Binding HotkeysSuspended}"
+                        Margin="0,0,0,6"
+                        ToolTip="Temporarily disables every EveDeck hotkey. Bind 'Suspend / resume all hotkeys' in the Hotkeys tab to toggle this from the keyboard — that one binding keeps working while suspended."/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,4">
+When enabled: swap/cycle/apply-layout hotkeys work only in EVE; other apps get the keystrokes. Focus and character-switch hotkeys stay global so you can always jump back to EVE.
+              </TextBlock>
+                  </StackPanel>
+                  <!-- section 5: Performance -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=5}">
+                    <TextBlock Text="Performance" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <CheckBox Content="Throttle background EVE clients to Below Normal CPU priority"
+                        IsChecked="{Binding ThrottleBackgroundProcesses}"
+                        Margin="0,0,0,4"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
+Gives the active EVE client priority over inactive ones. Combine with EVE's own 'Limit background framerate' setting for best results.
+              </TextBlock>
+              <CheckBox Content="Power-throttle background EVE clients (EcoQoS)"
+                        IsChecked="{Binding EcoQosBackgroundClients}"
+                        Margin="0,0,0,4"/>
+              <CheckBox Content="Keep the next client in the cycle at full speed"
+                        IsChecked="{Binding EcoQosExemptNextInCycle}"
+                        IsEnabled="{Binding EcoQosBackgroundClients}"
+                        Margin="16,0,0,4"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
+Asks Windows to power-throttle inactive clients (stacks with the priority drop above). On Intel hybrid CPUs it moves them to efficiency cores and the saving is large; on AMD and older Intel CPUs, which have no efficiency cores, the effect is small. Spares the next cycled client so it's ready when you switch. EcoQoS is pure OS scheduling — no DLL injection, no memory reads/writes. Requires Windows 10 1809+.
+              </TextBlock>
+              <CheckBox Content="Auto-minimize EVE clients that are not the active window"
+                        IsChecked="{Binding AutoMinimizeInactiveClients}"
+                        Margin="0,0,0,4"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
+Minimizes inactive clients to save GPU/CPU (flat layouts only; disabled while previews are live). Respects 'never minimize' checkboxes on slot cards.
+              </TextBlock>
+              <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0">
+                <StackPanel>
+                  <TextBlock Text="Cap background client frame rate (recommended)" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                  <TextBlock Text="{Binding BackgroundFpsCapTip}" TextWrapping="Wrap" LineHeight="19"
+                             Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+                </StackPanel>
+              </Border>
+                  </StackPanel>
+                  <!-- section 6: EVE Launcher -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=6}">
+                    <TextBlock Text="EVE Launcher" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
+Path to eveLauncher.exe. EveDeck finds it automatically; only set this if it's in a non-standard location.
+              </TextBlock>
+              <TextBox Text="{Binding EveLauncherPathOverride, UpdateSourceTrigger=PropertyChanged}"
+                       Padding="6,4" FontSize="12"
+                       ToolTip="Custom path to eveLauncher.exe, e.g. D:\Games\EVE Online\eveLauncher.exe"/>
+                  </StackPanel>
+                  <!-- section 7: Overlay Allow List -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=7}">
+                    <TextBlock Text="Overlay Allow List" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
+Apps here stay above the overlay tiles so voice chat, intel, and tools can sit over the game. Matched by process name (case-insensitive, no ".exe").
+              </TextBlock>
+              <ItemsControl ItemsSource="{Binding OverlayAllowedApps}" Margin="0,0,0,6">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <DockPanel Margin="0,3">
+                      <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"
+                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                      <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="12" Margin="6,0,0,0"
+                              Command="{Binding DataContext.RemoveOverlayAllowedAppCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                              CommandParameter="{Binding}"/>
+                      <TextBox Text="{Binding ProcessName, UpdateSourceTrigger=PropertyChanged}"
+                               Width="180" Padding="6,4" FontSize="12"
+                               ToolTip="Process name substring, case-insensitive (e.g. mumble, discord, pyfa)"/>
+                    </DockPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Content="+ Add App" Command="{Binding AddOverlayAllowedAppCommand}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
+                  </StackPanel>
+
+                  <!-- section 8: Notifications -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=8}">
+                    <TextBlock Text="Notifications" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,14" MaxWidth="640">
+Control where toasts appear and whether they're also sent to Windows Notification Center (so they stay reviewable after fading).
+                    </TextBlock>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+                      <TextBlock Text="Popup position" VerticalAlignment="Center" Width="110" Foreground="{StaticResource MutedBrush}"/>
+                      <ComboBox Width="220" SelectedValuePath="Tag" FontSize="12"
+                                SelectedValue="{Binding ToastPosition}">
+                        <ComboBoxItem Tag="TopLeft" Content="Top left"/>
+                        <ComboBoxItem Tag="TopCenter" Content="Top center"/>
+                        <ComboBoxItem Tag="TopRight" Content="Top right"/>
+                        <ComboBoxItem Tag="BottomLeft" Content="Bottom left"/>
+                        <ComboBoxItem Tag="BottomCenter" Content="Bottom center"/>
+                        <ComboBoxItem Tag="BottomRight" Content="Bottom right (above system clock)"/>
+                      </ComboBox>
+                    </StackPanel>
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10" MaxWidth="500">
+Takes effect the next time a toast is shown (or after restarting EveDeck).
+                    </TextBlock>
+                    <CheckBox Content="Mirror alerts into the Windows Notification Center" FontSize="12"
+                              IsChecked="{Binding NativeNotificationCenterEnabled, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,6,0,0" MaxWidth="500">
+Sends alerts to Windows Notification Center (no second popup). Requires notifications enabled for EveDeck in Settings > System > Notifications.
+                    </TextBlock>
+
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,14,0,0" MaxWidth="640">
+                      <StackPanel>
+                        <DockPanel>
+                          <CheckBox DockPanel.Dock="Right" Content="Enabled" IsChecked="{Binding DowntimeCountdownEnabled}" VerticalAlignment="Center"/>
+                          <TextBlock Text="Downtime countdown" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,10" MaxWidth="600">
+Displays a countdown to EVE's daily downtime and a "dock up" toast when the downtime window opens.
+                        </TextBlock>
+                        <WrapPanel VerticalAlignment="Center" IsEnabled="{Binding DowntimeCountdownEnabled}">
+                          <TextBlock Text="Downtime at" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                          <TextBox Text="{Binding DowntimeUtcTime, UpdateSourceTrigger=PropertyChanged}" Width="56" Margin="6,0" VerticalAlignment="Center"
+                                   ToolTip="EVE downtime in UTC, HH:mm (default 11:00)."/>
+                          <TextBlock Text="(HH:mm)" Foreground="{StaticResource MutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                          <TextBlock Text="UTC · show it" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                          <TextBox Text="{Binding DowntimeLeadMinutes, UpdateSourceTrigger=PropertyChanged}" Width="48" Margin="6,0" VerticalAlignment="Center"/>
+                          <TextBlock Text="min before" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                        </WrapPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0" IsEnabled="{Binding DowntimeCountdownEnabled}">
+                          <TextBlock Text="Position" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Margin="0,0,8,0"/>
+                          <ComboBox Width="150" SelectedValuePath="Tag" FontSize="12" SelectedValue="{Binding DowntimePosition}">
+                            <ComboBoxItem Tag="TopLeft" Content="Top left"/>
+                            <ComboBoxItem Tag="TopCenter" Content="Top center"/>
+                            <ComboBoxItem Tag="TopRight" Content="Top right"/>
+                            <ComboBoxItem Tag="BottomLeft" Content="Bottom left"/>
+                            <ComboBoxItem Tag="BottomCenter" Content="Bottom center"/>
+                            <ComboBoxItem Tag="BottomRight" Content="Bottom right"/>
+                          </ComboBox>
+                        </StackPanel>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- Game Event Alerts (moved from its own Options section) -->
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0" MaxWidth="640">
+                      <StackPanel>
+                        <TextBlock Text="Game Event Alerts" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,10"/>
+                        <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10" MaxWidth="600">
+Reads gamelogs (Documents\EVE\logs\Gamelogs) for combat, warp scrambles, fleet invites, etc. on parked clients. Toast shows an alert; Glow pulses the tile (better for spam like constant combat). Passive log reading only — never sends input to EVE. "Focused" skips the alert if that client is already active.
+                        </TextBlock>
+                        <ItemsControl ItemsSource="{Binding GameEventRules}" Margin="0,0,0,6">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <DockPanel Margin="0,3">
+                                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"
+                                          VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="12" Margin="6,0,0,0"
+                                        Command="{Binding DataContext.RemoveGameEventRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}"/>
+                                <CheckBox DockPanel.Dock="Right" Content="Focused" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"
+                                          IsChecked="{Binding SuppressWhenFocused, UpdateSourceTrigger=PropertyChanged}"
+                                          ToolTip="Skip the alert when this character's window is already in the foreground"/>
+                                <CheckBox DockPanel.Dock="Right" Content="Sound" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"
+                                          IsChecked="{Binding PlaySound, UpdateSourceTrigger=PropertyChanged}"/>
+                                <CheckBox DockPanel.Dock="Right" Content="Glow" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"
+                                          IsChecked="{Binding FlashOnTile, UpdateSourceTrigger=PropertyChanged}"
+                                          ToolTip="Pulse the seat's tile/master rect on the overlay instead of a toast notification"/>
+                                <CheckBox DockPanel.Dock="Right" Content="Silence in Abyss" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"
+                                          IsChecked="{Binding SuppressSoundInAbyss, UpdateSourceTrigger=PropertyChanged}"
+                                          ToolTip="When Abyss Mode is on, skip this rule's sound (glow stays). Uncheck for rare, high-stakes events — e.g. Warp scramble — worth hearing even mid-run."/>
+                                <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                         Width="130" Padding="6,4" FontSize="12" Margin="0,0,8,0"
+                                         ToolTip="Display name for this event"/>
+                                <TextBox Text="{Binding Pattern, UpdateSourceTrigger=PropertyChanged}"
+                                         Padding="6,4" FontSize="12"
+                                         ToolTip="Text to match in new gamelog lines (case-insensitive)"/>
+                              </DockPanel>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Content="+ Add Event" Command="{Binding AddGameEventRuleCommand}" Padding="8,4" FontSize="12" HorizontalAlignment="Left"/>
+                        <CheckBox Content="Abyss Mode (suppress Glow-event sounds during runs)" FontSize="12" Margin="0,10,0,0"
+                                  IsChecked="{Binding AbyssModeEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                  ToolTip="Silences event sounds for rules with 'Silence in Abyss' checked. Rules without it (e.g., Warp scramble) stay audible."/>
+                        <CheckBox FontSize="12" Margin="0,6,0,0"
+                                  IsChecked="{Binding AbyssModeAutoArm, UpdateSourceTrigger=PropertyChanged}"
+                                  ToolTip="Turns Abyss Mode on by itself while any tracked character is in space EVE will not name (Abyssal Deadspace), and off again when they filament out. The checkbox above still forces it on.">
+                          <TextBlock Text="Arm Abyss Mode automatically while a character is in the abyss" TextWrapping="Wrap" MaxWidth="580"/>
+                        </CheckBox>
+                        <DockPanel Margin="0,10,0,0">
+                          <TextBlock DockPanel.Dock="Left" Text="Repeat combat toasts at most every" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <TextBlock DockPanel.Dock="Right" Text="s" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                          <TextBox Text="{Binding CombatToastCooldownSeconds, UpdateSourceTrigger=LostFocus}"
+                                   Width="56" Padding="6,4" FontSize="12" HorizontalAlignment="Left"
+                                   ToolTip="Per seat, per rule. The tile glow still pulses on every event — this only limits how often the persistent toast card comes back while damage keeps landing. 0 turns the cooldown off."/>
+                        </DockPanel>
+                        <CheckBox Content="Toasts above overlay tiles and allow-listed apps" FontSize="12" Margin="0,6,0,0"
+                                  IsChecked="{Binding ToastsAboveOverlays, UpdateSourceTrigger=PropertyChanged}"
+                                  ToolTip="Keeps alert toasts visible above previews and allow-listed apps."/>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- Seat health alerts -->
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0" MaxWidth="640">
+                      <StackPanel>
+                        <TextBlock Text="Seat health alerts" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,10"/>
+                        <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10" MaxWidth="600">
+ESI checks for common parked-alt failures: podding and disconnects. Requires character links with location/ship/online scopes (re-link if needed).
+                        </TextBlock>
+                        <CheckBox IsChecked="{Binding SeatHealthAlertPodded, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6">
+                          <TextBlock Text="Podded (cross-checked with zKillboard to skip false positives like bare-pod flights)" TextWrapping="Wrap" MaxWidth="580"/>
+                        </CheckBox>
+                        <CheckBox IsChecked="{Binding SeatHealthAlertDisconnected, UpdateSourceTrigger=PropertyChanged}">
+                          <TextBlock Text="Disconnected (ESI shows offline session while the client window is still open)" TextWrapping="Wrap" MaxWidth="580"/>
+                        </CheckBox>
+                      </StackPanel>
+                    </Border>
+                  </StackPanel>
+
+
+                  <!-- section 9: Config Profiles -->
+                  <StackPanel Visibility="{Binding SelectedIndex, ElementName=OptionsMenu, Converter={StaticResource IndexToVisibility}, ConverterParameter=9}">
+                    <TextBlock Text="Config Profiles" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
+Named snapshots of your whole setup: layout, character set, and all overlay appearance settings. Switch between them from the tray icon. Layouts and character sets update all profiles that use them automatically.
+                    </TextBlock>
+
+                    <ItemsControl ItemsSource="{Binding ConfigProfiles}" Margin="0,0,0,8">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                  BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,0,6">
+                            <DockPanel>
+                              <Button DockPanel.Dock="Right" Content="Remove" Padding="7,3" FontSize="12" Margin="6,0,0,0"
+                                      Command="{Binding DataContext.RemoveConfigProfileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      CommandParameter="{Binding}"/>
+                              <Button DockPanel.Dock="Right" Content="Save current" Padding="7,3" FontSize="12" Margin="6,0,0,0"
+                                      ToolTip="Re-capture the current layout, character set and overlay appearance into this profile."
+                                      Command="{Binding DataContext.SaveCurrentToConfigProfileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      CommandParameter="{Binding}"/>
+                              <Button DockPanel.Dock="Right" Content="Apply" Padding="7,3" FontSize="12" Margin="6,0,0,0"
+                                      Command="{Binding DataContext.ApplyConfigProfileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      CommandParameter="{Binding}"/>
+                              <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                       Padding="6,4" FontSize="12" VerticalAlignment="Center"/>
+                            </DockPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Button Content="+ Add config profile from current setup" Command="{Binding AddConfigProfileCommand}"
+                            Padding="8,4" FontSize="12" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+
+                    <CheckBox Content="Re-apply the last used config profile on startup"
+                              IsChecked="{Binding ApplyConfigProfileOnStartup}"
+                              ToolTip="Applies after the startup layout profile, so a config profile always gets the last word."
+                              Margin="0,0,0,10"/>
+                  </StackPanel>
+
+                </Grid>
+              </ScrollViewer>
+            </Grid>
+  </Grid>
+</UserControl>

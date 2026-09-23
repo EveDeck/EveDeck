@@ -1,0 +1,124 @@
+﻿<UserControl x:Class="EveDeck.Views.Tabs.HotkeysTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="12">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <DockPanel Margin="0,0,0,10">
+              <Button DockPanel.Dock="Right" Content="Reset to Defaults"
+                      Command="{Binding ResetHotkeysCommand}"
+                      Style="{StaticResource DangerButton}"
+                      ToolTip="Reset all hotkey bindings to factory defaults"/>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Hotkeys" FontSize="20" FontWeight="SemiBold"/>
+                <TextBlock Text="Set global hotkeys to switch clients and apply layouts. Click Set, press the keys you want (Esc cancels), then toggle On to enable it."
+                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                <TextBlock Text="Tip: Options → Hotkey Behavior controls whether hotkeys fire when EVE is not in focus."
+                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding HotkeyTargetWarning}"
+                           Foreground="{StaticResource WarningBrush}" FontSize="11" FontWeight="SemiBold"
+                           Margin="0,6,0,0" TextWrapping="Wrap"
+                           Visibility="{Binding HasHotkeyTargetWarning, Converter={StaticResource BoolToVisibility}}"/>
+              </StackPanel>
+            </DockPanel>
+
+            <DataGrid x:Name="HotkeyDataGrid"
+                      Grid.Row="1"
+                      ItemsSource="{Binding Hotkeys}"
+                      SelectedItem="{Binding SelectedHotkey}"
+                      IsReadOnly="True"
+                      EnableRowVirtualization="False">
+              <!-- Capture row highlight -->
+              <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsCapturing}" Value="True">
+                      <Setter Property="Background" Value="#0E2040"/>
+                      <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                      <Setter Property="BorderThickness" Value="0,1,0,1"/>
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </DataGrid.RowStyle>
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header="On" Width="55">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <CheckBox IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Group" Binding="{Binding Category}" IsReadOnly="True" Width="130"/>
+                <DataGridTextColumn Header="Action" Binding="{Binding DisplayName}" IsReadOnly="True" Width="2*"/>
+                <!-- Template (not Text) column so a capturing row can say so explicitly: the row
+                     highlight alone never told the user the app was waiting for a keypress. -->
+                <DataGridTemplateColumn Header="Key Combo" Width="185">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                        <TextBlock.Style>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="{Binding DisplayGesture}"/>
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding IsCapturing}" Value="True">
+                                <Setter Property="Text" Value="Press a key combo... (Esc cancels)"/>
+                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="FontStyle" Value="Italic"/>
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBlock.Style>
+                      </TextBlock>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Character" Width="170">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <ComboBox Style="{StaticResource CharacterPickerCombo}"
+                                ItemsSource="{Binding DataContext.CharacterIdentities, RelativeSource={RelativeSource AncestorType=Window}}"
+                                TextSearch.TextPath="Name"
+                                Text="{Binding TargetCharacter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                Visibility="{Binding IsCharacterSwitch, Converter={StaticResource BoolToVis}}"
+                                ToolTip="Which character this hotkey brings forward. Pick from the list or type a name. Follows the character across master swaps.">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                              <Ellipse Width="18" Height="18" Margin="0,0,6,0" VerticalAlignment="Center" Style="{StaticResource PortraitDot}"
+                                       Visibility="{Binding HasPortrait, Converter={StaticResource BoolToVis}}">
+                                <Ellipse.Fill>
+                                  <ImageBrush ImageSource="{Binding Portrait.Image}" Stretch="UniformToFill"/>
+                                </Ellipse.Fill>
+                              </Ellipse>
+                              <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Edit" Width="160">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <StackPanel Orientation="Horizontal">
+                        <Button Content="Set"
+                                Command="{Binding DataContext.CaptureHotkeyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                CommandParameter="{Binding}"
+                                Padding="8,4"/>
+                        <Button Content="Clear"
+                                Command="{Binding DataContext.ClearHotkeyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                CommandParameter="{Binding}"
+                                Padding="8,4"/>
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
+  </Grid>
+</UserControl>

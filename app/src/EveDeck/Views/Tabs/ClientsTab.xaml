@@ -1,0 +1,476 @@
+﻿<UserControl x:Class="EveDeck.Views.Tabs.ClientsTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="12">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Section header -->
+            <DockPanel Margin="0,0,0,10">
+              <!-- Center, not the default Stretch: otherwise the buttons grow to the height of the
+                   two-line title block opposite them. -->
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Auto-Assign All" Command="{Binding AutoAssignAllCommand}" ToolTip="Automatically assign all unassigned windows to available slots"/>
+                <Button Content="Refresh" Command="{Binding RefreshCommand}"/>
+                <Button Content="Refresh Portraits" Command="{Binding RefreshPortraitsCommand}"
+                        ToolTip="Refresh all cached character portraits from the EVE servers."/>
+                <Button Content="Toggle Borderless" Command="{Binding ToggleSelectedBorderlessCommand}"
+                        ToolTip="Add or remove the title bar and borders on the window selected in Detected Windows."/>
+                <Button Content="Restore Style" Command="{Binding RestoreSelectedStyleCommand}"
+                        ToolTip="Put the selected window back to its original Windows style, with its title bar and borders restored."/>
+              </StackPanel>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Clients" FontSize="20" FontWeight="SemiBold"/>
+                <TextBlock Text="Select an EVE window on the left, then click Assign next to a slot. Use Auto-Assign All to match all unassigned windows at once."
+                           Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </DockPanel>
+
+            <!-- Two-column split. The left column is a fixed width rather than a proportion so the
+                 window list stops reflowing every time the window is resized; Slots absorbs the slack,
+                 which is where day-to-day work actually happens. -->
+            <Grid Grid.Row="1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="340"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+
+              <!-- LEFT: Detected Windows panel -->
+              <Border Background="{StaticResource PanelBrush}"
+                      BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="6"
+                      Padding="10">
+                  <Grid>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="*"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Height="28" Margin="0,0,0,8">
+                      <Border DockPanel.Dock="Right" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0"
+                              Background="{StaticResource AccentBrush}" VerticalAlignment="Center">
+                        <Border.Style>
+                          <Style TargetType="Border">
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding UnassignedWindowCount}" Value="0">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding UnassignedWindowCount}" FontSize="10" FontWeight="Bold"
+                                   Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   ToolTip="Unassigned detected windows"/>
+                      </Border>
+                      <TextBlock Text="Detected Windows" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </DockPanel>
+
+                    <!-- Test-window controls live below the header rather than beside it: at a fixed
+                         340px column they no longer fit on the header line. -->
+                    <DockPanel Grid.Row="1" Margin="0,0,0,8">
+                      <CheckBox DockPanel.Dock="Bottom"
+                                Content="Include Notepad test windows"
+                                IsChecked="{Binding IncludeNotepadTestWindows}"
+                                Margin="0,6,0,0"/>
+                      <Button Content="Spawn Test Windows"
+                              Command="{Binding SpawnTestWindowsCommand}"
+                              ToolTip="Create test windows to preview the layout without running EVE."
+                              HorizontalAlignment="Stretch"
+                              Margin="0"/>
+                    </DockPanel>
+
+                    <!-- Window list with empty state overlay -->
+                    <Grid Grid.Row="2">
+                    <ListBox x:Name="WindowsListBox"
+                           ItemsSource="{Binding WindowsView}"
+                           SelectedItem="{Binding SelectedWindow}"
+                           PreviewMouseLeftButtonDown="WindowsListBox_PreviewMouseLeftButtonDown"
+                           PreviewMouseMove="WindowsListBox_PreviewMouseMove">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate>
+                          <Border Padding="10,9" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+                            <Grid>
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                              </Grid.ColumnDefinitions>
+                              <StackPanel>
+                                <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" FontSize="11">
+                                  <Run Text="PID "/><Run Text="{Binding ProcessId, Mode=OneWay}"/><Run Text="   HWND "/><Run Text="{Binding HandleHex, Mode=OneWay}"/>
+                                </TextBlock>
+                                <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11">
+                                  <Run Text="Rect "/><Run Text="{Binding Rect, Mode=OneWay}"/><Run Text="   Monitor "/><Run Text="{Binding MonitorId, Mode=OneWay}"/>
+                                </TextBlock>
+                              </StackPanel>
+                              <!-- Borderless badge -->
+                              <Border Grid.Column="1" CornerRadius="3" Padding="6,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                <Border.Style>
+                                  <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Setter Property="Background" Value="#122B1A"/>
+                                    <Style.Triggers>
+                                      <DataTrigger Binding="{Binding IsBorderless}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                      </DataTrigger>
+                                    </Style.Triggers>
+                                  </Style>
+                                </Border.Style>
+                                <TextBlock Text="borderless" Foreground="#22C55E" FontSize="11" FontWeight="SemiBold"/>
+                              </Border>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Empty state overlay -->
+                    <Border CornerRadius="4" Background="{StaticResource PanelBrush}">
+                      <Border.Style>
+                        <Style TargetType="Border">
+                          <Setter Property="Visibility" Value="Collapsed"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasNoWindows}" Value="True">
+                              <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
+                      <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="No EVE windows detected"
+                                   FontSize="15" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}"/>
+                        <TextBlock Text="Start EVE Online, then click Refresh."
+                                   Foreground="{StaticResource MutedBrush}"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,10,0,0"/>
+                        <TextBlock Text="Enable 'Include Notepad test windows' to test without EVE."
+                                   Foreground="{StaticResource MutedBrush}"
+                                   FontSize="11"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,0"/>
+                      </StackPanel>
+                    </Border>
+
+                    <!-- All-assigned empty state: distinct from "none detected" above, this is the
+                         common steady state (everything's already placed) that used to render as a
+                         blank box with no explanation at all. -->
+                    <Border CornerRadius="4" Background="{StaticResource PanelBrush}">
+                      <Border.Style>
+                        <Style TargetType="Border">
+                          <Setter Property="Visibility" Value="Collapsed"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding AllWindowsAssigned}" Value="True">
+                              <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
+                      <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="All detected windows are assigned"
+                                   FontSize="15" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}"/>
+                        <TextBlock Text="Launch another client and click Refresh to see it here."
+                                   Foreground="{StaticResource MutedBrush}"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,10,0,0"/>
+                      </StackPanel>
+                    </Border>
+                    </Grid>
+
+                    <TextBlock Grid.Row="3" Text="{Binding Status}"
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="11"
+                               Margin="2,8,2,0"
+                               TextTrimming="CharacterEllipsis"/>
+                  </Grid>
+              </Border>
+
+              <!-- RIGHT: Slots panel -->
+              <Border Grid.Column="2"
+                      Background="{StaticResource PanelBrush}"
+                      BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="6"
+                      Padding="10">
+                <Grid>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <!-- The minimap and the slots list SHARE the leftover height instead of the
+                         minimap taking a fixed 216px and starving the list. The minimap row is capped
+                         at the minimap's natural 216 (never grows past it, so no gap on a tall window)
+                         and floored at 190 (MinHeight) so it stays a comfortable drop target at the
+                         default window size and normal scaling; only past that floor, on a genuinely
+                         short window (high OS display scaling), does the DownOnly Viewbox scale it
+                         down further. The slots list keeps the larger share and its own scroll. -->
+                    <RowDefinition Height="*" MinHeight="190" MaxHeight="216"/>
+                    <RowDefinition Height="2*"/>
+                  </Grid.RowDefinitions>
+
+                  <!-- Character Set switcher -->
+                  <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                      <Button Content="Characters…" Command="{Binding ChooseSetCharactersCommand}" Padding="7,3" FontSize="11" Margin="0,0,4,0"
+                              ToolTip="Pick which of your linked characters belong in the active set. Seats are built to match. Every character you have ever linked is offered, so no set ever needs a second browser login."/>
+                      <Button Content="+ Set" Command="{Binding AddCharacterSetCommand}" Padding="7,3" FontSize="11" ToolTip="Add a new character set with the same layout, seats, characters and hotkeys."/>
+                      <Button Content="Delete" Command="{Binding DeleteCharacterSetCommand}" Padding="7,3" FontSize="11" Margin="4,0,0,0" Style="{StaticResource DangerButton}" ToolTip="Delete the active character set"/>
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Center">
+                      <TextBlock Text="Character Sets" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,3"/>
+                      <ItemsControl ItemsSource="{Binding CharacterSets}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,4,4">
+                              <ToggleButton Padding="10,3" FontSize="11" MinHeight="0"
+                                            Content="{Binding Name}"
+                                            IsChecked="{Binding IsActive, Mode=OneWay}"
+                                            Command="{Binding DataContext.SwitchCharacterSetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="{Binding LayoutDisplayName, StringFormat='Layout: {0}'}">
+                                <ToggleButton.Style>
+                                  <Style TargetType="ToggleButton">
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Template">
+                                      <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                          <Border x:Name="bd" CornerRadius="4" Padding="{TemplateBinding Padding}"
+                                                  Background="{StaticResource ButtonBrush}"
+                                                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                          </Border>
+                                          <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="False">
+                                              <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                              <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBrush}"/>
+                                              <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                              <Setter Property="Foreground" Value="White"/>
+                                              <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                              <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                            </Trigger>
+                                          </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                      </Setter.Value>
+                                    </Setter>
+                                  </Style>
+                                </ToggleButton.Style>
+                              </ToggleButton>
+                              <Button Content="Launch" Padding="7,3" FontSize="11" MinHeight="0" Margin="2,0,0,0"
+                                      Command="{Binding DataContext.LaunchGroupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      CommandParameter="{Binding}"
+                                      ToolTip="Launch EVE once per seat in this group with the configured launch delay."/>
+                            </StackPanel>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <!-- Sets carry a layout, and switching one rearranges the screen. That rule has to be
+                           visible here or the rearrangement reads as a bug rather than the feature. -->
+                      <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <TextBlock Text="Layout for this set:" FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}" Margin="0,0,5,0"/>
+                        <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding ActiveSetLayout, Mode=TwoWay}"
+                                  DisplayMemberPath="Name" FontSize="11" MinWidth="150" MinHeight="0" Padding="5,2"
+                                  ToolTip="The layout this character set flies. Switching to another set selects and applies that set's layout, so your windows move with your seats."/>
+                      </StackPanel>
+                    </StackPanel>
+                  </DockPanel>
+
+                  <DockPanel Grid.Row="1" Margin="0,0,0,8">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                      <Button Content="Add Slot" Command="{Binding AddSlotCommand}"/>
+                      <Button Content="Delete" Command="{Binding DeleteSelectedSlotCommand}" Style="{StaticResource DangerButton}"/>
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Center">
+                      <TextBlock Text="Slots" FontSize="15" FontWeight="SemiBold"/>
+                      <TextBlock Text="Drag a slot's ⠿ grip onto the mini-map to set its corner. Drop on the center to make it Master."
+                                 Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                      <TextBlock Text="You can also drag a window straight from Detected Windows onto a mini-map cell to assign it to whichever seat sits there."
+                                 Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                      <!-- Reference material, not a third how-to line: monospace + tighter tracking so
+                           it reads as a legend rather than another instruction. -->
+                      <TextBlock Text="Position codes:  ⌜⌝⌞⌟ = screen corners   ▲▼◀▶ = edges   ★ = Master (home seat)"
+                                 Foreground="{StaticResource MutedBrush}" FontFamily="Consolas, Courier New, monospace"
+                                 FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding MasterSeatSummary}" FontSize="11" FontWeight="SemiBold"
+                                 Foreground="{StaticResource MasterAccentBrush}" Margin="0,5,0,0" TextWrapping="Wrap"
+                                 ToolTip="The Master seat is centered at rest and is the F-key home. Set it by dropping a seat on the mini-map's center cell, or with that seat's ⭐ Master button. If the designated seat's client isn't running, EveDeck temporarily centers another logged-in seat instead — that stand-in is never saved and snaps back as soon as the real master is detected."/>
+                      <!-- Which apply path this profile will actually take. Previously invisible: the
+                           choice is made at apply time from the layout's geometry plus the global
+                           preview toggle, so a dense Grid gave no hint that all but one client would
+                           be a thumbnail. -->
+                      <TextBlock Text="{Binding LayoutModeSummary}" FontSize="11"
+                                 Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0" TextWrapping="Wrap"
+                                 ToolTip="Preview mode runs every client at master resolution, parks all but the master off-screen, and draws them as live DWM thumbnails — the EVE-O Preview style arrangement. Flat mode instead resizes each client to its own slot and leaves them all on screen. EveDeck picks between them automatically: any layout with slots at two or more distinct positions uses previews while 'Enable live previews' is on."/>
+                      <TextBlock Text="{Binding LayoutModeWarning}" FontSize="11" FontWeight="SemiBold"
+                                 Visibility="{Binding HasLayoutModeWarning, Converter={StaticResource BoolToVisibility}}"
+                                 Foreground="{StaticResource WarningBrush}" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                      <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="This layout renders as:" FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}" Margin="0,0,5,0"/>
+                        <ComboBox ItemsSource="{Binding PreviewModeOptions}" SelectedItem="{Binding SelectedProfilePreviewMode, Mode=TwoWay}"
+                                  FontSize="11" MinWidth="160" MinHeight="0" Padding="5,2"
+                                  ToolTip="Overrides the global 'Enable live previews' setting for THIS layout only. Real windows keeps every client on screen at its own slot size, which is what you want for a grid you actually play in; Live previews renders only the master live and the rest as thumbnails. Because a character set carries its layout, this is effectively per set."/>
+                      </StackPanel>
+                    </StackPanel>
+                  </DockPanel>
+
+                  <!-- Layout minimap: drag an EVE window onto a cell to assign it, or drag a slot card's grip
+                       onto a corner to set that seat's home corner (center cell = Master). The Viewbox
+                       (DownOnly) scales the whole minimap down to fit its row when the window is short,
+                       and drag hit-testing follows the scale, so drops still land on the right cell. -->
+                  <Viewbox Grid.Row="2" StretchDirection="DownOnly" HorizontalAlignment="Center"
+                           VerticalAlignment="Top" Margin="0,0,0,8">
+                  <Border HorizontalAlignment="Center" Padding="4"
+                          Background="#080D14" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4">
+                    <Border.Style>
+                      <Style TargetType="Border">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding MiniMapSlots.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Border.Style>
+                    <Canvas Width="340" Height="216" ClipToBounds="True">
+                      <ItemsControl ItemsSource="{Binding MiniMapSlots}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <Canvas/>
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemContainerStyle>
+                          <Style TargetType="ContentPresenter">
+                            <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                            <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                          </Style>
+                        </ItemsControl.ItemContainerStyle>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Border Width="{Binding Width}" Height="{Binding Height}"
+                                    AllowDrop="True"
+                                    DragEnter="MiniMapSlot_DragEnter"
+                                    DragOver="MiniMapSlot_DragOver"
+                                    DragLeave="MiniMapSlot_DragLeave"
+                                    Drop="MiniMapSlot_Drop"
+                                    ToolTip="Drag a slot card (using its ⠿ grip) here to set its corner — drop on the center to make it Master. You can also drop a window from Detected Windows here to assign it to the seat that occupies this cell."
+                                    CornerRadius="2">
+                              <Border.Style>
+                                <Style TargetType="Border">
+                                  <Setter Property="Background" Value="#0F1A2B"/>
+                                  <Setter Property="BorderBrush" Value="#2B3D55"/>
+                                  <Setter Property="BorderThickness" Value="1"/>
+                                  <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsAssigned}" Value="True">
+                                      <Setter Property="Background" Value="#132540"/>
+                                      <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                    </DataTrigger>
+                                    <!-- Master cell follows MasterAccentBrush (violet) instead of the
+                                         old amber literals; amber now means "warning" only. -->
+                                    <DataTrigger Binding="{Binding IsMaster}" Value="True">
+                                      <Setter Property="Background" Value="#1F0F35"/>
+                                      <Setter Property="BorderBrush" Value="{StaticResource MasterAccentBrush}"/>
+                                      <Setter Property="BorderThickness" Value="2"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsDragOver}" Value="True">
+                                      <Setter Property="Background" Value="#1C3B57"/>
+                                      <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                      <Setter Property="BorderThickness" Value="2"/>
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style>
+                              </Border.Style>
+                              <Grid ClipToBounds="True">
+                                <TextBlock Text="{Binding PositionCode}" FontSize="10" Padding="3,1"
+                                           HorizontalAlignment="Right" VerticalAlignment="Top"
+                                           Foreground="#5C84B0"/>
+                                <TextBlock Text="{Binding AssignedLabel}" FontSize="12" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" TextWrapping="Wrap" Padding="4,0">
+                                  <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                      <Setter Property="Foreground" Value="#3A5070"/>
+                                      <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsAssigned}" Value="True">
+                                          <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                                        </DataTrigger>
+                                      </Style.Triggers>
+                                    </Style>
+                                  </TextBlock.Style>
+                                </TextBlock>
+                              </Grid>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </Canvas>
+                  </Border>
+                  </Viewbox>
+
+                  <!-- Fills the leftover height (Row 3 = 2*) and scrolls internally with its own
+                       virtualized scroll; MinHeight keeps a short/empty list a usable drag-drop target
+                       when the window is small. -->
+                  <!-- Slots list with empty state overlay (same pattern as Detected Windows above). -->
+                  <Grid Grid.Row="3">
+                  <ListBox x:Name="SlotsListBox" MinHeight="120"
+                           PreviewKeyDown="SlotsListBox_PreviewKeyDown"
+                           ItemsSource="{Binding AssignmentsView}"
+                           SelectedItem="{Binding SelectedAssignment}"
+                           VirtualizingPanel.ScrollUnit="Pixel"
+                           VirtualizingPanel.IsVirtualizing="True"
+                           ScrollViewer.CanContentScroll="True"
+                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                           ItemTemplate="{StaticResource SeatCardTemplate}">
+                  </ListBox>
+
+                  <!-- Empty state overlay: a seatless list used to render as a bare blank panel. -->
+                  <Border CornerRadius="4" Background="{StaticResource PanelBrush}">
+                    <Border.Style>
+                      <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding Assignments.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Visible"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Border.Style>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                      <TextBlock Text="No slots yet"
+                                 FontSize="15" FontWeight="SemiBold"
+                                 HorizontalAlignment="Center"
+                                 Foreground="{StaticResource MutedBrush}"/>
+                      <TextBlock Text="Click Add Slot to create a seat for a character."
+                                 Foreground="{StaticResource MutedBrush}"
+                                 FontSize="12"
+                                 HorizontalAlignment="Center"
+                                 Margin="0,10,0,0"/>
+                      <TextBlock Text="Each slot is a fixed seat that an EVE window gets assigned to."
+                                 Foreground="{StaticResource MutedBrush}"
+                                 FontSize="11"
+                                 HorizontalAlignment="Center"
+                                 Margin="0,4,0,0"/>
+                    </StackPanel>
+                  </Border>
+                  </Grid>
+                </Grid>
+              </Border>
+            </Grid>
+  </Grid>
+</UserControl>

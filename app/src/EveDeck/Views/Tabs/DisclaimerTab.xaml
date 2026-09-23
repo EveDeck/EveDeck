@@ -1,0 +1,19 @@
+﻿<UserControl x:Class="EveDeck.Views.Tabs.DisclaimerTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer Margin="16">
+            <StackPanel MaxWidth="860" HorizontalAlignment="Left">
+              <TextBlock Text="Disclaimer &amp; Fair Play Policy" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}">
+EveDeck only manages OS-level window placement, border style, restore, and focus. It does not broadcast input. It does not automate gameplay. It does not read or modify EVE client memory. It does not inject DLLs. It does not log in for you or store EVE passwords.
+              </TextBlock>
+              <TextBlock TextWrapping="Wrap" LineHeight="22" Margin="0,12,0,0" Foreground="{StaticResource MutedBrush}">
+Hotkeys are guarded in code so actions are limited to focusing one client, cycling focus, applying a layout, toggling or restoring borderless style, moving one active EVE window, or swapping one active EVE window with a slot. No action sends keyboard or mouse input to EVE, and no action sends a key or click to more than one EVE client.
+              </TextBlock>
+              <TextBlock Text="Blocked by design" FontSize="15" FontWeight="SemiBold" Margin="0,20,0,8"/>
+              <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}">
+Input broadcasting, input multiplexing, key/mouse forwarding, gameplay automation, memory reads, DLL injection, and login automation are permanently out of scope.
+              </TextBlock>
+            </StackPanel>
+  </ScrollViewer>
+</UserControl>

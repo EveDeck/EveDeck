@@ -23,18 +23,22 @@ public partial class App : Application
     {
         var app = new App();
         app.InitializeComponent();
+        RegisterSharedResources(app);
+        app.Run();
+    }
 
-        // Registered here, not in MainWindow.xaml. Declaring it in XAML needs an
-        // xmlns:clr-namespace pointing back at this assembly, and any local-type reference forces
-        // WPF's markup-compile pass 2: it builds a throwaway <Name>_<random>_wpftmp project on
-        // every build, which spams the IDE's design-time builds with spurious errors (duplicate
-        // Compile items, missing nuget.g.targets for a temp project that was never restored).
-        // Application.Resources is populated before Run() creates any window, so MainWindow's
-        // StaticResource lookups still resolve at parse time.
+    // Registered here, not in MainWindow.xaml. Declaring it in XAML needs an xmlns:clr-namespace
+    // pointing back at this assembly, and any local-type reference forces WPF's markup-compile pass
+    // 2: it builds a throwaway <Name>_<random>_wpftmp project on every build, which spams the IDE's
+    // design-time builds with spurious errors (duplicate Compile items, missing nuget.g.targets for
+    // a temp project that was never restored). Application.Resources is populated before Run()
+    // creates any window, so MainWindow's (and every Views.Tabs.*Tab UserControl's) StaticResource
+    // lookups still resolve at parse time. Factored out of Main so a test host can call it too,
+    // after constructing its own Application, to prove the same thing without running the app.
+    internal static void RegisterSharedResources(Application app)
+    {
         app.Resources["IndexToVisibility"] = new Converters.IndexToVisibilityConverter();
         app.Resources["BoolToVisibility"] = new Converters.BoolToVisibilityConverter();
-
-        app.Run();
     }
 
     protected override void OnStartup(StartupEventArgs e)

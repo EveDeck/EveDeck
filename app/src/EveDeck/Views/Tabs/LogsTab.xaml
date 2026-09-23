@@ -1,0 +1,49 @@
+﻿<UserControl x:Class="EveDeck.Views.Tabs.LogsTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib">
+  <Grid Margin="8">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Text="Activity and error log. If something isn't working, click Copy Diagnostics to copy a report you can share when asking for help."
+                       Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="4,0,4,6" TextWrapping="Wrap"/>
+            <!-- 2h: Log filter -->
+            <DockPanel Grid.Row="1" Margin="0,0,0,4">
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <TextBlock Text="Level" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" Margin="0,0,8,0"/>
+                <ComboBox SelectedItem="{Binding LogFilterLevel}" Width="80">
+                  <sys:String>All</sys:String>
+                  <sys:String>Info</sys:String>
+                  <sys:String>Warn</sys:String>
+                  <sys:String>Error</sys:String>
+                </ComboBox>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal">
+                <Button Content="Copy Diagnostics" Command="{Binding CopyDiagnosticsCommand}"/>
+                <Button Content="Refresh" Command="{Binding RefreshCommand}"/>
+              </StackPanel>
+            </DockPanel>
+            <DataGrid Grid.Row="2" ItemsSource="{Binding LogsView}" IsReadOnly="True">
+              <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding Level}" Value="Error">
+                      <Setter Property="Background" Value="#2A1420"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Level}" Value="Warn">
+                      <Setter Property="Background" Value="#28221A"/>
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </DataGrid.RowStyle>
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Time" Binding="{Binding Timestamp}" Width="175"/>
+                <DataGridTextColumn Header="Level" Binding="{Binding Level}" Width="70"/>
+                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*"/>
+              </DataGrid.Columns>
+            </DataGrid>
+  </Grid>
+</UserControl>
