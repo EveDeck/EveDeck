@@ -116,4 +116,130 @@ public sealed partial class MainWindowViewModel
 
         return _frameBrush;
     }
+
+    // ── Active frame + inactive preview border settings ─────────────────────────
+
+    public bool ActiveFrameEnabled
+    {
+        get => _settings.ActiveFrameEnabled;
+        set
+        {
+            if (_settings.ActiveFrameEnabled == value) return;
+            _settings.ActiveFrameEnabled = value;
+            OnPropertyChanged();
+            if (value) StartFrameOverlay(); else StopFrameOverlay();
+            Save();
+        }
+    }
+
+    public int ActiveFrameThickness
+    {
+        get => _settings.ActiveFrameThickness;
+        set
+        {
+            var clamped = Math.Clamp(value, 1, 20);
+            if (_settings.ActiveFrameThickness == clamped) return;
+            _settings.ActiveFrameThickness = clamped;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    public int ActiveFrameGlowRadius
+    {
+        get => _settings.ActiveFrameGlowRadius;
+        set
+        {
+            var clamped = Math.Clamp(value, 1, 40);
+            if (_settings.ActiveFrameGlowRadius == clamped) return;
+            _settings.ActiveFrameGlowRadius = clamped;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    public string ActiveFrameStyle
+    {
+        get => _settings.ActiveFrameStyle;
+        set
+        {
+            if (_settings.ActiveFrameStyle == value) return;
+            _settings.ActiveFrameStyle = value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    public bool ActiveFrameGlowEnabled
+    {
+        get => _settings.ActiveFrameGlowEnabled;
+        set
+        {
+            if (_settings.ActiveFrameGlowEnabled == value) return;
+            _settings.ActiveFrameGlowEnabled = value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    public string ActiveFrameColor
+    {
+        get => _settings.ActiveFrameColor;
+        set
+        {
+            if (_settings.ActiveFrameColor == value) return;
+            _settings.ActiveFrameColor = value;
+            _frameBrush = ParseFrameBrush(value);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ActiveFrameBrush));
+            Save();
+        }
+    }
+
+    // Swatch preview for the Options-tab color picker button.
+    public Brush ActiveFrameBrush => ParseFrameBrush(ActiveFrameColor);
+
+    // Inactive-client preview border -- a plain outline around every corner tile whose client
+    // is not in focus. Drawn by LabelSurfaceWindow; MaintainCornerOverlays reads these live.
+    public bool InactivePreviewBorderEnabled
+    {
+        get => _settings.InactivePreviewBorderEnabled;
+        set
+        {
+            if (_settings.InactivePreviewBorderEnabled == value) return;
+            _settings.InactivePreviewBorderEnabled = value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    public string InactivePreviewBorderColor
+    {
+        get => _settings.InactivePreviewBorderColor;
+        set
+        {
+            var v = value ?? "";
+            if (_settings.InactivePreviewBorderColor == v) return;
+            _settings.InactivePreviewBorderColor = v;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(InactivePreviewBorderBrush));
+            Save();
+        }
+    }
+
+    public int InactivePreviewBorderThickness
+    {
+        get => _settings.InactivePreviewBorderThickness;
+        set
+        {
+            var clamped = Math.Clamp(value, 1, 12);
+            if (_settings.InactivePreviewBorderThickness == clamped) return;
+            _settings.InactivePreviewBorderThickness = clamped;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    // Swatch preview for the Previews-tab color picker button.
+    public Brush InactivePreviewBorderBrush => ParseFrameBrush(InactivePreviewBorderColor);
 }

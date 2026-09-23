@@ -596,4 +596,35 @@ public sealed partial class MainWindowViewModel
             RaiseHotkeyTargetWarning();
         }
     }
+
+    public bool RequireEveFocusForHotkeys
+    {
+        get => _settings.RequireEveFocusForHotkeys;
+        set
+        {
+            if (_settings.RequireEveFocusForHotkeys == value) return;
+            _settings.RequireEveFocusForHotkeys = value;
+            OnPropertyChanged();
+            Save();
+            // Re-register so gated hotkeys start/stop following the foreground window.
+            HotkeysChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    // Panic pause for every EveDeck hotkey. Runtime-only (deliberately NOT persisted -- a tool that
+    // silently stayed "hotkeys off" across a restart would read as broken). Flipping it re-runs
+    // registration; the ToggleHotkeysSuspended action itself stays live so it can turn them back on.
+    private bool _hotkeysSuspended;
+    public bool HotkeysSuspended
+    {
+        get => _hotkeysSuspended;
+        set
+        {
+            if (_hotkeysSuspended == value) return;
+            _hotkeysSuspended = value;
+            OnPropertyChanged();
+            Log.Info(value ? "All hotkeys suspended." : "Hotkeys resumed.");
+            HotkeysChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
 }
