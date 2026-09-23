@@ -1,8 +1,10 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.IO;
 using System.Windows.Input;
 using EveDeck.Models.Intel;
+using EveDeck.Services;
 using EveDeck.Services.Intel;
 using EveDeck.Services.Intel.Wire;
 using EveDeck.Utilities;
@@ -26,6 +28,10 @@ public sealed partial class MainWindowViewModel
     private IntelOverlayWindow? _intelOverlayWindow;
     private readonly Dictionary<int, DateTimeOffset> _intelLastToastBySystem = [];
     private bool _intelStarting;
+
+    // Pilot name -> character id for every pilot already announced to LAN clients. The web page only
+    // links a name to zKillboard once it holds the id, so this is what makes pilot names clickable.
+    private readonly ConcurrentDictionary<string, long> _intelServedCharacters = new(StringComparer.OrdinalIgnoreCase);
 
     public ICommand RefreshIntelOptionsCommand { get; private set; } = null!;
 
@@ -232,6 +238,9 @@ public sealed partial class MainWindowViewModel
 
         _intelServer = server;
         IntelServerStatus = $"Listening on port {_settings.IntelServerPort}. Tablet URL: ws://<this-pc>:{_settings.IntelServerPort}/intel";
+
+        PortraitCacheService.Instance.Changed += OnPortraitCacheChangedForIntel;
+        PublishIntelCharacters(IntelHistoryPlayers());
     }
 
     private void StopIntelServer()
@@ -239,6 +248,9 @@ public sealed partial class MainWindowViewModel
         var server = _intelServer;
         _intelServer = null;
         if (server is null) return;
+
+        PortraitCacheService.Instance.Changed -= OnPortraitCacheChangedForIntel;
+        _intelServedCharacters.Clear();
 
         _ = server.DisposeAsync();
         IntelServerStatus = "Not running.";
@@ -263,10 +275,44 @@ public sealed partial class MainWindowViewModel
                 _settings.IntelChannels.ToList()),
             DisplayValue = new WireDisplaySettings(),
 
-            // Empty by design: corp/alliance resolution was not ported, so clients fall back to plain
-            // pilot names. See the note on IntelServerEnabled in AppSettings.
-            CharactersValue = [],
+            // Ids only: corp/alliance resolution was not ported, so clients get links and portraits
+            // but no tickers. See the note on IntelServerEnabled in AppSettings.
+            CharactersValue = _intelServedCharacters
+                .Select(kv => new WireCharacterInfo(kv.Key, kv.Value))
+                .ToList(),
         };
+    }
+
+    private IEnumerable<string> IntelHistoryPlayers() =>
+        (_intelFeed?.History ?? []).SelectMany(e => e.Message.Players);
+
+    // UI thread: raised whenever a pending name lookup lands, so retry anything still unresolved.
+    private void OnPortraitCacheChangedForIntel() => PublishIntelCharacters(IntelHistoryPlayers());
+
+    /// <summary>
+    /// Resolves pilot names through the shared portrait cache (the same lookup the overlay's links use)
+    /// and pushes any newly known ids to connected clients. An unresolved name starts an ESI lookup;
+    /// <see cref="OnPortraitCacheChangedForIntel"/> brings it back here once it lands. UI thread only.
+    /// </summary>
+    private void PublishIntelCharacters(IEnumerable<string> names)
+    {
+        var server = _intelServer;
+        if (server is null) return;
+
+        var fresh = new List<WireCharacterInfo>();
+        foreach (var name in names.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (_intelServedCharacters.ContainsKey(name)) continue;
+
+            var id = PortraitCacheService.Instance.ForName(name)?.CharacterId ?? 0;
+            if (id <= 0) continue;
+
+            _intelServedCharacters[name] = id;
+            fresh.Add(new WireCharacterInfo(name, id));
+        }
+
+        if (fresh.Count > 0)
+            _ = server.BroadcastAsync(new WireServerMessage.Characters { CharactersValue = fresh });
     }
 
     /// <summary>A client picked a different channel set; treat it as authoritative and persist it.</summary>
@@ -511,6 +557,7 @@ public sealed partial class MainWindowViewModel
         {
             RefreshIntelOverlay();
             MaybeToastIntel(entry);
+            PublishIntelCharacters(entry.Message.Players);
         });
 
         _ = _intelServer?.BroadcastAsync(new WireServerMessage.Intel { Message = entry.Message.ToWire() });

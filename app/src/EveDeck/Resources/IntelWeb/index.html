@@ -1226,6 +1226,8 @@
           break;
         case "characters":
           (data.characters || []).forEach(function (c) { state.characters[c.name] = c; });
+          // Ids usually land after the report they belong to; redraw so its pilot becomes a link.
+          if (activeView === "feed") renderFeed();
           break;
         case "sovereignty":
           state.sovereignty = { holders: data.holders || [], systems: data.systems || {} };
