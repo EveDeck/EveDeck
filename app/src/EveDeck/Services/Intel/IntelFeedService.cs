@@ -1,4 +1,5 @@
 using EveDeck.Models.Intel;
+using System.Text.RegularExpressions;
 
 namespace EveDeck.Services.Intel;
 
@@ -41,6 +42,9 @@ public sealed class IntelFeedService : IDisposable
 
     private const int MaxDedupEntries = 4000;
 
+    private static readonly Regex LinkMarkerPattern = new(@"(?<=\S)\*", RegexOptions.Compiled);
+    private static readonly Regex WhitespacePattern = new(@"\s+", RegexOptions.Compiled);
+
     /// <summary>
     /// EVE's chat logs carry only second-precision timestamps, each stamped locally by the client that
     /// received the line. The same broadcast intel report can therefore land in two characters' logs
@@ -63,7 +67,7 @@ public sealed class IntelFeedService : IDisposable
     private readonly HashSet<string> _seenMessageIds = [];
     private readonly Queue<string> _dedupOrder = new();
     private readonly Dictionary<string, long> _lastSeenByAuthorText = new(StringComparer.Ordinal);
-    private readonly Queue<string> _authorTextOrder = new();
+    private readonly Queue<(string Key, long TimestampMillis)> _authorTextOrder = new();
     private readonly List<IntelFeedEntry> _history = [];
 
     private IReadOnlyDictionary<int, int> _distances = new Dictionary<int, int>();
@@ -227,16 +231,19 @@ public sealed class IntelFeedService : IDisposable
                 // strict id above (timestamp-sensitive) does not match. Author+text is enough on its
                 // own here: two different genuine reports with identical text from the same author
                 // within three seconds of each other are not a real scenario worth telling apart.
-                var authorTextKey = $"{message.Author}\u0000{message.Raw}";
+                var authorTextKey = $"{message.Author}\u0000{NearDuplicateText(message.Raw)}";
                 if (_lastSeenByAuthorText.TryGetValue(authorTextKey, out var lastMillis) &&
                     Math.Abs(message.TimestampMillis - lastMillis) <= NearDuplicateWindow.TotalMilliseconds)
                 {
+                    _lastSeenByAuthorText[authorTextKey] = message.TimestampMillis;
+                    _authorTextOrder.Enqueue((authorTextKey, message.TimestampMillis));
+                    TrimAuthorTextDedup();
                     return;
                 }
 
                 _lastSeenByAuthorText[authorTextKey] = message.TimestampMillis;
-                _authorTextOrder.Enqueue(authorTextKey);
-                while (_authorTextOrder.Count > MaxDedupEntries) _lastSeenByAuthorText.Remove(_authorTextOrder.Dequeue());
+                _authorTextOrder.Enqueue((authorTextKey, message.TimestampMillis));
+                TrimAuthorTextDedup();
             }
 
             var (jumps, nearest) = NearestRange(message);
@@ -272,6 +279,22 @@ public sealed class IntelFeedService : IDisposable
 
         return best is null ? (null, null) : (best, NearestCharacterAt(best.Value, message));
     }
+
+    private void TrimAuthorTextDedup()
+    {
+        while (_authorTextOrder.Count > MaxDedupEntries)
+        {
+            var stale = _authorTextOrder.Dequeue();
+            if (_lastSeenByAuthorText.TryGetValue(stale.Key, out var current) &&
+                current == stale.TimestampMillis)
+            {
+                _lastSeenByAuthorText.Remove(stale.Key);
+            }
+        }
+    }
+
+    private static string NearDuplicateText(string raw) =>
+        WhitespacePattern.Replace(LinkMarkerPattern.Replace(raw, ""), " ").Trim();
 
     /// <summary>
     /// Which followed character the reported range belongs to. Read from the per-character traversals

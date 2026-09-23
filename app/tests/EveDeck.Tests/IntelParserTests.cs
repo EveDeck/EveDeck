@@ -1,5 +1,7 @@
 using EveDeck.Models.Intel;
 using EveDeck.Services.Intel;
+using System.IO;
+using System.Reflection;
 using Xunit;
 
 namespace EveDeck.Tests;
@@ -27,6 +29,24 @@ public class IntelParserTests
     private static IntelMessage Parse(string line) => SharedParser.Parse(
         "alliance.intel",
         new ChatLogFormat.RawMessage(TimestampMillis: 0L, Author: "Tester", Message: line));
+
+    private static IReadOnlyList<IntelFeedEntry> FeedEntries(params ChatLogFormat.RawMessage[] messages)
+    {
+        using var tailer = new IntelLogTailer(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
+        using var feed = new IntelFeedService(SharedUniverse, tailer);
+        var onMessageRead = typeof(IntelFeedService).GetMethod("OnMessageRead", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(onMessageRead);
+
+        foreach (var message in messages)
+            onMessageRead!.Invoke(feed, ["alliance.intel", "Test Listener", message]);
+
+        return feed.History;
+    }
+
+    private static ChatLogFormat.RawMessage RawAt(int second, string message) => new(
+        DateTimeOffset.Parse($"2026-09-17T17:32:{second:00}Z").ToUnixTimeMilliseconds(),
+        "Test Pilot",
+        message);
 
     [Fact]
     public void SystemPlayerAndShipInParentheses()
@@ -153,6 +173,27 @@ public class IntelParserTests
     {
         Assert.True(Parse("FZ-6A5  Varro Kaine (Cyclone)").IsIntel());
         Assert.True(Parse("1GH-48* clr").IsIntel());
+    }
+
+    [Fact]
+    public void FeedDedupsNearDuplicatesAcrossAStaggeredMultiClientChain()
+    {
+        var entries = FeedEntries(
+            RawAt(20, "Jita  Test Target"),
+            RawAt(22, "Jita  Test Target"),
+            RawAt(24, "Jita  Test Target"));
+
+        Assert.Single(entries);
+    }
+
+    [Fact]
+    public void FeedDedupsNearDuplicatesWithEquivalentLinkMarkersAndWhitespace()
+    {
+        var entries = FeedEntries(
+            RawAt(20, "Jita*  Test Target"),
+            RawAt(21, "Jita   Test Target"));
+
+        Assert.Single(entries);
     }
 
     [Fact]
