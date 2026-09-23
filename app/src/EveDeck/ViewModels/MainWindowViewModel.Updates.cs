@@ -1,3 +1,4 @@
+using System.IO;
 using System.Reflection;
 using System.Windows.Input;
 using EveDeck.Services;
@@ -46,6 +47,8 @@ public sealed partial class MainWindowViewModel
         {
             OnPropertyChanged(nameof(ShowUpdateBanner));
             OnPropertyChanged(nameof(UpdateVersionText));
+            OnPropertyChanged(nameof(UpdateButtonText));
+            OnPropertyChanged(nameof(UpdateButtonToolTip));
 
             // Only the automatic startup check offers the changelog (a manual "Check for updates"
             // click from Options shouldn't pop a window on top of the user), and only once per run
@@ -64,30 +67,70 @@ public sealed partial class MainWindowViewModel
         });
     }
 
-    // EveDeck does not apply its own updates. The portable track ships as a plain zip the user
-    // extracts over their copy, so the most this can do is open the download page. The Velopack
-    // updater stubs that used to do this in-process were the ONLY thing VirusTotal ever flagged in
-    // the portable download -- the app's own binary scores 0/71 and the installer, whose payload is
-    // those same app files without a stub, scores 0/68. Dropping them removed the detection and a
-    // whole class of update-path risk with it.
-    private Task InstallUpdateAsync()
-    {
-        if (_availableUpdate is not { } update) return Task.CompletedTask;
-        if (update.DownloadUrl is not { } url) return Task.CompletedTask;
+    // Raised once the verified installer is running, so the window exits the same way tray > Exit
+    // does (restoring windows, saving settings) and frees the install folder for the installer.
+    public event Action? ExitForUpdateRequested;
 
-        // Only ever hand a web address to the shell. UseShellExecute launches whatever the string
-        // names -- a local path or a file:// URL gets executed, not browsed -- and this string
-        // arrives from a remote API response (Services/UpdateCheckService reads evedeck.space's
-        // /api/version). Checking the scheme is what keeps a spoofed or compromised manifest from
-        // turning the update prompt into arbitrary execution: the same shape of hole that was
-        // removed in v1.53.3, and now the only update path left, so it carries more weight.
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
-            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+    private bool _isApplyingUpdate;
+    private bool _autoUpdateFailed; // after a failed install, the button falls back to the release page
+    private string? _updateProgressText;
+
+    // Only the Inno install updates itself; the portable build only ever opens the release page.
+    // Everything this uses comes from UpdateCheckService, which reads GitHub Releases only and pins
+    // both the download URL and a SHA-256 -- see the header comment there. No Velopack: its stubs
+    // were the ONLY thing VirusTotal ever flagged, and plain Inno re-install needs none.
+    private bool CanAutoInstallUpdate =>
+        !_autoUpdateFailed && Utilities.InstallKind.IsInnoInstall && _availableUpdate is { CanAutoInstall: true };
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_availableUpdate is not { } update || _isApplyingUpdate) return;
+
+        if (!CanAutoInstallUpdate)
         {
-            Log.Error($"Refusing to open update link with an unexpected scheme: {url}");
-            return Task.CompletedTask;
+            OpenReleasePage(update);
+            return;
         }
 
+        _isApplyingUpdate = true;
+        SetUpdateProgress($"Downloading EveDeck {update.Version}...");
+        try
+        {
+            await using var installer = await new UpdateCheckService(Log).DownloadVerifiedInstallerAsync(update);
+            Log.Info($"Update {update.Version} downloaded and matched GitHub's SHA-256; starting the installer.");
+            SetUpdateProgress($"Installing EveDeck {update.Version}...");
+
+            var logPath = Path.Combine(Path.GetTempPath(), "EveDeck-update", "install.log");
+            var start = new System.Diagnostics.ProcessStartInfo(installer.Name) { UseShellExecute = false };
+            // /SILENT still shows a progress window, so the user sees the update happen. The
+            // installer's own [Run] entry relaunches EveDeck; /NORESTARTAPPLICATIONS stops the
+            // Restart Manager from starting a second copy on top of that.
+            foreach (var arg in new[] { "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/NORESTARTAPPLICATIONS", $"/LOG={logPath}" })
+                start.ArgumentList.Add(arg);
+            System.Diagnostics.Process.Start(start);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Automatic update failed, nothing was installed: {ex}");
+            _isApplyingUpdate = false;
+            _autoUpdateFailed = true;
+            SetUpdateProgress($"Update failed. Use Download to get EveDeck {update.Version} manually.");
+            return;
+        }
+
+        App.Current.Dispatcher.Invoke(() => ExitForUpdateRequested?.Invoke());
+    }
+
+    private void OpenReleasePage(UpdateCheckService.UpdateInfo update)
+    {
+        // ReleasePageUrl is rebuilt from the pinned repo in UpdateCheckService, never read from a
+        // response, so it is always an https://github.com/... page -- still, hand the shell nothing
+        // else: UseShellExecute runs a local path rather than browsing it.
+        if (!Uri.TryCreate(update.ReleasePageUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+        {
+            Log.Error($"Refusing to open update link: {update.ReleasePageUrl}");
+            return;
+        }
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
@@ -96,12 +139,28 @@ public sealed partial class MainWindowViewModel
         {
             Log.Error($"Could not open the download page: {ex}");
         }
+    }
 
-        return Task.CompletedTask;
+    private void SetUpdateProgress(string? text)
+    {
+        App.Current.Dispatcher.Invoke(() =>
+        {
+            _updateProgressText = text;
+            OnPropertyChanged(nameof(UpdateVersionText));
+            OnPropertyChanged(nameof(UpdateButtonText));
+            OnPropertyChanged(nameof(UpdateButtonToolTip));
+            OnPropertyChanged(nameof(IsUpdateButtonEnabled));
+        });
     }
 
     public bool ShowUpdateBanner => _availableUpdate is not null && !_updateBannerDismissed;
-    public string UpdateVersionText => _availableUpdate is not null ? $"EveDeck {_availableUpdate.Version} is available" : "";
+    public string UpdateVersionText => _updateProgressText
+        ?? (_availableUpdate is not null ? $"EveDeck {_availableUpdate.Version} is available" : "");
+    public string UpdateButtonText => CanAutoInstallUpdate && _updateProgressText is null ? "Update now" : "Download";
+    public string UpdateButtonToolTip => CanAutoInstallUpdate
+        ? "Download from GitHub, verify, install and restart EveDeck"
+        : "Open the release page on GitHub";
+    public bool IsUpdateButtonEnabled => !_isApplyingUpdate;
     public ICommand DismissUpdateBannerCommand { get; }
     public ICommand InstallUpdateCommand { get; }
     public ICommand CheckForUpdateCommand { get; }

@@ -148,11 +148,12 @@
                   ToolTip="Dismiss">&#x2715;</Button>
           <Button DockPanel.Dock="Right"
                   Command="{Binding InstallUpdateCommand}"
+                  IsEnabled="{Binding IsUpdateButtonEnabled}"
                   Background="#163527" Foreground="#22C55E"
                   BorderThickness="0"
                   FontSize="11" FontWeight="SemiBold"
                   Padding="10,4" Margin="0,0,8,0" Cursor="Hand"
-                  ToolTip="Open the download page">Download</Button>
+                  ToolTip="{Binding UpdateButtonToolTip}" Content="{Binding UpdateButtonText}"/>
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
             <TextBlock Text="&#xE8A9;" FontFamily="Segoe MDL2 Assets" FontSize="11"
                        Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>

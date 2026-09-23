@@ -76,7 +76,8 @@ Gated mode fires keys only while EVE is the active app.
 
 🖥️ **Desktop &amp; system** — borderless toggling, active-window frame glow, focus-aware
 always-on-top pins (only topmost while EVE is foreground), tray mode, auto-apply on client
-launch, an in-app update notice that opens the download page (the Microsoft
+launch, one-click in-app updates for the installer build (downloaded from GitHub and
+SHA-256-verified before they run; the portable build links to the download page and the Microsoft
 Store build updates itself), an overlay allow-list that keeps chosen companion apps like Mumble/Discord above
 the corner overlays, rolling settings backups, per-profile taskbar avoidance, and background
 CPU throttling for inactive clients. EveDeck's own footprint stays tiny throughout — typically

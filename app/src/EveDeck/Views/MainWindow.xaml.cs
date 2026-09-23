@@ -61,6 +61,7 @@ public partial class MainWindow : Window
         _viewModel.HotkeysChanged += ViewModel_HotkeysChanged;
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
         _viewModel.UpdateBecameAvailable += version => ShowChangelogWindow(version);
+        _viewModel.ExitForUpdateRequested += ExitFromTray;
         _viewModel.OptionsOpenRequested += () => Dispatcher.BeginInvoke(new Action(() =>
         {
             ShowFromTray();
