@@ -894,6 +894,14 @@ public partial class MainWindow : Window
             _viewModel.ApplyGlobalLabelFont(f, s, c);
     }
 
+    // The bundled default is loaded from the exe's resources, not installed, so the Win32 font dialog
+    // cannot list it -- this button is the only way back to it once a user picks something else.
+    private void LabelFontDefault_Click(object sender, RoutedEventArgs e)
+    {
+        var (_, sizeDip, color) = _viewModel.GlobalLabelFont();
+        _viewModel.ApplyGlobalLabelFont(Models.AppSettings.BundledLabelFontFamily, sizeDip, color);
+    }
+
     private void MasterLabelFontPick_Click(object sender, RoutedEventArgs e)
     {
         var (family, sizeDip, color) = _viewModel.GlobalMasterLabelFont();

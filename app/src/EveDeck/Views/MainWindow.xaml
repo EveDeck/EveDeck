@@ -1445,6 +1445,8 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
                     <TextBlock Text="Font" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
                     <Button Content="Choose font..." Click="LabelFontPick_Click" Padding="6,3" Margin="0,0,8,0" FontSize="12"/>
+                    <Button Content="Default font" Click="LabelFontDefault_Click" Padding="6,3" Margin="0,0,8,0" FontSize="12"
+                            ToolTip="Switch back to Michroma, the font EveDeck ships with. Keeps your size and color. Michroma is built into EveDeck, so it won't appear in the Choose font list unless you install it yourself."/>
                     <TextBlock Text="{Binding LabelFontSummary}" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
                   </StackPanel>
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">

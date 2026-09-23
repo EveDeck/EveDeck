@@ -78,7 +78,9 @@ public sealed class AppSettings
     public bool CornerOverlayShowSlotNumber { get; set; } = false;
     public double CornerOverlayLabelFontSize { get; set; } = 27.0;
     public string CornerOverlayLabelStyle { get; set; } = "IconText";
-    public string CornerOverlayLabelFontFamily { get; set; } = "Michroma"; // bundled font, see Assets\Fonts\Michroma-OFL.txt
+    // Embedded as an app resource (see LabelSurfaceWindow.ResolveFontFamily), never installed.
+    public const string BundledLabelFontFamily = "Michroma";
+    public string CornerOverlayLabelFontFamily { get; set; } = BundledLabelFontFamily; // see Assets\Fonts\Michroma-OFL.txt
     public string CornerOverlayLabelColor { get; set; } = "#E5E7EB"; // global default label text color
     public int CornerOverlayLabelHeight { get; set; } = 28; // WPF DIPs
 
