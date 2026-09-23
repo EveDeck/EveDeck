@@ -9,7 +9,7 @@
 **A multibox toolkit for EVE Online — EULA-safe window layout &amp; focus management, plus
 situational-awareness alerts and a comms integration.**<br />
 Live client previews, hotkey focus switching, resolution-independent layout profiles,
-combat &amp; seat-health alerts, and a Mumble comms bridge — all from a single
+combat &amp; seat-health alerts, an intel feed with jump distances, and a Mumble comms bridge — all from a single
 self-contained Windows app.
 
 [![Download latest](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fevedeck.space%2Fapi%2Fversion&query=%24.version&prefix=v&label=Download&color=2563eb&style=for-the-badge)](https://github.com/EveDeck/EveDeck/releases/latest)
@@ -103,6 +103,16 @@ match the app — no Mumble window wrangling. Drag it anywhere, lock it in place
 transparency. Read-only: the plugin only ever reports names and talking state, never audio
 or messages. One-click install from the Comms tab, then enable it once inside Mumble
 (Configure → Plugins → "EveDeck Talker Bridge").
+
+📡 **Intel feed** — reads your intel channels from the chatlogs EVE already writes and shows
+the latest reports on a small overlay with the jump distance to each. Distance is measured
+from every character you follow at once, and the nearest one wins, so one character parked
+in known space keeps the range useful while the rest fly elsewhere (abyssal space has no
+stargate route, so a character there is left out and the overlay says so). Pilot names link
+to zKillboard, and an optional toast fires when a hostile report lands within a set number
+of jumps. The overlay is on top only while an EVE client is focused. An optional LAN page
+serves the same feed to a tablet or phone browser. It is off by default and has no password
+yet, so only turn it on for a network you trust.
 
 🔔 **Launch Groups &amp; Chat Alerts** — save multiple named character rosters (Character
 Sets) and launch a whole fleet with staggered EVE Launcher clicks; Chat Alerts watches your
