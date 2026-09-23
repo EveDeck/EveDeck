@@ -129,14 +129,13 @@ internal sealed class IntelOverlayWindow : Window
     private void OnImageCacheChanged() => Update(_lastEntries, _lastOrigins, _lastMaxRows);
 
     /// <summary>
-    /// Locked does two things at once: it stops the card being dragged, and it makes the whole window
-    /// click-through so it cannot swallow a click aimed at the client underneath. Unlocked it must be
-    /// hit-testable, or there is nothing to grab.
+    /// Locked only stops the card being dragged; it stays hit-testable so pilot links keep working.
+    /// Turning off hit-testing never made it click-through anyway: the card's background is painted,
+    /// so Windows still routes clicks on it to this window, and they were silently dropped.
     /// </summary>
     public void ApplyLock(bool locked)
     {
         _locked = locked;
-        IsHitTestVisible = !locked;
         Cursor = locked ? null : System.Windows.Input.Cursors.SizeAll;
         _dragHint.Visibility = locked ? Visibility.Collapsed : Visibility.Visible;
     }

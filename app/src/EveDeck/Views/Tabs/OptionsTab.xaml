@@ -417,7 +417,7 @@ Tick as many as you like. Leaving one character parked in known space while the 
                         <CheckBox Content="Lock position" IsChecked="{Binding IntelOverlayLocked}" FontSize="12"
                                   IsEnabled="{Binding IntelOverlayEnabled}" Margin="0,0,0,2"/>
                         <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="20,0,0,10" MaxWidth="600">
-Drag the overlay anywhere to position it, then lock it. Locking also makes it click-through, so it stops intercepting clicks meant for the client underneath.
+Drag the overlay anywhere to position it, then lock it so it cannot be dragged by accident. Pilot names stay clickable while locked.
                         </TextBlock>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center"

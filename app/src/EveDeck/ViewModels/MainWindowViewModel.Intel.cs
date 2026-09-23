@@ -126,9 +126,8 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// Locked stops the card being dragged and makes it click-through, so it cannot intercept a click
-    /// meant for the client beneath it. Applied to the live window rather than recreating it, so
-    /// locking never loses the feed that is already on screen.
+    /// Locked stops the card being dragged; pilot links stay clickable. Applied to the live window
+    /// rather than recreating it, so locking never loses the feed that is already on screen.
     /// </summary>
     public bool IntelOverlayLocked
     {
