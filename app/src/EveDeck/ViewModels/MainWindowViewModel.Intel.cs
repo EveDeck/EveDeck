@@ -51,8 +51,14 @@ public sealed partial class MainWindowViewModel
         _settings.IntelFollowedCharacters.CollectionChanged += OnIntelFollowedChanged;
 
         RefreshIntelOptions();
-        if (_settings.IntelOverlayEnabled) StartIntel();
+        if (IntelFeedEnabled) StartIntel();
     }
+
+    /// <summary>
+    /// The feed (chatlog tailing + parsing) runs when either consumer wants it: the overlay card or
+    /// the LAN page. Either can be on without the other.
+    /// </summary>
+    public bool IntelFeedEnabled => _settings.IntelOverlayEnabled || _settings.IntelServerEnabled;
 
     public bool IntelOverlayEnabled
     {
@@ -62,8 +68,14 @@ public sealed partial class MainWindowViewModel
             if (_settings.IntelOverlayEnabled == value) return;
             _settings.IntelOverlayEnabled = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IntelFeedEnabled));
             Save();
-            if (value) StartIntel();
+            if (value)
+            {
+                StartIntel();
+                RefreshIntelOverlay(); // feed may already be running for the LAN page
+            }
+            else if (IntelFeedEnabled) HideIntelOverlay();
             else StopIntel();
         }
     }
@@ -168,9 +180,18 @@ public sealed partial class MainWindowViewModel
             if (_settings.IntelServerEnabled == value) return;
             _settings.IntelServerEnabled = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IntelFeedEnabled));
             Save();
-            if (value) StartIntelServer();
-            else StopIntelServer();
+            if (value)
+            {
+                StartIntel();       // no-op if the overlay already started it
+                StartIntelServer(); // no-op until the feed exists; StartIntel brings it up then
+            }
+            else
+            {
+                StopIntelServer();
+                if (!IntelFeedEnabled) StopIntel();
+            }
         }
     }
 
@@ -212,7 +233,7 @@ public sealed partial class MainWindowViewModel
         // The server answers with the feed's own state, so it cannot run before the feed exists.
         if (_intelFeed is null)
         {
-            IntelServerStatus = "Waiting for the intel overlay to start.";
+            IntelServerStatus = "Starting the intel feed...";
             return;
         }
 
@@ -237,7 +258,7 @@ public sealed partial class MainWindowViewModel
         }
 
         _intelServer = server;
-        IntelServerStatus = $"Listening on port {_settings.IntelServerPort}. Tablet URL: ws://<this-pc>:{_settings.IntelServerPort}/intel";
+        IntelServerStatus = $"Listening on port {_settings.IntelServerPort}. Open http://<this-pc>:{_settings.IntelServerPort}/ on your tablet or phone.";
 
         PortraitCacheService.Instance.Changed += OnPortraitCacheChangedForIntel;
         PublishIntelCharacters(IntelHistoryPlayers());
@@ -491,7 +512,7 @@ public sealed partial class MainWindowViewModel
                         return;
                     }
 
-                    if (!_settings.IntelOverlayEnabled) return;
+                    if (!IntelFeedEnabled) return;
 
                     _intelUniverse = universe;
                     _intelTailer = new IntelLogTailer();
@@ -513,7 +534,7 @@ public sealed partial class MainWindowViewModel
                     _intelTailer.Start();
 
                     RefreshIntelOverlay();
-                    Log.Info($"Intel overlay started ({_settings.IntelChannels.Count} channel(s)).");
+                    Log.Info($"Intel feed started ({_settings.IntelChannels.Count} channel(s); overlay {(_settings.IntelOverlayEnabled ? "on" : "off")}, LAN page {(_settings.IntelServerEnabled ? "on" : "off")}).");
 
                     // The server serves the feed's state, so it can only come up once the feed has.
                     if (_settings.IntelServerEnabled) StartIntelServer();
@@ -568,7 +589,8 @@ public sealed partial class MainWindowViewModel
 
     private void MaybeToastIntel(IntelFeedEntry entry)
     {
-        if (!entry.IsHostile) return;
+        // The toast range lives in the overlay's settings, so it follows the overlay switch.
+        if (!_settings.IntelOverlayEnabled || !entry.IsHostile) return;
 
         var threshold = _settings.IntelHostileToastJumps;
         if (threshold < 0) return;

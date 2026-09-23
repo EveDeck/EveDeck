@@ -380,7 +380,7 @@ Shows a live feed of your EVE intel channels with the jump distance to each repo
 
                         <TextBlock Text="Channels to watch" FontSize="12" Margin="0,0,0,4"/>
                         <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4"
-                                Padding="6" MaxHeight="120" IsEnabled="{Binding IntelOverlayEnabled}">
+                                Padding="6" MaxHeight="120" IsEnabled="{Binding IntelFeedEnabled}">
                           <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding IntelChannelOptions}">
                               <ItemsControl.ItemTemplate>
@@ -397,7 +397,7 @@ Channels seen in your chatlogs over the last 30 days. Local is never listed -- i
 
                         <TextBlock Text="Characters to follow" FontSize="12" Margin="0,0,0,4"/>
                         <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4"
-                                Padding="6" MaxHeight="120" IsEnabled="{Binding IntelOverlayEnabled}">
+                                Padding="6" MaxHeight="120" IsEnabled="{Binding IntelFeedEnabled}">
                           <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding IntelCharacterOptions}">
                               <ItemsControl.ItemTemplate>
@@ -442,12 +442,12 @@ A report with no known range never raises a toast -- an unknown distance is not 
                         </TextBlock>
 
                         <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
-                                BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,14,0,0" IsEnabled="{Binding IntelOverlayEnabled}">
+                                BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,14,0,0">
                           <StackPanel>
                             <CheckBox Content="Feed the EveDeck Intel tablet app and web UI from this PC" FontSize="12"
                                       IsChecked="{Binding IntelServerEnabled}" Margin="0,0,0,2"/>
                             <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="20,0,0,8" MaxWidth="600">
-Serves the same feed on your LAN that the standalone EveDeck Intel daemon does, so the Android app or a browser can connect to this PC directly instead of running a second program. Same port as the daemon (31337) -- if the daemon is already running, leave this off, or stop the daemon first. No login, no encryption: anyone on your LAN can connect, same as the daemon.
+Serves the intel feed as a web page on your LAN, so a tablet or phone browser can show it. Works with the overlay turned off. Open http://&lt;this-pc&gt;:31337/ on the device. Same port as the daemon (31337) -- if the daemon is already running, leave this off, or stop the daemon first. No login, no encryption: anyone on your LAN can connect, same as the daemon.
                             </TextBlock>
                             <StackPanel Orientation="Horizontal" Margin="20,0,0,6" IsEnabled="{Binding IntelServerEnabled}">
                               <TextBlock Text="Port" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,8,0"/>
