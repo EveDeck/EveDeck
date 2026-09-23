@@ -377,9 +377,18 @@ public partial class MainWindow : Window
         _suspendPreviewsMenuItem = new System.Windows.Forms.ToolStripMenuItem("Suspend previews", null,
             (_, _) => _viewModel.PreviewsSuspended = !_viewModel.PreviewsSuspended);
         contextMenu.Items.Add(_suspendPreviewsMenuItem);
-        contextMenu.Opening += (_, _) => _suspendPreviewsMenuItem.Checked = _viewModel.PreviewsSuspended;
+        contextMenu.Opening += (_, _) =>
+        {
+            _suspendPreviewsMenuItem.Checked = _viewModel.PreviewsSuspended;
+            RebuildLayoutMenu();
+            RebuildCharacterSetMenu();
+        };
         _configProfilesMenu = new System.Windows.Forms.ToolStripMenuItem("Config profile");
         contextMenu.Items.Add(_configProfilesMenu);
+        _layoutMenu = new System.Windows.Forms.ToolStripMenuItem("Layout");
+        contextMenu.Items.Add(_layoutMenu);
+        _characterSetMenu = new System.Windows.Forms.ToolStripMenuItem("Character set");
+        contextMenu.Items.Add(_characterSetMenu);
         contextMenu.Items.Add("Check for Updates", null, (_, _) => _viewModel.CheckForUpdateCommand.Execute(null));
         contextMenu.Items.Add("Close all EVE clients", null, (_, _) =>
         {
@@ -392,9 +401,13 @@ public partial class MainWindow : Window
 
         RebuildConfigProfilesMenu();
         _viewModel.ConfigProfilesChanged += (_, _) => Dispatcher.BeginInvoke(RebuildConfigProfilesMenu);
+        RebuildLayoutMenu();
+        RebuildCharacterSetMenu();
     }
 
     private System.Windows.Forms.ToolStripMenuItem? _configProfilesMenu;
+    private System.Windows.Forms.ToolStripMenuItem? _layoutMenu;
+    private System.Windows.Forms.ToolStripMenuItem? _characterSetMenu;
     private System.Windows.Forms.ToolStripMenuItem? _suspendPreviewsMenuItem;
 
     // The tray is the ONLY switcher for config profiles (the Options panel creates and edits them,
@@ -421,6 +434,63 @@ public partial class MainWindow : Window
             };
             item.Click += (_, _) => _viewModel.ApplyConfigProfileCommand.Execute(captured);
             _configProfilesMenu.DropDownItems.Add(item);
+        }
+    }
+
+    // Selecting a layout from the tray must go through the exact same command the Apply Profile
+    // button uses, not a hand-rolled equivalent -- ApplyProfileCommand carries undo-snapshot and
+    // other side effects that a direct re-implementation would silently drop.
+    private void RebuildLayoutMenu()
+    {
+        if (_layoutMenu is null) return;
+        _layoutMenu.DropDownItems.Clear();
+
+        if (_viewModel.Profiles.Count == 0)
+        {
+            _layoutMenu.DropDownItems.Add(new System.Windows.Forms.ToolStripMenuItem("(none)") { Enabled = false });
+            return;
+        }
+
+        foreach (var profile in _viewModel.Profiles)
+        {
+            var captured = profile; // don't close over the loop variable's final value
+            var item = new System.Windows.Forms.ToolStripMenuItem(captured.Name)
+            {
+                Checked = captured == _viewModel.SelectedProfile,
+            };
+            item.Click += (_, _) => Dispatcher.Invoke(() =>
+            {
+                _viewModel.SelectedProfile = captured;
+                if (_viewModel.ApplyProfileCommand.CanExecute(null))
+                    _viewModel.ApplyProfileCommand.Execute(null);
+            });
+            _layoutMenu.DropDownItems.Add(item);
+        }
+    }
+
+    // Switching a character set from the tray reuses SwitchCharacterSetCommand -- the same command
+    // the roster panel's set switcher binds to -- so any layout bound to the target set is applied
+    // through the same code path instead of being reimplemented here.
+    private void RebuildCharacterSetMenu()
+    {
+        if (_characterSetMenu is null) return;
+        _characterSetMenu.DropDownItems.Clear();
+
+        if (_viewModel.CharacterSets.Count == 0)
+        {
+            _characterSetMenu.DropDownItems.Add(new System.Windows.Forms.ToolStripMenuItem("(none)") { Enabled = false });
+            return;
+        }
+
+        foreach (var set in _viewModel.CharacterSets)
+        {
+            var captured = set; // don't close over the loop variable's final value
+            var item = new System.Windows.Forms.ToolStripMenuItem(captured.Name)
+            {
+                Checked = captured.Id == _viewModel.ActiveCharacterSetId,
+            };
+            item.Click += (_, _) => Dispatcher.Invoke(() => _viewModel.SwitchCharacterSetCommand.Execute(captured));
+            _characterSetMenu.DropDownItems.Add(item);
         }
     }
 

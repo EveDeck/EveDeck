@@ -1,7 +1,9 @@
+using System.Reflection;
 using System.Text;
 using System.Windows;
 using Clipboard = System.Windows.Clipboard;
 using EveDeck.Models;
+using EveDeck.Utilities;
 
 namespace EveDeck.ViewModels;
 
@@ -156,7 +158,10 @@ public sealed partial class MainWindowViewModel
     {
         var builder = new StringBuilder();
         builder.AppendLine("EveDeck diagnostics");
-        builder.AppendLine($"Config: {_configService.ConfigPath}");
+        builder.AppendLine("Character names, system names, and the Windows user name have been redacted.");
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        builder.AppendLine($"Version: {version} OS: {Environment.OSVersion} Packaged: {PackagedAppInfo.IsPackaged}");
+        builder.AppendLine($"Config: {DiagnosticsRedactor.RedactPath(_configService.ConfigPath)}");
         builder.AppendLine($"UsePhysicalPixels: {UsePhysicalPixels}");
         builder.AppendLine();
         builder.AppendLine("Monitors:");
@@ -165,7 +170,15 @@ public sealed partial class MainWindowViewModel
         builder.AppendLine();
         builder.AppendLine("Windows:");
         foreach (var window in Windows)
-            builder.AppendLine($"- {window.Title} pid={window.ProcessId} hwnd={window.HandleHex} rect={window.Rect} monitor={window.MonitorId}");
+        {
+            // Only an EVE window title is safe to summarize at all -- CharacterNameFromTitle stripping
+            // the "EVE - " prefix means it recognized an EVE window, not that the raw title is safe to
+            // print. Anything else (an unrelated app title) is printed as an opaque placeholder --
+            // fail closed rather than leak a raw window title.
+            var isEveWindow = CharacterNameFromTitle(window.Title) != window.Title;
+            var titleSummary = isEveWindow ? "EVE client" : "<non-EVE window>";
+            builder.AppendLine($"- {titleSummary} pid={window.ProcessId} hwnd={window.HandleHex} rect={window.Rect} monitor={window.MonitorId}");
+        }
         builder.AppendLine();
         builder.AppendLine($"Active profile: {SelectedProfile?.Name}");
         if (SelectedProfile is not null)
@@ -177,14 +190,39 @@ public sealed partial class MainWindowViewModel
         builder.AppendLine("Slot assignments:");
         foreach (var assignment in Assignments)
         {
-            builder.AppendLine($"- slot {assignment.SlotNumber} ({assignment.Label}): {string.Join(", ", assignment.AssignedWindows.Select(e => e.Title))}");
+            var labelled = string.IsNullOrWhiteSpace(assignment.Label) ? "no" : "yes";
+            builder.AppendLine($"- slot {assignment.SlotNumber}: labelled={labelled}, windows={assignment.AssignedWindows.Count}");
         }
         builder.AppendLine();
         builder.AppendLine("Recent errors:");
         foreach (var error in Logs.Where(l => l.Level == "Error").Take(20))
             builder.AppendLine(error.Display);
 
-        Clipboard.SetText(builder.ToString());
+        // Collect every identifying string this report could still contain -- structural fields above
+        // are already replaced, but free text (the active profile name, error lines) can still carry a
+        // character or system name, so the whole thing gets one more pass before it leaves the app.
+        var characterNames = new List<string>();
+        var systemNames = new List<string>();
+        foreach (var assignment in Assignments)
+        {
+            characterNames.Add(assignment.Label);
+            foreach (var esiCharacter in assignment.EsiCharacters)
+                characterNames.Add(esiCharacter.CharacterName);
+        }
+        foreach (var window in Windows)
+        {
+            var name = CharacterNameFromTitle(window.Title);
+            if (name != window.Title) characterNames.Add(name);
+        }
+        foreach (var (character, system) in _systemByCharacter)
+        {
+            characterNames.Add(character);
+            systemNames.Add(system);
+        }
+        var userNames = new[] { Environment.UserName, Environment.MachineName };
+
+        var redacted = DiagnosticsRedactor.Redact(builder.ToString(), characterNames, systemNames, userNames);
+        Clipboard.SetText(redacted);
         Log.Info("Copied diagnostics to clipboard.");
     }
 }
