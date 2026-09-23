@@ -6,6 +6,7 @@ using System.Windows.Media;
 using EveDeck.Models;
 using EveDeck.Services;
 using EveDeck.Services.Intel;
+using EveDeck.Utilities;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
@@ -15,7 +16,7 @@ using Orientation = System.Windows.Controls.Orientation;
 namespace EveDeck.Views;
 
 /// <summary>
-/// A small always-on-top card showing the most recent intel lines and how far away each one is.
+/// A small card, topmost while EVE has focus, showing the most recent intel lines and how far away each one is.
 ///
 /// Follows the shape of the removed utility overlays (see <c>TalkerOverlayWindow</c> in git history):
 /// borderless, transparent, never activated, dragged into place with <c>DragMove()</c> rather than
@@ -66,7 +67,7 @@ internal sealed class IntelOverlayWindow : Window
         ShowActivated = false;
         AllowsTransparency = true;
         Background = Brushes.Transparent;
-        Topmost = true;
+        // Not Topmost: the view model raises it only while an EVE client is focused (see SetZ).
         SizeToContent = SizeToContent.WidthAndHeight;
 
         // 0,0 means the card has never been placed; drop it somewhere visible rather than in the
@@ -124,6 +125,19 @@ internal sealed class IntelOverlayWindow : Window
             PortraitCacheService.Instance.Changed -= OnImageCacheChanged;
             ShipIconCacheService.Instance.Changed -= OnImageCacheChanged;
         };
+    }
+
+    /// <summary>
+    /// Topmost only while EVE has focus, so the card never covers EveDeck's own settings or other
+    /// apps. Same shape as DowntimeCountdownWindow.SetZ.
+    /// </summary>
+    public void SetZ(bool topmost)
+    {
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (hwnd == 0) return;
+        var insertAfter = topmost ? Win32Native.HwndTopmost : Win32Native.HwndNotTopmost;
+        Win32Native.SetWindowPos(hwnd, insertAfter, 0, 0, 0, 0,
+            Win32Native.SwpNoMove | Win32Native.SwpNoSize | Win32Native.SwpNoActivate);
     }
 
     private void OnImageCacheChanged() => Update(_lastEntries, _lastOrigins, _lastMaxRows);

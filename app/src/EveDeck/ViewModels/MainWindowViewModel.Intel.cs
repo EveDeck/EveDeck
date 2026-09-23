@@ -605,6 +605,7 @@ public sealed partial class MainWindowViewModel
                 _settings.IntelOverlayOpacity,
                 OnIntelOverlayMoved);
             _intelOverlayWindow.Show();
+            _intelOverlayWindow.SetZ(ResolveForegroundOwner() == ForegroundOwner.Eve);
         }
 
         _intelOverlayWindow.Update(_intelFeed.History, _intelFeed.OriginStatus, _settings.IntelOverlayMaxRows);

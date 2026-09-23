@@ -1419,35 +1419,41 @@ public sealed partial class MainWindowViewModel
         foreach (var group in EffectiveGroups()) RefreshGroupCenterPill(group);
     }
 
-    // Last positively-identified foreground verdict, held across moments when the OS can't tell us
-    // who is in front. Starts false so a cold start behaves exactly as it did before the hold existed.
-    private bool _lastKnownEveForeground;
+    // Who owns the foreground. Previews and the intel card are topmost only for Eve; EveDeckUi (the
+    // main window and its dialogs) drops them into the normal band so they stop covering the settings
+    // you are editing, but does not count as focus loss, so they stay visible underneath.
+    private enum ForegroundOwner { Unknown, Eve, EveDeckUi, Other }
 
-    // Resolves the foreground question to a definite answer for the two consumers that need one.
-    // A null verdict means "can't tell right now", which must NOT be read as "another app has
-    // focus" -- see IsEveOrEwcForeground for why that distinction is the whole fix.
-    private bool ResolveEveOrEwcForeground()
+    // Last positively-identified foreground owner, held across moments when the OS can't tell us
+    // who is in front. Starts as Other so a cold start behaves exactly as it did before the hold existed.
+    private ForegroundOwner _lastKnownForeground = ForegroundOwner.Other;
+
+    // Resolves the foreground question to a definite answer for the consumers that need one.
+    // Unknown means "can't tell right now", which must NOT be read as "another app has
+    // focus" -- see ClassifyForeground for why that distinction is the whole fix.
+    private ForegroundOwner ResolveForegroundOwner()
     {
-        var verdict = IsEveOrEwcForeground();
-        if (verdict is null) return _lastKnownEveForeground;
-        _lastKnownEveForeground = verdict.Value;
-        return verdict.Value;
+        var owner = ClassifyForeground();
+        if (owner == ForegroundOwner.Unknown) return _lastKnownForeground;
+        _lastKnownForeground = owner;
+        return owner;
     }
 
-    // True when an EVE client -- or EveDeck itself -- is the foreground app; false when some other
-    // app positively owns it; NULL when the foreground genuinely cannot be determined.
+    // Eve when an EVE client (or one of EveDeck's own overlays, which sit on top of EVE) is the
+    // foreground; EveDeckUi for EveDeck's settings windows; Other when some other app positively owns
+    // it; Unknown when the foreground genuinely cannot be determined.
     //
-    // That third state is load-bearing. Windows returns NULL from GetForegroundWindow() while the
+    // That Unknown state is load-bearing. Windows returns NULL from GetForegroundWindow() while the
     // foreground is in transition, which is exactly what happens during a seat centering/swap: the
     // 2026-09-07 logs showed a "previews left the topmost band; foreground process: 'unknown'" line
     // immediately before EVERY "Centered seat N" line. Collapsing that unknown to false sank the
     // previews out of the topmost band on every swap, letting the master cover them until the next
     // tick re-asserted -- the reported flicker. Unknown now holds the previous verdict instead.
-    private bool? IsEveOrEwcForeground()
+    private ForegroundOwner ClassifyForeground()
     {
         var fg = _windowService.GetForegroundWindowHandle();
-        if (fg == 0) return null;
-        if (Windows.Any(w => w.Handle == fg)) return true;
+        if (fg == 0) return ForegroundOwner.Unknown;
+        if (Windows.Any(w => w.Handle == fg)) return ForegroundOwner.Eve;
 
         // Membership in `Windows` alone is not a reliable "is EVE focused" test. FindEveWindows
         // skips any window whose title is blank, and EVE blanks/retitles its client window
@@ -1458,20 +1464,32 @@ public sealed partial class MainWindowViewModel
         // safety-net re-asserted. That is the self-recovering preview flicker reported 2026-09-07.
         // A window's owning process does not change when its title does, so fall back to process
         // identity, which stays stable across the retitle.
-        if (IsForegroundProcessPreviewable(fg)) return true;
+        if (IsForegroundProcessPreviewable(fg)) return ForegroundOwner.Eve;
 
         // A live foreground window whose owning process we can't resolve is another "can't tell",
         // not a positive sighting of a rival app.
-        if (string.IsNullOrEmpty(_windowService.GetWindowProcessName(fg))) return null;
+        var process = _windowService.GetWindowProcessName(fg);
+        if (string.IsNullOrEmpty(process)) return ForegroundOwner.Unknown;
 
-        // The foreground-change WinEvent hook is registered inside MainWindow's own constructor
-        // (HotkeyService.RegisterAll) and can fire before WPF has assigned Application.MainWindow --
-        // WindowInteropHelper's ctor throws ArgumentNullException on a null window, which crashed the
-        // whole process on startup whenever a real foreground switch happened early (i.e. whenever
-        // EVE clients already existed to switch between). Treat "no main window yet" as simply "not
-        // EveDeck's window" rather than dereferencing it.
-        var mainWindow = System.Windows.Application.Current?.MainWindow;
-        return mainWindow is not null && fg == new System.Windows.Interop.WindowInteropHelper(mainWindow).Handle;
+        return process.Equals(OwnProcessName, StringComparison.OrdinalIgnoreCase)
+            ? ClassifyOwnWindow(fg)
+            : ForegroundOwner.Other;
+    }
+
+    private static readonly string OwnProcessName = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
+
+    // EveDeck's own windows split two ways. Its overlays (intel card, countdown, flyouts, the native
+    // preview surfaces) are no-taskbar and unowned; focusing one -- dragging the intel card -- is still
+    // playing, so it counts as Eve. Its settings UI is the main window, which shows in the taskbar, and
+    // dialogs, which are owned by it. Deliberately avoids Application.MainWindow: this runs from a
+    // WinEvent hook that can fire before WPF assigns it (that null once crashed startup).
+    private static ForegroundOwner ClassifyOwnWindow(nint fg)
+    {
+        if (System.Windows.Interop.HwndSource.FromHwnd(fg)?.RootVisual is not System.Windows.Window window)
+            return ForegroundOwner.Eve; // not WPF: one of the native preview/label surfaces
+        return window.ShowInTaskbar || window.Owner is not null
+            ? ForegroundOwner.EveDeckUi
+            : ForegroundOwner.Eve;
     }
 
     // Mirrors FindEveWindows' process filter (EVE itself, the notepad test harness, and any
@@ -1490,7 +1508,12 @@ public sealed partial class MainWindowViewModel
 
     internal void RefreshCornerOverlayZOrder()
     {
-        if (_tileSurface is null) return;
+        if (_tileSurface is null)
+        {
+            // No previews, but the intel card still has to follow EVE focus on its own.
+            _intelOverlayWindow?.SetZ(ResolveForegroundOwner() == ForegroundOwner.Eve);
+            return;
+        }
         ApplySurfaceZOrder();
     }
 
@@ -1532,7 +1555,7 @@ public sealed partial class MainWindowViewModel
 
     private void ApplySurfaceZOrder()
     {
-        var eveOrEwcFg = ResolveEveOrEwcForeground();
+        var eveOrEwcFg = ResolveForegroundOwner() == ForegroundOwner.Eve;
         if (_lastSurfaceTopmost != eveOrEwcFg)
         {
             _lastSurfaceTopmost = eveOrEwcFg;
@@ -1552,6 +1575,7 @@ public sealed partial class MainWindowViewModel
         if (_layoutEditorHwnd != 0) _windowService.SetWindowTopmost(_layoutEditorHwnd, true);
         BumpToastAboveEverything();
         _downtimeWindow?.SetZ(eveOrEwcFg); // rides along with the surfaces we just re-topped/dropped
+        _intelOverlayWindow?.SetZ(eveOrEwcFg);
     }
 
     // Re-asserts the toast window at the very top of the topmost band. Must run AFTER the surfaces'
@@ -1883,11 +1907,13 @@ public sealed partial class MainWindowViewModel
                 _seatOfflineSince[assignment.SlotNumber] = DateTime.UtcNow;
         }
 
-        var eveOrEwcFg = ResolveEveOrEwcForeground();
+        var foreground = ResolveForegroundOwner();
+        var eveOrEwcFg = foreground == ForegroundOwner.Eve;
 
         // Runs before the z-order/hover work below: while the overlay is hidden there is nothing to
-        // keep on top and no tile for the cursor to be over.
-        UpdateFocusLossHiding(eveOrEwcFg);
+        // keep on top and no tile for the cursor to be over. EveDeck's own UI is not focus loss:
+        // previews stay visible (just not topmost) while you adjust them.
+        UpdateFocusLossHiding(foreground != ForegroundOwner.Other);
         UpdateGpuLoadHiding();
         // Suspended, focus-hidden, or held for GPU load: nothing on screen to keep topmost, no tile
         // for the cursor to be over, and no source liveness to push -- skip the rest of the tick.
