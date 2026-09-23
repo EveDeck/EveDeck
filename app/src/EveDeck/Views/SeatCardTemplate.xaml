@@ -249,7 +249,7 @@
                                  Foreground="{StaticResource MutedBrush}"/>
                       <ComboBox Width="96" FontSize="10" Margin="4,0,0,0"
                                 SelectedValue="{Binding LabelAnchor, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag"
-                                ToolTip="Where the label appears on the corner tile. Blank = use the global position from Options.">
+                                ToolTip="Where the label appears on the preview. Blank = use the global position from Options.">
                         <ComboBoxItem Tag="{x:Null}" Content="(inherit)"/>
                         <ComboBoxItem Tag="TopLeft" Content="Top left"/>
                         <ComboBoxItem Tag="TopCenter" Content="Top center"/>
@@ -457,7 +457,7 @@
               </StackPanel.Style>
               <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                          Foreground="{StaticResource WarningBrush}" VerticalAlignment="Center" Margin="0,0,5,0"/>
-              <TextBlock Text="No window linked -- select one above and click Assign."
+              <TextBlock Text="No window linked — select one above and click Assign."
                          Foreground="{StaticResource MutedBrush}" FontSize="10" VerticalAlignment="Center"/>
             </StackPanel>
           </StackPanel>

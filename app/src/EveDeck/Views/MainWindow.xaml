@@ -178,7 +178,7 @@
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
             <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="11"
                        Foreground="{StaticResource WarningBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <TextBlock Text="Your settings file appeared to be corrupted and was reset to defaults. A backup was saved automatically — open Options → Backups to restore your previous settings."
+            <TextBlock Text="Your settings file appeared to be corrupted and was reset to defaults. A backup was saved automatically — open Options → Settings Backup to restore your previous settings."
                        Foreground="{StaticResource TextBrush}" FontSize="12" VerticalAlignment="Center"
                        TextWrapping="Wrap" MaxWidth="760"/>
           </StackPanel>
@@ -567,7 +567,7 @@
                                  FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/>
                       <TextBlock Text="{Binding MasterSeatSummary}" FontSize="11" FontWeight="SemiBold"
                                  Foreground="{StaticResource MasterAccentBrush}" Margin="0,5,0,0" TextWrapping="Wrap"
-                                 ToolTip="The Master seat is centred at rest and is the F-key home. Set it by dropping a seat on the mini-map's centre cell, or with that seat's ⭐ Master button. If the designated seat's client isn't running, EveDeck temporarily centres another logged-in seat instead — that stand-in is never saved and snaps back as soon as the real master is detected."/>
+                                 ToolTip="The Master seat is centered at rest and is the F-key home. Set it by dropping a seat on the mini-map's center cell, or with that seat's ⭐ Master button. If the designated seat's client isn't running, EveDeck temporarily centers another logged-in seat instead — that stand-in is never saved and snaps back as soon as the real master is detected."/>
                       <!-- Which apply path this profile will actually take. Previously invisible: the
                            choice is made at apply time from the layout's geometry plus the global
                            preview toggle, so a dense Grid gave no hint that all but one client would
@@ -1058,7 +1058,7 @@
                                    Visibility="{Binding HasMasterSlotWarning, Converter={StaticResource BoolToVisibility}}"/>
                         <TextBlock Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0">
                           Master on one monitor, previews on another? Use <Run Foreground="{StaticResource TextBrush}">New</Run> and pick
-                          <Run Foreground="{StaticResource TextBrush}">Master + previews</Run> -- it builds the layout across two screens for you.
+                          <Run Foreground="{StaticResource TextBrush}">Master + previews</Run> — it builds the layout across two screens for you.
                           Built-in presets are single-monitor and cannot do this.
                         </TextBlock>
                       </StackPanel>
@@ -1066,7 +1066,7 @@
                   </Border>
 
                   <!-- Slot table -->
-                  <DataGrid Grid.Row="2" ItemsSource="{Binding ActiveProfileSlots}" IsReadOnly="{Binding SelectedProfileIsBuiltIn}">
+                  <DataGrid Grid.Row="2" ItemsSource="{Binding ActiveProfileSlots}" IsReadOnly="{Binding SelectedProfileIsBuiltIn}" CellEditEnding="SlotsGrid_CellEditEnding">
                     <DataGrid.Columns>
                       <DataGridTextColumn Header="Slot" Binding="{Binding SlotNumber}" Width="55"/>
                       <DataGridCheckBoxColumn Header="Master" Binding="{Binding IsMasterSlot, Mode=OneWay}" Width="60" IsReadOnly="True"/>
@@ -1100,7 +1100,7 @@
               <ScrollViewer MaxHeight="360" Margin="0,8,0,0" Padding="0,0,12,0">
                 <StackPanel>
                   <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,16">
-Both AMD and Nvidia let you set a virtual resolution higher than your panel's native pixels, then downscale on output -- giving EVE a larger canvas to render into. Enable VSR or DSR first, set your desktop to the virtual resolution, match it in EVE's Fixed Window settings, then pick it above with Master resolution and click Set.
+Both AMD and Nvidia let you set a virtual resolution higher than your panel's native pixels, then downscale on output — giving EVE a larger canvas to render into. Enable VSR or DSR first, set your desktop to the virtual resolution, match it in EVE's Fixed Window settings, then pick it above with Master resolution and click Set.
                   </TextBlock>
                   <TextBlock Text="AMD Virtual Super Resolution (VSR)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
                   <Grid Margin="0,0,0,16">
@@ -1119,7 +1119,7 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="2." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
                     <TextBlock Grid.Row="1" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">Open <Run Foreground="{StaticResource TextBrush}">Windows Settings &gt; System &gt; Display &gt; Display resolution</Run>. You will now see resolutions higher than your panel's native size. Select the one you want.</TextBlock>
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="3." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">In EVE: <Run Foreground="{StaticResource TextBrush}">ESC &gt; Display &amp; Graphics &gt; Window Mode: Fixed Window &gt; Resolution</Run> -- set it to match. All clients must share the same Fixed Window size.</TextBlock>
+                    <TextBlock Grid.Row="2" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">In EVE: <Run Foreground="{StaticResource TextBrush}">ESC &gt; Display &amp; Graphics &gt; Window Mode: Fixed Window &gt; Resolution</Run> — set it to match. All clients must share the same Fixed Window size.</TextBlock>
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="4." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
                     <TextBlock Grid.Row="3" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">Restart all EVE clients. Use the Master resolution picker above, click Set, then Apply Profile.</TextBlock>
                   </Grid>
@@ -1140,16 +1140,16 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="2." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
                     <TextBlock Grid.Row="1" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">Open <Run Foreground="{StaticResource TextBrush}">Windows Settings &gt; System &gt; Display &gt; Display resolution</Run> and select the new virtual resolution.</TextBlock>
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="3." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">In EVE: <Run Foreground="{StaticResource TextBrush}">ESC &gt; Display &amp; Graphics &gt; Window Mode: Fixed Window &gt; Resolution</Run> -- set to match. All clients must share the same Fixed Window size.</TextBlock>
+                    <TextBlock Grid.Row="2" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">In EVE: <Run Foreground="{StaticResource TextBrush}">ESC &gt; Display &amp; Graphics &gt; Window Mode: Fixed Window &gt; Resolution</Run> — set to match. All clients must share the same Fixed Window size.</TextBlock>
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="4." Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="0,0,0,6"/>
                     <TextBlock Grid.Row="3" Grid.Column="1" TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,6">Restart all EVE clients and reapply your EveDeck layout.</TextBlock>
                   </Grid>
                   <TextBlock Text="Things to know" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
                   <Border Background="#1A1E14" CornerRadius="4" Padding="10,8" Margin="0,0,0,6">
-                    <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}"><Run Foreground="#C8E870" FontWeight="SemiBold">GPU cost scales with client count.</Run> Every running EVE client renders at the virtual resolution. On a 5-client setup, switching from 1920x1065 to 3840x2160 quadruples pixel work per client. Check GPU utilisation before committing.</TextBlock>
+                    <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}"><Run Foreground="#C8E870" FontWeight="SemiBold">GPU cost scales with client count.</Run> Every running EVE client renders at the virtual resolution. On a 5-client setup, switching from 1920x1065 to 3840x2160 quadruples pixel work per client. Check GPU utilization before committing.</TextBlock>
                   </Border>
                   <Border Background="#1A1018" CornerRadius="4" Padding="10,8" Margin="0,0,0,6">
-                    <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}"><Run Foreground="#E870C8" FontWeight="SemiBold">5210x1440 is not VSR.</Run> That is AMD Eyefinity -- a multi-monitor super-wide desktop. Do not select it unless you have two physical monitors combined in Eyefinity.</TextBlock>
+                    <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}"><Run Foreground="#E870C8" FontWeight="SemiBold">5210x1440 is not VSR.</Run> That is AMD Eyefinity — a multi-monitor super-wide desktop. Do not select it unless you have two physical monitors combined in Eyefinity.</TextBlock>
                   </Border>
                   <Border Background="#0E1520" CornerRadius="4" Padding="10,8">
                     <TextBlock TextWrapping="Wrap" LineHeight="22" Foreground="{StaticResource MutedBrush}"><Run Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold">EveDeck profiles are resolution-independent.</Run> Layout slots are stored as fractional rects and scale automatically to whatever resolution your clients run at.</TextBlock>
@@ -1465,7 +1465,7 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                     <TextBlock Text="Background" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
                     <ComboBox Width="110" SelectedValuePath="Tag" FontSize="12" Margin="0,0,8,0"
                               SelectedValue="{Binding LabelBackgroundStyle}"
-                              ToolTip="The label's own backdrop -- applies to both label styles above (Pill's name chip and Icon+name's portrait row alike), independent of the label opacity above.">
+                              ToolTip="The label's own backdrop — applies to both label styles above (Pill's name chip and Icon+name's portrait row alike), independent of the label opacity above.">
                       <ComboBoxItem Tag="Solid" Content="Solid"/>
                       <ComboBoxItem Tag="Gradient" Content="Gradient"/>
                       <ComboBoxItem Tag="None" Content="None (text only)"/>
@@ -1507,7 +1507,7 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                     <TextBlock Text="Chip opacity" VerticalAlignment="Center" Width="80" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
                     <Slider Minimum="0" Maximum="100" Value="{Binding LabelBackgroundOpacity}" Width="150" VerticalAlignment="Center"
                             IsSnapToTickEnabled="True" TickFrequency="5"
-                            ToolTip="Transparency of the chip backdrop only -- separate from the whole-label Text opacity above, which fades text too."/>
+                            ToolTip="Transparency of the chip backdrop only — separate from the whole-label Text opacity above, which fades text too."/>
                     <TextBlock Text="{Binding LabelBackgroundOpacity, StringFormat={}{0}%}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"/>
                   </StackPanel>
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
@@ -1681,13 +1681,13 @@ Both AMD and Nvidia let you set a virtual resolution higher than your panel's na
                        applies to EVERY multi-position layout, not just the master-slot families. Users
                        assumed a plain Grid tiled nine real windows, so spell out both sides here. -->
                   <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="20,0,0,10">
-On (the default) any layout whose slots sit at two or more distinct positions runs in preview mode: your master client renders live at full size and every other client parks off-screen and appears as a live thumbnail. That includes the plain Grid layouts, not just Center Master and the other master-slot families. Off, EveDeck instead resizes every client to its own slot and leaves them all on screen -- which needs slots big enough for EVE to actually accept (about 1024x768 each). The Layouts tab shows which mode the selected profile will use.
+On (the default) any layout whose slots sit at two or more distinct positions runs in preview mode: your master client renders live at full size and every other client parks off-screen and appears as a live thumbnail. That includes the plain Grid layouts, not just Center Master and the other master-slot families. Off, EveDeck instead resizes every client to its own slot and leaves them all on screen — which needs slots big enough for EVE to actually accept (about 1024x768 each). The Layouts tab shows which mode the selected profile will use.
                   </TextBlock>
                   <CheckBox Content="Click a preview to bring that client to the center"
                             IsChecked="{Binding FocusPreviewOnClick}"
                             Margin="0,0,0,2"/>
                   <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
-Preview tiles shrink the whole client window. To read them better: raise UI Scaling in EVE (Esc > Display &amp; Graphics), enlarge the tile, or raise the hover zoom below. EveDeck will not crop to just the HUD -- that would violate the EULA.
+Preview tiles shrink the whole client window. To read them better: raise UI Scaling in EVE (Esc > Display &amp; Graphics), enlarge the tile, or raise the hover zoom below. EveDeck will not crop to just the HUD — that would violate the EULA.
                   </TextBlock>
                   <TextBlock Text="Clicking a preview switches focus to that client (same as a hotkey). The click is never sent into EVE."
                              TextWrapping="Wrap" FontSize="12" Margin="20,0,0,10"
@@ -1755,7 +1755,7 @@ Preview tiles shrink the whole client window. To read them better: raise UI Scal
                     <TextBlock Text="(1.0-4.0, default 1.0)" VerticalAlignment="Center"
                                Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="6,0,0,0"/>
                   </StackPanel>
-                  <TextBlock Text="Grows the info badge, jump badges, and their popup text on-screen -- independent of Windows' own display scaling, so a small/high-DPI monitor (e.g. a tablet used as a display) can stay legible without scaling the whole desktop up."
+                  <TextBlock Text="Grows the info badge, jump badges, and their popup text on-screen — independent of Windows' own display scaling, so a small/high-DPI monitor (e.g. a tablet used as a display) can stay legible without scaling the whole desktop up."
                              TextWrapping="Wrap" FontSize="12" Margin="0,0,0,10"
                              Foreground="{StaticResource MutedBrush}"/>
                   <CheckBox Content="Stream-safe mode (hide names, systems, and ISK on the overlay)"
@@ -1907,7 +1907,7 @@ Preview tiles shrink the whole client window. To read them better: raise UI Scal
                       BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,4">
                 <StackPanel>
                   <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
-Apps listed here also show up as detected/assignable windows (Clients tab) so one can be assigned to a slot and previewed in a corner tile alongside your EVE clients -- e.g. Discord or a spreadsheet. Matched by process name (case-insensitive, partial match, no ".exe").
+Apps listed here also show up as detected/assignable windows (Clients tab) so you can assign one to a slot and preview it alongside your EVE clients — e.g. Discord or a spreadsheet. Matched by process name (case-insensitive, partial match, no ".exe").
                   </TextBlock>
                   <ItemsControl ItemsSource="{Binding PreviewableApps}" Margin="0,0,0,6">
                     <ItemsControl.ItemTemplate>
@@ -2229,7 +2229,7 @@ Gives the active EVE client priority over inactive ones. Combine with EVE's own 
                         IsEnabled="{Binding EcoQosBackgroundClients}"
                         Margin="16,0,0,4"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10">
-Parks inactive clients on efficiency cores and clocks them down (deeper cut than priority above, and they stack). Spares the next cycled client so it's ready when you switch. EcoQoS is pure OS scheduling -- no DLL injection, no memory reads/writes. Requires Windows 10 1809+.
+Asks Windows to power-throttle inactive clients (stacks with the priority drop above). On Intel hybrid CPUs it moves them to efficiency cores and the saving is large; on AMD and older Intel CPUs, which have no efficiency cores, the effect is small. Spares the next cycled client so it's ready when you switch. EcoQoS is pure OS scheduling — no DLL injection, no memory reads/writes. Requires Windows 10 1809+.
               </TextBlock>
               <CheckBox Content="Auto-minimize EVE clients that are not the active window"
                         IsChecked="{Binding AutoMinimizeInactiveClients}"
@@ -2347,7 +2347,7 @@ Displays a countdown to EVE's daily downtime and a "dock up" toast when the down
                       <StackPanel>
                         <TextBlock Text="Game Event Alerts" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,10"/>
                         <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,10" MaxWidth="600">
-Reads gamelogs (Documents\EVE\logs\Gamelogs) for combat, warp scrambles, fleet invites, etc. on parked clients. Toast shows an alert; Glow pulses the tile (better for spam like constant combat). Passive log reading only -- never sends input to EVE. "Focused" skips the alert if that client is already active.
+Reads gamelogs (Documents\EVE\logs\Gamelogs) for combat, warp scrambles, fleet invites, etc. on parked clients. Toast shows an alert; Glow pulses the tile (better for spam like constant combat). Passive log reading only — never sends input to EVE. "Focused" skips the alert if that client is already active.
                         </TextBlock>
                         <ItemsControl ItemsSource="{Binding GameEventRules}" Margin="0,0,0,6">
                           <ItemsControl.ItemTemplate>
@@ -2368,7 +2368,7 @@ Reads gamelogs (Documents\EVE\logs\Gamelogs) for combat, warp scrambles, fleet i
                                           ToolTip="Pulse the seat's tile/master rect on the overlay instead of a toast notification"/>
                                 <CheckBox DockPanel.Dock="Right" Content="Silence in Abyss" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"
                                           IsChecked="{Binding SuppressSoundInAbyss, UpdateSourceTrigger=PropertyChanged}"
-                                          ToolTip="When Abyss Mode is on, skip this rule's sound (glow stays). Uncheck for rare, high-stakes events -- e.g. Warp scramble -- worth hearing even mid-run."/>
+                                          ToolTip="When Abyss Mode is on, skip this rule's sound (glow stays). Uncheck for rare, high-stakes events — e.g. Warp scramble — worth hearing even mid-run."/>
                                 <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
                                          Width="130" Padding="6,4" FontSize="12" Margin="0,0,8,0"
                                          ToolTip="Display name for this event"/>
@@ -2393,7 +2393,7 @@ Reads gamelogs (Documents\EVE\logs\Gamelogs) for combat, warp scrambles, fleet i
                           <TextBlock DockPanel.Dock="Right" Text="s" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0"/>
                           <TextBox Text="{Binding CombatToastCooldownSeconds, UpdateSourceTrigger=LostFocus}"
                                    Width="56" Padding="6,4" FontSize="12" HorizontalAlignment="Left"
-                                   ToolTip="Per seat, per rule. The tile glow still pulses on every event -- this only limits how often the persistent toast card comes back while damage keeps landing. 0 turns the cooldown off."/>
+                                   ToolTip="Per seat, per rule. The tile glow still pulses on every event — this only limits how often the persistent toast card comes back while damage keeps landing. 0 turns the cooldown off."/>
                         </DockPanel>
                         <CheckBox Content="Toasts above overlay tiles and allow-listed apps" FontSize="12" Margin="0,6,0,0"
                                   IsChecked="{Binding ToastsAboveOverlays, UpdateSourceTrigger=PropertyChanged}"
@@ -2843,7 +2843,7 @@ Input broadcasting, input multiplexing, key/mouse forwarding, gameplay automatio
                        RenderOptions.BitmapScalingMode="HighQuality"/>
                 <StackPanel VerticalAlignment="Center">
                   <TextBlock Text="EveDeck" FontSize="24" FontWeight="Bold"/>
-                  <TextBlock Text="A multibox toolkit for EVE Online -- EULA-safe window layout &amp; focus management, plus intel alerts and comms integrations."
+                  <TextBlock Text="A multibox toolkit for EVE Online — EULA-safe window layout &amp; focus management, plus chat alerts and comms integrations."
                              Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="420"/>
                   <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                     <Border Background="#163527" CornerRadius="3" Padding="8,3">
@@ -2876,7 +2876,7 @@ Input broadcasting, input multiplexing, key/mouse forwarding, gameplay automatio
               <!-- What it does -->
               <TextBlock Text="What it does" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,16">
-EveDeck arranges your EVE clients into on-screen layouts and lets you switch between them with hotkeys. Frame the active client, dim idle ones, and see parked clients as live corner previews. It only moves, sizes, and focuses windows -- it never plays the game.
+EveDeck arranges your EVE clients into on-screen layouts and lets you switch between them with hotkeys. Frame the active client, dim idle ones, and see parked clients as live corner previews. It only moves, sizes, and focuses windows — it never plays the game.
               </TextBlock>
 
               <!-- A quick tour -->
@@ -2922,7 +2922,7 @@ Built by the EveDeck project using native Windows APIs (Win32 and DWM). EVE Onli
               <!-- Compliance -->
               <TextBlock Text="Fair play" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6"/>
               <TextBlock TextWrapping="Wrap" LineHeight="20" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,0,8">
-EveDeck respects EVE's one-input-to-one-client rule. It manages windows and shows passive previews only -- no input broadcasting, gameplay automation, memory reads, or code injection. See Disclaimer for details.
+EveDeck respects EVE's one-input-to-one-client rule. It manages windows and shows passive previews only — no input broadcasting, gameplay automation, memory reads, or code injection. See Disclaimer for details.
               </TextBlock>
 
               <!-- Support -->

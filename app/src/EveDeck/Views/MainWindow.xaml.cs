@@ -267,6 +267,12 @@ public partial class MainWindow : Window
 
     private void RunSetupWizard_Click(object sender, RoutedEventArgs e) => ShowSetupWizard();
 
+    // LayoutSlot is a plain model with no change notification, so edits in the slot table (size,
+    // "Renders as") would leave the minimum-size warning stale until the layout was reselected.
+    // CellEditEnding fires before the value commits, hence the deferred refresh.
+    private void SlotsGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+        => Dispatcher.BeginInvoke(_viewModel.RaiseLayoutModeDependents, System.Windows.Threading.DispatcherPriority.Background);
+
     private static readonly double[] UiScaleOptions = { 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0 };
 
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

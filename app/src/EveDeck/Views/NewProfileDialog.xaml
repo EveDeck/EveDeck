@@ -21,7 +21,7 @@
     <RadioButton x:Name="MasterPreviewRadio" GroupName="Style" Foreground="#C9D6E8" Margin="0,8,0,0" IsChecked="True">
       <StackPanel>
         <TextBlock Text="Master + previews (two monitors)" Foreground="#C9D6E8" FontWeight="SemiBold"/>
-        <TextBlock Text="One seat fills the monitor you play on; the rest tile as preview thumbnails on a second screen (a tablet, a side monitor). Click a preview or press its hotkey to swap that seat into the master rect."
+        <TextBlock Text="One seat fills the monitor you play on; the rest tile as previews on a second screen (a tablet, a side monitor). Click a preview or press its hotkey to swap that seat into the master rect."
                    Foreground="#8CA0B8" FontSize="11" TextWrapping="Wrap" MaxWidth="380" Margin="0,2,0,0"/>
       </StackPanel>
     </RadioButton>
