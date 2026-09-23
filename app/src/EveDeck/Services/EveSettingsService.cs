@@ -132,10 +132,16 @@ public sealed class EveSettingsService
         {
             if (File.Exists(targetPath))
             {
-                var backupPath = Path.Combine(
+                // Second-resolution stamp, so two syncs onto the same alt inside one second would
+                // collide -- and overwrite:false would then throw and abort the copy. Suffix instead;
+                // never overwrite an existing backup, it may be the only good copy left.
+                var stem = Path.Combine(
                     Path.GetDirectoryName(targetPath)!,
                     Path.GetFileNameWithoutExtension(targetPath)
-                        + $"_evedeck_backup_{DateTime.Now:yyyyMMdd_HHmmss}.dat");
+                        + $"_evedeck_backup_{DateTime.Now:yyyyMMdd_HHmmss}");
+                var backupPath = stem + ".dat";
+                for (var n = 2; File.Exists(backupPath); n++)
+                    backupPath = $"{stem}_{n}.dat";
                 File.Copy(targetPath, backupPath, overwrite: false);
             }
             File.Copy(sourcePath, targetPath, overwrite: true);
