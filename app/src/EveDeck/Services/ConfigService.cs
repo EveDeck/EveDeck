@@ -301,6 +301,15 @@ public sealed class ConfigService
             settings.CornerOverlayLabelFontFamily = "Michroma";
         if (string.Equals(settings.CornerOverlayLabelFontFamilyMaster, "Acens", StringComparison.OrdinalIgnoreCase))
             settings.CornerOverlayLabelFontFamilyMaster = "Michroma";
+        // Per-seat overrides (SlotAssignment.LabelFontFamily*) carry the same stale name when a user
+        // picked Acens explicitly for a seat; null means "inherit" and is left alone.
+        foreach (var assignment in settings.Assignments)
+        {
+            if (string.Equals(assignment.LabelFontFamily, "Acens", StringComparison.OrdinalIgnoreCase))
+                assignment.LabelFontFamily = "Michroma";
+            if (string.Equals(assignment.LabelFontFamilyMaster, "Acens", StringComparison.OrdinalIgnoreCase))
+                assignment.LabelFontFamilyMaster = "Michroma";
+        }
 
         // Add newly-introduced default game-event rules for existing users whose GameEventRules
         // predates them (matched by Name, not Pattern -- a user may have edited a default rule's
