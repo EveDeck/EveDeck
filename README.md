@@ -9,7 +9,7 @@
 **A multibox toolkit for EVE Online — EULA-safe window layout &amp; focus management, plus
 situational-awareness alerts and a comms integration.**<br />
 Live client previews, hotkey focus switching, resolution-independent layout profiles,
-jump-distance intel alerts, and a Mumble comms bridge — all from a single
+combat &amp; seat-health alerts, and a Mumble comms bridge — all from a single
 self-contained Windows app.
 
 [![Download latest](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fevedeck.space%2Fapi%2Fversion&query=%24.version&prefix=v&label=Download&color=2563eb&style=for-the-badge)](https://github.com/EveDeck/EveDeck/releases/latest)
@@ -76,8 +76,8 @@ Gated mode fires keys only while EVE is the active app.
 
 🖥️ **Desktop &amp; system** — borderless toggling, active-window frame glow, focus-aware
 always-on-top pins (only topmost while EVE is foreground), tray mode, auto-apply on client
-launch, one-click in-app auto-update (silent installer upgrade or self-updating portable
-build), an overlay allow-list that keeps chosen companion apps like Mumble/Discord above
+launch, an in-app update notice that opens the download page (the Microsoft
+Store build updates itself), an overlay allow-list that keeps chosen companion apps like Mumble/Discord above
 the corner overlays, rolling settings backups, per-profile taskbar avoidance, and background
 CPU throttling for inactive clients. EveDeck's own footprint stays tiny throughout — typically
 0–5% CPU and 150–500MB RAM even while managing five live clients.
@@ -164,8 +164,9 @@ Pick a family, set a resolution and account count, and EveDeck does the math.
 
 ## Up and running in minutes
 
-**01 · Download &amp; run** — grab the [latest release](https://github.com/EveDeck/EveDeck/releases/latest),
-unzip, and run `EveDeck.exe`. No installer, no .NET runtime — everything is bundled.
+**01 · Download &amp; run** — grab the [latest release](https://github.com/EveDeck/EveDeck/releases/latest) —
+the installer, the portable zip (unzip and run `EveDeck.exe`), or the Microsoft Store. No .NET
+runtime needed — everything is bundled.
 
 **02 · Complete the wizard** — it detects your clients, links your characters via ESI
 OAuth, and picks a layout preset. Under two minutes, start to finish.
