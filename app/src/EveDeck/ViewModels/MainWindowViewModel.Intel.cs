@@ -16,9 +16,8 @@ using Application = System.Windows.Application;
 namespace EveDeck.ViewModels;
 
 // Intel overlay: an in-app feed of the EVE intel channels this PC's chatlogs already carry, parsed
-// in-process by Services\Intel (a C# port of the standalone EveDeck Intel daemon's pipeline). The
-// standalone daemon and its Android app are unaffected and remain the option for reading intel on a
-// second device; this exists so an EveDeck user does not need a second process to see the same feed.
+// in-process by Services\Intel. The parser and LAN page were originally ported from the former
+// standalone EveDeck Intel service; EveDeck now owns both the overlay and tablet/phone LAN page.
 public sealed partial class MainWindowViewModel
 {
     private static readonly TimeSpan IntelToastCooldown = TimeSpan.FromSeconds(45);
@@ -280,9 +279,8 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// Serves the daemon's endpoints from EveDeck so the tablet app and browser UI can point here
-    /// instead of a second process. Opt-in: it opens an unauthenticated LAN socket, same as the
-    /// daemon.
+    /// Serves the EveDeck Intel LAN page from EveDeck so a tablet or phone browser can point here.
+    /// Opt-in: it opens a LAN socket.
     /// </summary>
     public bool IntelServerEnabled
     {

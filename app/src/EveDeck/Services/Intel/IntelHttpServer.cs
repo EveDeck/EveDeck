@@ -10,8 +10,8 @@ using EveDeck.Services.Intel.Wire;
 namespace EveDeck.Services.Intel;
 
 /// <summary>
-/// Serves the same endpoints as the standalone EveDeck Intel daemon, so the existing Android app and
-/// browser UI can talk to EveDeck without knowing which one is running:
+/// Serves the LAN web page and the same endpoint shapes originally used by the former EveDeck Intel
+/// daemon, so the browser UI can talk to EveDeck without knowing which implementation serves it:
 /// <c>/</c>, <c>/manifest.webmanifest</c>, <c>/icon-256.png</c>, <c>/universe.json</c>,
 /// <c>/img/{category}/{id}/{variant}</c> and the <c>/intel</c> WebSocket.
 ///
@@ -29,7 +29,7 @@ public sealed class IntelHttpServer : IAsyncDisposable
     private const string WebSocketGuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(15);
 
-    // Web assets copied from EveDeck-Intel daemon/src/main/resources at commit
+    // Web assets originally copied from EveDeck-Intel daemon/src/main/resources at commit
     // e80f593a95a4ff4519c7e945479452536a6d448e.
     private const string WebResourcePrefix = "EveDeck.Resources.IntelWeb.";
     private const string UniverseResource = "EveDeck.Resources.universe.json";
@@ -91,8 +91,8 @@ public sealed class IntelHttpServer : IAsyncDisposable
 
     /// <summary>
     /// Binds the port. Returns false with a reason rather than throwing when the port is taken, which
-    /// is the normal case when the standalone daemon is already running — that is a condition to
-    /// report, not a crash.
+    /// usually means another process already owns the LAN page port -- that is a condition to report,
+    /// not a crash.
     /// </summary>
     public bool TryStart(out string? error)
     {
@@ -111,7 +111,7 @@ public sealed class IntelHttpServer : IAsyncDisposable
         catch (SocketException ex)
         {
             error = ex.SocketErrorCode == SocketError.AddressAlreadyInUse
-                ? $"Port {_port} is already in use — EveDeck Intel (the standalone daemon) is probably already running. Stop it, or give EveDeck a different port."
+                ? $"Port {_port} is already in use. Close the app using that port, or give EveDeck Intel a different port."
                 : $"Could not open port {_port}: {ex.Message}";
             _listener = null;
             return false;
@@ -295,7 +295,7 @@ public sealed class IntelHttpServer : IAsyncDisposable
         try
         {
             // Snapshot is built and sent BEFORE this session joins the broadcast list -- matching the
-            // Kotlin daemon's order (send snapshot, then subscribe to the broadcast flow). Registering
+            // Former Kotlin daemon's order (send snapshot, then subscribe to the broadcast flow). Registering
             // first and snapshotting after (the original order here) left a window where a message
             // landing in between was captured by _snapshotFactory()'s history read AND separately
             // broadcast to the now-registered session, arriving twice. Doing it in this order means a
@@ -359,7 +359,7 @@ public sealed class IntelHttpServer : IAsyncDisposable
                 break;
 
             case WireClientMessage.Follow:
-                // Accepted and ignored, exactly as the daemon does. EveDeck follows a set of
+                // Accepted and ignored, matching the original client contract. EveDeck follows a set of
                 // characters chosen on the PC and reports the nearest, so one client nominating a
                 // single character must not narrow what everyone else sees.
                 break;

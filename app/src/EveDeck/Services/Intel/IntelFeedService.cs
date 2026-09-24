@@ -29,13 +29,13 @@ public sealed record FollowedOriginStatus(
 }
 
 /// <summary>
-/// Tail → parse → dedup → range. The in-process equivalent of the standalone daemon's pipeline,
-/// minus the WebSocket: the overlay reads these events directly.
+/// Tail -> parse -> dedup -> range. The in-process EveDeck Intel pipeline, ported from the former
+/// standalone service. The overlay reads these events directly.
 /// </summary>
 public sealed class IntelFeedService : IDisposable
 {
     /// <summary>
-    /// Bounded on purpose. Both the dedup set and the history grew without limit in the daemon
+    /// Bounded on purpose. Both the dedup set and the history grew without limit in the former daemon
     /// before this was capped, which is a soak hazard over an evening's play rather than a crash.
     /// </summary>
     private const int MaxHistory = 500;
@@ -49,8 +49,8 @@ public sealed class IntelFeedService : IDisposable
     /// EVE's chat logs carry only second-precision timestamps, each stamped locally by the client that
     /// received the line. The same broadcast intel report can therefore land in two characters' logs
     /// one second apart, which gives the strict id (hashing timestamp|author|text, ported byte-for-byte
-    /// from the daemon) two different values for what is really one report. The daemon has this same
-    /// gap; it just shows up more here because this PC runs several of the followed characters at once.
+    /// from the former daemon) two different values for what is really one report. The same gap shows
+    /// up more here because this PC runs several of the followed characters at once.
     /// This near-duplicate window is a deliberate addition on top of the ported id check, not a port of
     /// anything in Intel.kt/IntelPipeline.kt.
     /// </summary>

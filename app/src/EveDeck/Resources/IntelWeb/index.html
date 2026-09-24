@@ -255,7 +255,7 @@
     <div class="view" id="view-settings" role="tabpanel" aria-labelledby="nav-settings">
       <div class="section">
         <h2>Intel channels</h2>
-        <div class="desc">Every channel the daemon can see logs for. Tick the ones carrying intel. Local is always read, for your position.</div>
+        <div class="desc">Every channel EveDeck can see logs for. Tick the ones carrying intel. Local is always read, for your position.</div>
         <div id="channel-list"></div>
       </div>
       <div class="section">
@@ -395,8 +395,8 @@
   });
 
   // =====================================================================
-  // Local (per-device) settings -- mirrors android/Settings.kt, stored in
-  // SharedPreferences there and localStorage here. Never sent to the daemon.
+  // Local (per-device) settings -- originally mirrored android/Settings.kt, stored in
+  // localStorage here. Never sent back to EveDeck.
   // =====================================================================
   var LocalSettings = (function () {
     var KEY = "eveintel.settings";
@@ -410,8 +410,8 @@
     }
     function save() {
       try { localStorage.setItem(KEY, JSON.stringify(value)); } catch (e) { console.error("settings: localStorage save failed", e); }
-      // Present only inside the Android WebView shell (see MainActivity.kt's SettingsBridge) --
-      // a plain browser tab has no such alerting counterpart to keep in sync, and window.AndroidBridge
+      // Left for compatibility with the former Android WebView shell (see MainActivity.kt's
+      // SettingsBridge) -- a plain browser tab has no such alerting counterpart to keep in sync, and window.AndroidBridge
       // simply won't exist there, so this stays a no-op everywhere else.
       if (window.AndroidBridge && window.AndroidBridge.onSettingsChanged) {
         try { window.AndroidBridge.onSettingsChanged(JSON.stringify(value)); } catch (e) { console.error("settings: native bridge sync failed", e); }
@@ -430,7 +430,7 @@
   })();
 
   // =====================================================================
-  // Daemon state
+  // LAN server state
   // =====================================================================
   var state = {
     connection: "disconnected", // disconnected | connecting | connected
@@ -679,9 +679,9 @@
     var u = state.availableUpdate;
     if (!u) { slot.innerHTML = ""; return; }
     slot.innerHTML = '<div class="update-banner">' +
-      '<div class="info"><div class="title">EveDeck Intel ' + escapeHtml(u.version) + ' is available</div>' +
+      '<div class="info"><div class="title">EveDeck Intel update ' + escapeHtml(u.version) + ' is available</div>' +
       (u.whatsNew && u.whatsNew[0] ? '<div class="note">' + escapeHtml(u.whatsNew[0]) + '</div>' : '') + '</div>' +
-      (u.apkUrl ? '<button onclick="window.open(\'' + u.apkUrl + '\',\'_blank\')">Download</button>' : '') +
+      (u.apkUrl ? '<button onclick="window.open(\'' + u.apkUrl + '\',\'_blank\')">Open link</button>' : '') +
       '<button class="dismiss" id="dismiss-update">&times;</button></div>';
     var dismissBtn = document.getElementById("dismiss-update");
     if (dismissBtn) dismissBtn.addEventListener("click", function () { state.availableUpdate = null; renderUpdateBanner(); });
@@ -695,7 +695,7 @@
       emptyEl.style.display = "flex";
       emptyEl.style.alignItems = "center"; emptyEl.style.justifyContent = "center"; emptyEl.style.height = "60vh";
       emptyEl.textContent = state.connection === "connected" ? "Waiting for intel…" :
-        state.connection === "connecting" ? "Connecting to the daemon…" : "Cannot reach the daemon";
+        state.connection === "connecting" ? "Connecting to EveDeck..." : "Cannot reach EveDeck";
     } else {
       emptyEl.style.display = "none";
     }
@@ -735,7 +735,7 @@
 
   // Best-effort in-page alert while this tab is open. Android's alert runs as a background
   // service and can notify with the app closed; a web page cannot do that without push
-  // infrastructure this LAN-only daemon doesn't have, so this only fires while the tab is open.
+  // infrastructure this LAN-only page doesn't have, so this only fires while the tab is open.
   var alertAudioCtx = null;
   function maybeAlert(message) {
     var settings = LocalSettings.get();
@@ -760,7 +760,7 @@
   // Only worth showing when the tab isn't in view -- the tone already covers the foreground
   // case, and a visible page popping a native notification on top of itself is just noise.
   // A single fixed tag means a burst of alerts replaces the previous notification instead of
-  // stacking one per message, same reasoning as the Android app's own burst-coalescing fix.
+  // stacking one per message, same reasoning as the former Android app's burst-coalescing fix.
   var notificationPermissionRequested = false;
   function maybeShowBrowserNotification(message, isClear, jumps) {
     if (!("Notification" in window) || document.visibilityState !== "hidden") return;
@@ -1004,7 +1004,7 @@
     var selected = LocalSettings.get().alertCharacters;
     var names = Object.keys(state.locations);
     if (!names.length) {
-      return '<div class="warn-text" style="color:var(--muted)">No characters seen yet. They appear once the daemon reads a Local channel.</div>';
+      return '<div class="warn-text" style="color:var(--muted)">No characters seen yet. They appear once EveDeck reads a Local channel.</div>';
     }
     var html = "";
     if (!selected.length) {
@@ -1046,7 +1046,7 @@
           (c.reserved ? "" : '<label class="switch"><input type="checkbox" ' + (selected ? "checked" : "") + ' data-toggle="' + escapeHtml(c.name) + '"><span class="track"></span></label>') +
           '</div>';
       }).join("")
-      : '<div class="desc">Connect to the daemon to see channels.</div>';
+      : '<div class="desc">Connect to EveDeck to see channels.</div>';
     list.querySelectorAll("[data-toggle]").forEach(function (box) {
       box.addEventListener("change", function () {
         var current = state.channels.selected.slice();
@@ -1121,7 +1121,7 @@
     if (activeView === "settings") renderSettings();
   }
 
-  // The Screen Wake Lock API is spec-gated to a secure context (https or localhost). This daemon
+  // The Screen Wake Lock API is spec-gated to a secure context (https or localhost). This LAN page
   // is deliberately LAN-only plain http -- "no account, no TLS, nothing leaves your network" is a
   // stated feature, not an oversight -- so navigator.wakeLock is simply absent on every real
   // deployment of this page (a tablet hitting http://192.168.x.x:31337/). keepScreenOn defaulting
@@ -1220,7 +1220,7 @@
     }
   }
 
-  // Only the header dot showed connection state before, so losing the daemon while on the Map or
+  // Only the header dot showed connection state before, so losing EveDeck while on the Map or
   // Settings tab was invisible until you happened to switch back to Intel. This banner sits above
   // every tab so a drop is never silent.
   function renderConnBanner() {
@@ -1229,7 +1229,7 @@
     if (state.connection === "connected") {
       banner.classList.remove("show");
     } else {
-      text.textContent = state.connection === "connecting" ? "Connecting to the daemon…" : "Cannot reach the daemon — retrying…";
+      text.textContent = state.connection === "connecting" ? "Connecting to EveDeck..." : "Cannot reach EveDeck - retrying...";
       banner.classList.add("show");
     }
   }
@@ -1274,7 +1274,7 @@
   // backoff lives outside connect() deliberately: it used to be declared inside, so every
   // reconnect's setTimeout(connect, backoff) call re-entered connect() and reset it to 1000
   // before the doubling ever took effect. Every retry silently happened at a flat 1s. Jitter
-  // is added on top so multiple tabs/devices reconnecting after the same daemon restart don't
+  // is added on top so multiple tabs/devices reconnecting after the same EveDeck restart don't
   // all retry in lockstep.
   var backoff = 1000;
   function connect() {
@@ -1357,7 +1357,7 @@
 
   // Same reasoning as D:\automate's pcstats panel: the Fullscreen API works over plain HTTP,
   // where Chrome's "Add to Home Screen" won't produce a real chromeless window since that needs
-  // a secure origin and this daemon is deliberately LAN-only http. Fullscreen + navigationUI:
+  // a secure origin and this page is deliberately LAN-only http. Fullscreen + navigationUI:
   // 'hide' is the one reliable way to get a borderless panel here.
   function toggleFullscreen() {
     var el = document.documentElement;

@@ -4,8 +4,8 @@ using System.Text.Json.Serialization;
 namespace EveDeck.Services.Intel.Wire;
 
 // The on-the-wire JSON contract of EveDeck Intel's WebSocket, ported field-for-field from
-// EveDeck-Intel shared/wire/Protocol.kt and shared/model/Intel.kt so the existing Android app and
-// web UI can talk to EveDeck without knowing which implementation is serving them.
+// EveDeck-Intel shared/wire/Protocol.kt and shared/model/Intel.kt so the LAN web UI can talk to
+// EveDeck without knowing which implementation is serving it.
 //
 // Every name here is load-bearing. Kotlin serialises with classDiscriminator = "type",
 // encodeDefaults = true and SCREAMING_SNAKE enum names; a single renamed field or enum value
