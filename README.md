@@ -111,8 +111,9 @@ in known space keeps the range useful while the rest fly elsewhere (abyssal spac
 stargate route, so a character there is left out and the overlay says so). Pilot names link
 to zKillboard, and an optional toast fires when a hostile report lands within a set number
 of jumps. The overlay is on top only while an EVE client is focused. An optional LAN page
-serves the same feed to a tablet or phone browser. It is off by default and has no password
-yet, so only turn it on for a network you trust.
+serves the same feed to a tablet or phone browser. It is off by default, and by default it asks
+for an EVE login (through intel.evedeck.space) with one of your ESI-linked characters. The feed
+itself stays on your LAN; only the login goes through the site.
 
 🔔 **Launch Groups &amp; Chat Alerts** — save multiple named character rosters (Character
 Sets) and launch a whole fleet with staggered EVE Launcher clicks; Chat Alerts watches your
