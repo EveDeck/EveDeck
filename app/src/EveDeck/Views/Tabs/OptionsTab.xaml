@@ -496,12 +496,18 @@ Filters only hide rows from the overlay and LAN page. The feed still dedups, tra
                             <CheckBox Content="Feed the EveDeck Intel tablet app and web UI from this PC" FontSize="12"
                                       IsChecked="{Binding IntelServerEnabled}" Margin="0,0,0,2"/>
                             <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="20,0,0,8" MaxWidth="600">
-Serves the intel feed as a web page on your LAN, so a tablet or phone browser can show it. Works with the overlay turned off. Open http://&lt;this-pc&gt;:31337/ on the device. Same port as the daemon (31337) -- if the daemon is already running, leave this off, or stop the daemon first. No login, no encryption: anyone on your LAN can connect, same as the daemon.
+Serves the intel feed as a web page on your LAN, so a tablet or phone browser can show it. Works with the overlay turned off. Open http://&lt;this-pc&gt;:31337/ on the device. Same port as the daemon (31337) -- if the daemon is already running, leave this off, or stop the daemon first. The feed stays on your LAN; login only proves an allowed EVE character via intel.evedeck.space.
                             </TextBlock>
                             <StackPanel Orientation="Horizontal" Margin="20,0,0,6" IsEnabled="{Binding IntelServerEnabled}">
                               <TextBlock Text="Port" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,0,8,0"/>
                               <TextBox Text="{Binding IntelServerPort, UpdateSourceTrigger=PropertyChanged}" Width="70" VerticalAlignment="Center"/>
                             </StackPanel>
+                            <CheckBox Content="Require EVE login (via intel.evedeck.space)"
+                                      IsChecked="{Binding IntelServerRequireLogin}" FontSize="12"
+                                      IsEnabled="{Binding IntelServerEnabled}" Margin="20,0,0,2"/>
+                            <TextBlock TextWrapping="Wrap" LineHeight="18" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="40,0,0,8" MaxWidth="580">
+Only login goes through intel.evedeck.space. The tablet still connects directly to this PC on your LAN, and EveDeck verifies the signed login token offline.
+                            </TextBlock>
                             <TextBlock Text="{Binding IntelServerStatus}" Foreground="{StaticResource MutedBrush}" FontSize="11"
                                        TextWrapping="Wrap" Margin="20,0,0,0" MaxWidth="600"/>
                           </StackPanel>

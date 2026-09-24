@@ -202,10 +202,30 @@
   #nav button { flex: 1; background: none; border: none; color: var(--muted); padding: 10px 0 8px 0; font-size: 11px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px; }
   #nav button.active { color: var(--accent); }
   #nav button svg { width: 22px; height: 22px; fill: currentColor; }
+
+  #auth-panel {
+    position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center;
+    background: var(--background); padding: 24px; text-align: center;
+  }
+  #auth-panel.show { display: flex; }
+  #auth-panel h1 { margin: 0 0 10px 0; font-size: 22px; }
+  #auth-panel p { margin: 0 0 18px 0; color: var(--muted); line-height: 1.45; max-width: 420px; }
+  #auth-panel button {
+    border: 0; border-radius: 5px; background: var(--accent); color: #061018;
+    font: inherit; font-weight: 700; padding: 10px 16px; cursor: pointer;
+  }
 </style>
 </head>
 <body>
 <div id="app">
+  <div id="auth-panel">
+    <div>
+      <h1>Sign in with EVE</h1>
+      <p id="auth-message">EveDeck needs an EVE login before showing this LAN feed.</p>
+      <button id="auth-button" type="button">Sign in with EVE</button>
+    </div>
+  </div>
+
   <div id="header">
     <div class="dot" id="dot"></div>
     <div class="title">INTEL</div>
@@ -300,6 +320,79 @@
 <script>
 (function () {
   "use strict";
+
+  var TOKEN_KEY = "edIntelToken";
+  var REDIRECT_KEY = "edIntelLastAuthRedirect";
+  var AUTH_URL = "https://intel.evedeck.space/auth";
+  var intelToken = "";
+
+  function returnUrl() { return location.origin + location.pathname; }
+
+  function extractTokenFromHash() {
+    var hash = location.hash || "";
+    if (hash.indexOf("#token=") !== 0) return;
+    var token = hash.slice(7);
+    if (!token) return;
+    try { localStorage.setItem(TOKEN_KEY, token); } catch (e) { console.error("auth: token save failed", e); }
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+
+  function showAuth(message) {
+    document.getElementById("auth-message").textContent = message || "EveDeck needs an EVE login before showing this LAN feed.";
+    document.getElementById("auth-panel").classList.add("show");
+  }
+
+  function hideAuth() {
+    document.getElementById("auth-panel").classList.remove("show");
+  }
+
+  function beginLogin(message, automatic) {
+    try { localStorage.removeItem(TOKEN_KEY); } catch (e) { console.error("auth: token clear failed", e); }
+    intelToken = "";
+
+    var now = Date.now();
+    var last = Number(localStorage.getItem(REDIRECT_KEY) || "0");
+    if (automatic && now - last < 60000) {
+      showAuth(message || "EVE login is required. Automatic sign-in paused to avoid a redirect loop.");
+      return;
+    }
+
+    try { localStorage.setItem(REDIRECT_KEY, String(now)); } catch (e) { console.error("auth: redirect marker save failed", e); }
+    location.href = AUTH_URL + "?return=" + encodeURIComponent(returnUrl());
+  }
+
+  function initializeAuth() {
+    extractTokenFromHash();
+    try { intelToken = localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { intelToken = ""; }
+    hideAuth();
+    return true;
+  }
+
+  function withToken(url) {
+    if (!intelToken) return url;
+    return url + (url.indexOf("?") >= 0 ? "&" : "?") + "token=" + encodeURIComponent(intelToken);
+  }
+
+  function fetchWithAuth(url) {
+    var headers = intelToken ? { Authorization: "Bearer " + intelToken } : {};
+    return fetch(withToken(url), {
+      headers: headers,
+      cache: "no-store",
+    }).then(function (r) {
+      if (r.status === 401) {
+        return r.text().then(function (text) {
+          beginLogin(text || "Your EVE login expired or was rejected.", true);
+          throw new Error("unauthorized");
+        });
+      }
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r;
+    });
+  }
+
+  document.getElementById("auth-button").addEventListener("click", function () {
+    beginLogin("EVE login is required before this LAN feed can load.", false);
+  });
 
   // =====================================================================
   // Local (per-device) settings -- mirrors android/Settings.kt, stored in
@@ -419,7 +512,7 @@
     if (s < 3600) return Math.floor(s / 60) + "m";
     return Math.floor(s / 3600) + "h";
   }
-  function imgUrl(category, id, variant, size) { return "/img/" + category + "/" + id + "/" + variant + "?size=" + (size || 64); }
+  function imgUrl(category, id, variant, size) { return withToken("/img/" + category + "/" + id + "/" + variant + "?size=" + (size || 64)); }
   function parsedTextColor() { return /^#[0-9A-Fa-f]{6}$/.test(state.display.textColor || "") ? state.display.textColor : "#D7E1EC"; }
   function hexToRgb(hex) {
     var m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || "");
@@ -454,7 +547,7 @@
   // Universe + jump distance (BFS mirrors Universe.distancesFrom)
   // =====================================================================
   function loadUniverse() {
-    fetch("/universe.json").then(function (r) { return r.json(); }).then(function (dto) {
+    fetchWithAuth("/universe.json").then(function (r) { return r.json(); }).then(function (dto) {
       dto.regions.forEach(function (r) { universe.regionNames[r.i] = r.n; });
       dto.systems.forEach(function (s) {
         universe.systemsById[s.i] = { id: s.i, name: s.n, regionId: s.r, regionName: universe.regionNames[s.r] || "Unknown", security: s.s, x: s.x, y: s.y, z: s.z };
@@ -1186,7 +1279,7 @@
   var backoff = 1000;
   function connect() {
     var proto = location.protocol === "https:" ? "wss:" : "ws:";
-    var ws = new WebSocket(proto + "//" + location.host + "/intel");
+    var ws = new WebSocket(proto + "//" + location.host + withToken("/intel"));
     state.connection = "connecting"; renderHeader();
 
     sendClientMessage = function (msg) { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); };
@@ -1282,9 +1375,11 @@
 
   renderClock();
   mapView.resize();
-  loadUniverse();
-  applyWakeLock();
-  connect();
+  if (initializeAuth()) {
+    loadUniverse();
+    applyWakeLock();
+    connect();
+  }
 })();
 </script>
 </body>

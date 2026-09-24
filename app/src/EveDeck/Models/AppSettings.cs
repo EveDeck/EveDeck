@@ -114,12 +114,12 @@ public sealed class AppSettings
 
     // Serve the same endpoints as the standalone EveDeck Intel daemon, so the Android app and the
     // browser UI can point at EveDeck instead of running a second process. Off by default: this opens
-    // a LAN listening socket with no auth and no TLS (identical to the daemon, and the same rule
-    // applies -- do not port-forward it), so it is opt-in rather than something a user gets unaware.
+    // a LAN listening socket, so it is opt-in rather than something a user gets unaware.
     // 31337 is the daemon's own port, so existing clients need no reconfiguration; it clashes with a
     // running daemon by design, and EveDeck reports that rather than failing quietly.
     public bool IntelServerEnabled { get; set; }
     public int IntelServerPort { get; set; } = 31337;
+    public bool IntelServerRequireLogin { get; set; } = true;
 
     // Corner overlay mode: all clients run at master resolution; corners show DWM thumbnails.
     // On by default — this is the primary grid experience. Profiles that can't form a grid

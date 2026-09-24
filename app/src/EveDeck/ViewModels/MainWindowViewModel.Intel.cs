@@ -324,6 +324,22 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    public bool IntelServerRequireLogin
+    {
+        get => _settings.IntelServerRequireLogin;
+        set
+        {
+            if (_settings.IntelServerRequireLogin == value) return;
+            _settings.IntelServerRequireLogin = value;
+            OnPropertyChanged();
+            Save();
+
+            if (!_settings.IntelServerEnabled) return;
+            StopIntelServer();
+            StartIntelServer();
+        }
+    }
+
     private string _intelServerStatus = "Not running.";
 
     /// <summary>What the server is actually doing, shown in Options so a port clash is never silent.</summary>
@@ -357,6 +373,8 @@ public sealed partial class MainWindowViewModel
             _settings.IntelServerPort,
             cacheFolder,
             BuildIntelSnapshot,
+            _settings.IntelServerRequireLogin,
+            AllowedIntelLoginCharacterIds,
             OnClientSetChannels,
             OnClientSetDisplay,
             msg => Log.Info(msg));
@@ -370,11 +388,31 @@ public sealed partial class MainWindowViewModel
         }
 
         _intelServer = server;
-        IntelServerStatus = $"Listening on port {_settings.IntelServerPort}. Open http://<this-pc>:{_settings.IntelServerPort}/ on your tablet or phone.";
+        var loginStatus = _settings.IntelServerRequireLogin && AllowedIntelLoginCharacterIds().Count == 0
+            ? " No ESI-linked characters -- link one in EveDeck first."
+            : "";
+        IntelServerStatus = $"Listening on port {_settings.IntelServerPort}. Open http://<this-pc>:{_settings.IntelServerPort}/ on your tablet or phone.{loginStatus}";
 
         PortraitCacheService.Instance.Changed += OnPortraitCacheChangedForIntel;
         PublishIntelCharacters(IntelHistoryPlayers());
     }
+
+    // Called from the server's network threads, but Assignments is a UI-thread collection: read it
+    // there, or a seat edit mid-enumeration throws (the LogService cross-thread bug's shape).
+    private IReadOnlySet<long> AllowedIntelLoginCharacterIds()
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        return dispatcher is null || dispatcher.CheckAccess()
+            ? ReadAllowedIntelLoginCharacterIds()
+            : dispatcher.Invoke(ReadAllowedIntelLoginCharacterIds);
+    }
+
+    private IReadOnlySet<long> ReadAllowedIntelLoginCharacterIds() =>
+        Assignments
+            .SelectMany(a => a.EsiCharacters)
+            .Select(c => c.CharacterId)
+            .Where(id => id > 0)
+            .ToHashSet();
 
     private void StopIntelServer()
     {

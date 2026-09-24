@@ -21,9 +21,8 @@ namespace EveDeck.Services.Intel;
 /// unprivileged, and the WebSocket upgrade is still handed to the framework's own framing via
 /// <see cref="WebSocket.CreateFromStream"/> rather than being implemented by hand.
 ///
-/// **No auth, no TLS** — deliberately identical to the daemon, for a LAN service carrying data
-/// already public to everyone in the channel. Do not port-forward it. If this ever needs to leave the
-/// LAN, auth has to be designed in rather than bolted on.
+/// When configured to require login, the page shell still bootstraps unauthenticated, but every data
+/// endpoint requires an EveDeck LAN token minted by intel.evedeck.space and verified locally.
 /// </summary>
 public sealed class IntelHttpServer : IAsyncDisposable
 {
@@ -51,6 +50,8 @@ public sealed class IntelHttpServer : IAsyncDisposable
     private readonly int _port;
     private readonly string _imageCacheFolder;
     private readonly Func<WireServerMessage.Snapshot> _snapshotFactory;
+    private readonly bool _requireLogin;
+    private readonly Func<IReadOnlySet<long>> _allowedCharacterIdsFactory;
     private readonly Action<IReadOnlyList<string>>? _onSetChannels;
     private readonly Action<WireDisplaySettings>? _onSetDisplay;
     private readonly Action<string> _log;
@@ -65,6 +66,8 @@ public sealed class IntelHttpServer : IAsyncDisposable
         int port,
         string imageCacheFolder,
         Func<WireServerMessage.Snapshot> snapshotFactory,
+        bool requireLogin,
+        Func<IReadOnlySet<long>> allowedCharacterIdsFactory,
         Action<IReadOnlyList<string>>? onSetChannels = null,
         Action<WireDisplaySettings>? onSetDisplay = null,
         Action<string>? log = null)
@@ -72,6 +75,8 @@ public sealed class IntelHttpServer : IAsyncDisposable
         _port = port;
         _imageCacheFolder = imageCacheFolder;
         _snapshotFactory = snapshotFactory;
+        _requireLogin = requireLogin;
+        _allowedCharacterIdsFactory = allowedCharacterIdsFactory;
         _onSetChannels = onSetChannels;
         _onSetDisplay = onSetDisplay;
         _log = log ?? (_ => { });
@@ -259,6 +264,14 @@ public sealed class IntelHttpServer : IAsyncDisposable
             return;
         }
 
+        if (!Authorize(request, out var authError))
+        {
+            _log($"Intel server rejected WebSocket client: {authError}");
+            await WriteTextStatusAsync(stream, 401, "Unauthorized", authError, token).ConfigureAwait(false);
+            client.Dispose();
+            return;
+        }
+
         var accept = Convert.ToBase64String(
             SHA1.HashData(Encoding.ASCII.GetBytes(request.WebSocketKey + WebSocketGuid)));
 
@@ -378,6 +391,7 @@ public sealed class IntelHttpServer : IAsyncDisposable
                 return;
 
             case "/universe.json":
+                if (!await RequireAuthorizedAsync(stream, request, token).ConfigureAwait(false)) return;
                 await WriteUniverseAsync(stream, token).ConfigureAwait(false);
                 return;
         }
@@ -393,6 +407,8 @@ public sealed class IntelHttpServer : IAsyncDisposable
 
     private async Task ServeImageAsync(NetworkStream stream, HttpRequest request, CancellationToken token)
     {
+        if (!await RequireAuthorizedAsync(stream, request, token).ConfigureAwait(false)) return;
+
         // /img/{category}/{id}/{variant}?size=n -- an allow-list, not an open proxy.
         var parts = request.Path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length != 4)
@@ -430,6 +446,34 @@ public sealed class IntelHttpServer : IAsyncDisposable
             _log($"Intel image proxy failed: {ex.Message}");
             await WriteStatusAsync(stream, 502, "Bad Gateway", token).ConfigureAwait(false);
         }
+    }
+
+    private async Task<bool> RequireAuthorizedAsync(NetworkStream stream, HttpRequest request, CancellationToken token)
+    {
+        if (Authorize(request, out var error)) return true;
+
+        _log($"Intel server rejected HTTP request for {request.Path}: {error}");
+        await WriteTextStatusAsync(stream, 401, "Unauthorized", error, token).ConfigureAwait(false);
+        return false;
+    }
+
+    private bool Authorize(HttpRequest request, out string error)
+    {
+        error = "";
+        if (!_requireLogin) return true;
+
+        var allowedCharacterIds = _allowedCharacterIdsFactory();
+        if (allowedCharacterIds.Count == 0)
+        {
+            error = "No ESI-linked characters -- link one in EveDeck first";
+            return false;
+        }
+
+        var token = request.QueryValue("token") ?? request.BearerToken();
+        if (IntelLanTokenVerifier.TryVerify(token, allowedCharacterIds, DateTimeOffset.UtcNow, out _)) return true;
+
+        error = "Missing, expired, or invalid EVE login";
+        return false;
     }
 
     /// <summary>
@@ -534,6 +578,21 @@ public sealed class IntelHttpServer : IAsyncDisposable
         await stream.FlushAsync(token).ConfigureAwait(false);
     }
 
+    private static async Task WriteTextStatusAsync(
+        NetworkStream stream,
+        int code,
+        string reason,
+        string body,
+        CancellationToken token)
+    {
+        var bytes = Encoding.UTF8.GetBytes(body);
+        var response =
+            $"HTTP/1.1 {code} {reason}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {bytes.Length}\r\nConnection: close\r\n\r\n";
+        await stream.WriteAsync(Encoding.ASCII.GetBytes(response), token).ConfigureAwait(false);
+        await stream.WriteAsync(bytes, token).ConfigureAwait(false);
+        await stream.FlushAsync(token).ConfigureAwait(false);
+    }
+
     /// <summary>Reads just the request line and headers; this server has no request bodies.</summary>
     private static async Task<HttpRequest?> ReadRequestAsync(NetworkStream stream, CancellationToken token)
     {
@@ -561,6 +620,7 @@ public sealed class IntelHttpServer : IAsyncDisposable
         string Method,
         string Path,
         string? Query,
+        IReadOnlyDictionary<string, string> Headers,
         bool IsWebSocketUpgrade,
         string? WebSocketKey)
     {
@@ -578,6 +638,15 @@ public sealed class IntelHttpServer : IAsyncDisposable
             return null;
         }
 
+        public string? BearerToken()
+        {
+            if (!Headers.TryGetValue("Authorization", out var authorization)) return null;
+            const string prefix = "Bearer ";
+            return authorization.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                ? authorization[prefix.Length..].Trim()
+                : null;
+        }
+
         public static HttpRequest? Parse(string head)
         {
             var lines = head.Split("\r\n");
@@ -593,6 +662,7 @@ public sealed class IntelHttpServer : IAsyncDisposable
 
             var upgrade = false;
             string? key = null;
+            var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var line in lines.Skip(1))
             {
@@ -600,6 +670,7 @@ public sealed class IntelHttpServer : IAsyncDisposable
                 if (split.Length != 2) continue;
                 var name = split[0].Trim();
                 var value = split[1].Trim();
+                headers[name] = value;
 
                 if (name.Equals("Upgrade", StringComparison.OrdinalIgnoreCase)
                     && value.Contains("websocket", StringComparison.OrdinalIgnoreCase))
@@ -612,7 +683,7 @@ public sealed class IntelHttpServer : IAsyncDisposable
                 }
             }
 
-            return new HttpRequest(requestLine[0], Uri.UnescapeDataString(path), query, upgrade, key);
+            return new HttpRequest(requestLine[0], Uri.UnescapeDataString(path), query, headers, upgrade, key);
         }
     }
 
