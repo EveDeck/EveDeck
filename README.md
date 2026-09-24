@@ -7,9 +7,9 @@
 ### Command your fleet. One window at a time.
 
 **A multibox toolkit for EVE Online — EULA-safe window layout &amp; focus management, plus
-situational-awareness alerts and a comms integration.**<br />
+situational-awareness alerts and an intel feed.**<br />
 Live client previews, hotkey focus switching, resolution-independent layout profiles,
-combat &amp; seat-health alerts, an intel feed with jump distances, and a Mumble comms bridge — all from a single
+combat &amp; seat-health alerts, and an intel feed with jump distances — all from a single
 self-contained Windows app.
 
 [![Download latest](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fevedeck.space%2Fapi%2Fversion&query=%24.version&prefix=v&label=Download&color=2563eb&style=for-the-badge)](https://github.com/EveDeck/EveDeck/releases/latest)
@@ -96,13 +96,6 @@ pill vs. the smaller corner alt pills; a zoom-style hover preview option; and an
 📋 **Profile Sync** — copy one character's EVE settings to any number of alts in a click:
 both per-character (`core_char`) and per-account (`core_user`) files, so window positions
 and UI are truly 1:1 across every client. Originals are timestamp-backed-up first.
-
-🎙️ **Comms overlay** — a small companion plugin runs inside Mumble and feeds who's-talking
-state to EveDeck over a local pipe; EveDeck draws its own themed panel with it, styled to
-match the app — no Mumble window wrangling. Drag it anywhere, lock it in place, and set its
-transparency. Read-only: the plugin only ever reports names and talking state, never audio
-or messages. One-click install from the Comms tab, then enable it once inside Mumble
-(Configure → Plugins → "EveDeck Talker Bridge").
 
 📡 **Intel feed** — reads your intel channels from the chatlogs EVE already writes and shows
 the latest reports on a small overlay with the jump distance to each. Distance is measured
