@@ -78,6 +78,10 @@ public sealed class AppSettings
     // character locations and is not an intel channel.
     public ObservableCollection<string> IntelChannels { get; set; } = new();
 
+    // Channels still tailed and ranged, but hidden from display surfaces. Empty means every watched
+    // channel is shown.
+    public ObservableCollection<string> IntelHiddenChannels { get; set; } = new();
+
     // Characters whose position anchors jump distance. Several at once is the normal case -- a pilot
     // running multiple clients wants "how far from ANY of mine", so range is reported from the
     // nearest. A character in abyssal space has no position in the stargate graph and is excluded
@@ -99,6 +103,14 @@ public sealed class AppSettings
     // Raise a toast when hostile intel lands this many jumps or fewer from a followed character.
     // Zero means the reported system itself only; -1 disables the toast and leaves the panel alone.
     public int IntelHostileToastJumps { get; set; } = 3;
+
+    public int IntelFilterMaxJumps { get; set; }
+    public bool IntelFilterHideUnknownRange { get; set; }
+    public bool IntelFilterHideClearStatus { get; set; }
+    public int IntelFilterMaxAgeMinutes { get; set; }
+    public bool IntelAlertSoundEnabled { get; set; }
+    public string IntelAlertSoundName { get; set; } = "Exclamation";
+    public DateTimeOffset? IntelAlertsMutedUntil { get; set; }
 
     // Serve the same endpoints as the standalone EveDeck Intel daemon, so the Android app and the
     // browser UI can point at EveDeck instead of running a second process. Off by default: this opens

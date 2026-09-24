@@ -10,7 +10,9 @@ using EveDeck.Utilities;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
+using ContextMenu = System.Windows.Controls.ContextMenu;
 using Image = System.Windows.Controls.Image;
+using MenuItem = System.Windows.Controls.MenuItem;
 using Orientation = System.Windows.Controls.Orientation;
 
 namespace EveDeck.Views;
@@ -39,6 +41,9 @@ internal sealed class IntelOverlayWindow : Window
     private readonly TextBlock _dragHint;
     private readonly double _fontSize;
     private readonly Action<int, int>? _onMoved;
+    private readonly Action<TimeSpan?>? _muteAlerts;
+    private readonly Action? _unmuteAlerts;
+    private readonly Func<bool>? _alertsMuted;
     private bool _locked;
 
     // Portraits and ship icons download asynchronously and land after a row has already been drawn
@@ -48,6 +53,7 @@ internal sealed class IntelOverlayWindow : Window
     private IReadOnlyList<IntelFeedEntry> _lastEntries = [];
     private FollowedOriginStatus _lastOrigins = new([], []);
     private int _lastMaxRows;
+    private string? _lastAlertStatus;
 
     public IntelOverlayWindow(
         int savedX,
@@ -55,10 +61,16 @@ internal sealed class IntelOverlayWindow : Window
         bool locked,
         double fontSize,
         double opacity,
-        Action<int, int>? onMoved = null)
+        Action<int, int>? onMoved = null,
+        Action<TimeSpan?>? muteAlerts = null,
+        Action? unmuteAlerts = null,
+        Func<bool>? alertsMuted = null)
     {
         _fontSize = fontSize;
         _onMoved = onMoved;
+        _muteAlerts = muteAlerts;
+        _unmuteAlerts = unmuteAlerts;
+        _alertsMuted = alertsMuted;
         _locked = locked;
 
         WindowStyle = WindowStyle.None;
@@ -114,6 +126,11 @@ internal sealed class IntelOverlayWindow : Window
             Child = content,
         };
         root.MouseLeftButtonDown += OnRootMouseLeftButtonDown;
+        var menu = new ContextMenu();
+        root.ContextMenu = menu;
+        // Filled before it opens, not in Opened: a menu with no items may never open at all.
+        root.ContextMenuOpening += (_, _) => PopulateContextMenu(menu);
+        PopulateContextMenu(menu);
 
         Content = root;
         ApplyLock(locked);
@@ -140,7 +157,31 @@ internal sealed class IntelOverlayWindow : Window
             Win32Native.SwpNoMove | Win32Native.SwpNoSize | Win32Native.SwpNoActivate);
     }
 
-    private void OnImageCacheChanged() => Update(_lastEntries, _lastOrigins, _lastMaxRows);
+    private void OnImageCacheChanged() => Update(_lastEntries, _lastOrigins, _lastMaxRows, _lastAlertStatus);
+
+    private void PopulateContextMenu(ContextMenu menu)
+    {
+        menu.Items.Clear();
+        if (_alertsMuted?.Invoke() == true)
+        {
+            var unmute = new MenuItem { Header = "Unmute" };
+            unmute.Click += (_, _) => _unmuteAlerts?.Invoke();
+            menu.Items.Add(unmute);
+            return;
+        }
+
+        AddMuteItem(menu, "Mute 15 min", TimeSpan.FromMinutes(15));
+        AddMuteItem(menu, "Mute 30 min", TimeSpan.FromMinutes(30));
+        AddMuteItem(menu, "Mute 1 hour", TimeSpan.FromHours(1));
+        AddMuteItem(menu, "Mute until turned back on", null);
+    }
+
+    private void AddMuteItem(ContextMenu menu, string header, TimeSpan? duration)
+    {
+        var item = new MenuItem { Header = header };
+        item.Click += (_, _) => _muteAlerts?.Invoke(duration);
+        menu.Items.Add(item);
+    }
 
     /// <summary>
     /// Locked only stops the card being dragged; it stays hit-testable so pilot links keep working.
@@ -188,13 +229,14 @@ internal sealed class IntelOverlayWindow : Window
     /// Renders the newest entries, oldest first so the freshest line sits at the bottom nearest the
     /// eye, and states what the range is measured from.
     /// </summary>
-    public void Update(IReadOnlyList<IntelFeedEntry> entries, FollowedOriginStatus origins, int maxRows)
+    public void Update(IReadOnlyList<IntelFeedEntry> entries, FollowedOriginStatus origins, int maxRows, string? alertStatus)
     {
         _lastEntries = entries;
         _lastOrigins = origins;
         _lastMaxRows = maxRows;
+        _lastAlertStatus = alertStatus;
 
-        _status.Text = DescribeOrigins(origins);
+        _status.Text = DescribeStatus(origins, alertStatus);
         _status.Foreground = origins.AnyUsable ? MutedBrush : HostileBrush;
 
         _rows.Children.Clear();
@@ -212,6 +254,12 @@ internal sealed class IntelOverlayWindow : Window
             });
         }
 
+    }
+
+    private static string DescribeStatus(FollowedOriginStatus origins, string? alertStatus)
+    {
+        var originText = DescribeOrigins(origins);
+        return string.IsNullOrWhiteSpace(alertStatus) ? originText : $"{originText} · {alertStatus}";
     }
 
     /// <summary>

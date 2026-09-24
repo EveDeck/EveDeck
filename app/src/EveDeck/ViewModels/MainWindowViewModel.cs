@@ -1188,6 +1188,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _autoApplyTimer.Stop();
         _launchGroupCts?.Cancel();
         StopChatAlerts();
+        StopIntel();
         StopCornerOverlays();
         _downtimeTimer.Stop();
         HideDowntimeWindow();

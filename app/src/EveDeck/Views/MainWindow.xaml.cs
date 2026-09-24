@@ -361,9 +361,12 @@ public partial class MainWindow : Window
         contextMenu.Opening += (_, _) =>
         {
             _suspendPreviewsMenuItem.Checked = _viewModel.PreviewsSuspended;
+            RebuildIntelAlertsMenu();
             RebuildLayoutMenu();
             RebuildCharacterSetMenu();
         };
+        _intelAlertsMenu = new System.Windows.Forms.ToolStripMenuItem("Intel alerts");
+        contextMenu.Items.Add(_intelAlertsMenu);
         _configProfilesMenu = new System.Windows.Forms.ToolStripMenuItem("Config profile");
         contextMenu.Items.Add(_configProfilesMenu);
         _layoutMenu = new System.Windows.Forms.ToolStripMenuItem("Layout");
@@ -387,9 +390,32 @@ public partial class MainWindow : Window
     }
 
     private System.Windows.Forms.ToolStripMenuItem? _configProfilesMenu;
+    private System.Windows.Forms.ToolStripMenuItem? _intelAlertsMenu;
     private System.Windows.Forms.ToolStripMenuItem? _layoutMenu;
     private System.Windows.Forms.ToolStripMenuItem? _characterSetMenu;
     private System.Windows.Forms.ToolStripMenuItem? _suspendPreviewsMenuItem;
+
+    private void RebuildIntelAlertsMenu()
+    {
+        if (_intelAlertsMenu is null) return;
+        _intelAlertsMenu.DropDownItems.Clear();
+
+        if (_viewModel.IntelAlertsMuted)
+        {
+            _intelAlertsMenu.DropDownItems.Add("Unmute", null, (_, _) => Dispatcher.Invoke(_viewModel.UnmuteIntelAlerts));
+            return;
+        }
+
+        AddIntelMuteMenuItem("Mute 15 min", TimeSpan.FromMinutes(15));
+        AddIntelMuteMenuItem("Mute 30 min", TimeSpan.FromMinutes(30));
+        AddIntelMuteMenuItem("Mute 1 hour", TimeSpan.FromHours(1));
+        AddIntelMuteMenuItem("Mute until turned back on", null);
+    }
+
+    private void AddIntelMuteMenuItem(string text, TimeSpan? duration)
+    {
+        _intelAlertsMenu?.DropDownItems.Add(text, null, (_, _) => Dispatcher.Invoke(() => _viewModel.MuteIntelAlerts(duration)));
+    }
 
     // The tray is the ONLY switcher for config profiles (the Options panel creates and edits them,
     // which is a different job). Rebuilt from scratch on every change rather than diffed -- the list

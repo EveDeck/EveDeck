@@ -2,7 +2,9 @@ using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.IO;
+using System.Media;
 using System.Windows.Input;
+using System.Windows.Threading;
 using EveDeck.Models.Intel;
 using EveDeck.Services;
 using EveDeck.Services.Intel;
@@ -27,6 +29,7 @@ public sealed partial class MainWindowViewModel
     private Universe? _intelUniverse;
     private IntelOverlayWindow? _intelOverlayWindow;
     private readonly Dictionary<int, DateTimeOffset> _intelLastToastBySystem = [];
+    private readonly DispatcherTimer _intelOverlayRefreshTimer = new() { Interval = TimeSpan.FromSeconds(30) };
     private bool _intelStarting;
 
     // Pilot name -> character id for every pilot already announced to LAN clients. The web page only
@@ -38,6 +41,7 @@ public sealed partial class MainWindowViewModel
     private void InitIntel()
     {
         RefreshIntelOptionsCommand = new RelayCommand(_ => RefreshIntelOptions());
+        _intelOverlayRefreshTimer.Tick += (_, _) => RefreshIntelOverlay();
 
         // A second subscriber to the same event the chat-alert path uses. Locations come from Local,
         // which ChatLogWatcherService already tails; the intel tailer deliberately does not duplicate
@@ -48,6 +52,7 @@ public sealed partial class MainWindowViewModel
         };
 
         _settings.IntelChannels.CollectionChanged += OnIntelChannelsChanged;
+        _settings.IntelHiddenChannels.CollectionChanged += OnIntelHiddenChannelsChanged;
         _settings.IntelFollowedCharacters.CollectionChanged += OnIntelFollowedChanged;
 
         RefreshIntelOptions();
@@ -105,6 +110,113 @@ public sealed partial class MainWindowViewModel
             OnPropertyChanged();
             Save();
         }
+    }
+
+    public int IntelFilterMaxJumps
+    {
+        get => _settings.IntelFilterMaxJumps;
+        set
+        {
+            var v = Math.Clamp(value, 0, 50);
+            if (_settings.IntelFilterMaxJumps == v) return;
+            _settings.IntelFilterMaxJumps = v;
+            OnPropertyChanged();
+            Save();
+            RefreshIntelFilteredViews();
+        }
+    }
+
+    public bool IntelFilterHideUnknownRange
+    {
+        get => _settings.IntelFilterHideUnknownRange;
+        set
+        {
+            if (_settings.IntelFilterHideUnknownRange == value) return;
+            _settings.IntelFilterHideUnknownRange = value;
+            OnPropertyChanged();
+            Save();
+            RefreshIntelFilteredViews();
+        }
+    }
+
+    public bool IntelFilterHideClearStatus
+    {
+        get => _settings.IntelFilterHideClearStatus;
+        set
+        {
+            if (_settings.IntelFilterHideClearStatus == value) return;
+            _settings.IntelFilterHideClearStatus = value;
+            OnPropertyChanged();
+            Save();
+            RefreshIntelFilteredViews();
+        }
+    }
+
+    public int IntelFilterMaxAgeMinutes
+    {
+        get => _settings.IntelFilterMaxAgeMinutes;
+        set
+        {
+            var v = Math.Clamp(value, 0, 240);
+            if (_settings.IntelFilterMaxAgeMinutes == v) return;
+            _settings.IntelFilterMaxAgeMinutes = v;
+            OnPropertyChanged();
+            Save();
+            RefreshIntelFilteredViews();
+        }
+    }
+
+    public bool IntelAlertSoundEnabled
+    {
+        get => _settings.IntelAlertSoundEnabled;
+        set
+        {
+            if (_settings.IntelAlertSoundEnabled == value) return;
+            _settings.IntelAlertSoundEnabled = value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    public string IntelAlertSoundName
+    {
+        get => _settings.IntelAlertSoundName;
+        set
+        {
+            var v = string.IsNullOrWhiteSpace(value) ? "Exclamation" : value.Trim();
+            if (_settings.IntelAlertSoundName == v) return;
+            _settings.IntelAlertSoundName = v;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    public IReadOnlyList<string> IntelAlertSoundOptions { get; } =
+        ["Exclamation", "Asterisk", "Beep", "Hand", "Question"];
+
+    public bool IntelAlertsMuted => IntelAlertMute.IsMuted(_settings.IntelAlertsMutedUntil, DateTimeOffset.Now);
+
+    public DateTimeOffset? IntelAlertsMutedUntil => _settings.IntelAlertsMutedUntil;
+
+    public void MuteIntelAlerts(TimeSpan? duration)
+    {
+        _settings.IntelAlertsMutedUntil = duration is null
+            ? DateTimeOffset.MaxValue
+            : DateTimeOffset.Now.Add(duration.Value);
+        OnPropertyChanged(nameof(IntelAlertsMuted));
+        OnPropertyChanged(nameof(IntelAlertsMutedUntil));
+        Save();
+        RefreshIntelOverlay();
+    }
+
+    public void UnmuteIntelAlerts()
+    {
+        if (_settings.IntelAlertsMutedUntil is null) return;
+        _settings.IntelAlertsMutedUntil = null;
+        OnPropertyChanged(nameof(IntelAlertsMuted));
+        OnPropertyChanged(nameof(IntelAlertsMutedUntil));
+        Save();
+        RefreshIntelOverlay();
     }
 
     public double IntelOverlayFontSize
@@ -282,13 +394,14 @@ public sealed partial class MainWindowViewModel
         var feed = _intelFeed;
         var history = feed?.History ?? [];
         var discovered = IntelChannelDiscovery.Discover();
+        var now = DateTimeOffset.UtcNow;
 
         return new WireServerMessage.Snapshot
         {
-            Messages = history.Select(e => e.Message.ToWire()).ToList(),
+            Messages = FilterIntelEntries(history, now).Select(e => e.Message.ToWire()).ToList(),
             Locations = (feed?.Locations ?? []).Select(l => l.ToWire()).ToList(),
             ScopeRegionIds = feed?.ScopeRegionIds ?? [],
-            ServerTimeMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            ServerTimeMillis = now.ToUnixTimeMilliseconds(),
             Channels = new WireChannels(
                 discovered
                     .Select(c => new WireChannelInfo(c.Name, c.FileCount, c.LastActivityMillis, c.Reserved))
@@ -302,6 +415,28 @@ public sealed partial class MainWindowViewModel
                 .Select(kv => new WireCharacterInfo(kv.Key, kv.Value))
                 .ToList(),
         };
+    }
+
+    private IntelFeedFilterSettings CurrentIntelFilterSettings() => new(
+        _settings.IntelFilterMaxJumps,
+        _settings.IntelFilterHideUnknownRange,
+        _settings.IntelFilterHideClearStatus,
+        _settings.IntelFilterMaxAgeMinutes,
+        _settings.IntelHiddenChannels.ToHashSet(StringComparer.OrdinalIgnoreCase));
+
+    private IReadOnlyList<IntelFeedEntry> FilterIntelEntries(IReadOnlyList<IntelFeedEntry> entries, DateTimeOffset now)
+    {
+        var filter = CurrentIntelFilterSettings();
+        return entries.Where(e => IntelFeedFilter.ShouldShow(e, filter, now)).ToList();
+    }
+
+    private bool IntelEntryPassesFilters(IntelFeedEntry entry, DateTimeOffset now) =>
+        IntelFeedFilter.ShouldShow(entry, CurrentIntelFilterSettings(), now);
+
+    private void RefreshIntelFilteredViews()
+    {
+        RefreshIntelOverlay();
+        if (_intelServer is not null) _ = _intelServer.BroadcastAsync(BuildIntelSnapshot());
     }
 
     private IEnumerable<string> IntelHistoryPlayers() =>
@@ -401,6 +536,9 @@ public sealed partial class MainWindowViewModel
     /// <summary>Discovered channels as tickable rows, reflecting what is already saved.</summary>
     public ObservableCollection<IntelSelectableName> IntelChannelOptions { get; } = [];
 
+    /// <summary>Watched channels as visible/hidden rows; hidden channels are still tailed for range.</summary>
+    public ObservableCollection<IntelSelectableName> IntelChannelVisibilityOptions { get; } = [];
+
     /// <summary>
     /// Characters available to follow. Several can be ticked: range is reported from whichever is
     /// nearest, which is the point for a pilot flying more than one client.
@@ -416,6 +554,15 @@ public sealed partial class MainWindowViewModel
                 channel,
                 _settings.IntelChannels.Contains(channel, StringComparer.OrdinalIgnoreCase),
                 ToggleIntelChannel));
+        }
+
+        IntelChannelVisibilityOptions.Clear();
+        foreach (var channel in _settings.IntelChannels.OrderBy(c => c, StringComparer.OrdinalIgnoreCase))
+        {
+            IntelChannelVisibilityOptions.Add(new IntelSelectableName(
+                channel,
+                !_settings.IntelHiddenChannels.Contains(channel, StringComparer.OrdinalIgnoreCase),
+                ToggleIntelChannelVisibility));
         }
 
         IntelCharacterOptions.Clear();
@@ -451,6 +598,20 @@ public sealed partial class MainWindowViewModel
     private void ToggleIntelChannel(IntelSelectableName item) =>
         ToggleIntelSelection(_settings.IntelChannels, item);
 
+    private void ToggleIntelChannelVisibility(IntelSelectableName item)
+    {
+        var existing = _settings.IntelHiddenChannels.FirstOrDefault(v => string.Equals(v, item.Name, StringComparison.OrdinalIgnoreCase));
+
+        if (item.IsSelected)
+        {
+            if (existing is not null) _settings.IntelHiddenChannels.Remove(existing);
+        }
+        else if (existing is null)
+        {
+            _settings.IntelHiddenChannels.Add(item.Name);
+        }
+    }
+
     private void ToggleIntelFollowedCharacter(IntelSelectableName item) =>
         ToggleIntelSelection(_settings.IntelFollowedCharacters, item);
 
@@ -471,6 +632,14 @@ public sealed partial class MainWindowViewModel
     private void OnIntelChannelsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         _intelTailer?.SetChannels(_settings.IntelChannels);
+        RefreshIntelOptions();
+        RefreshIntelFilteredViews();
+        Save();
+    }
+
+    private void OnIntelHiddenChannelsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RefreshIntelFilteredViews();
         Save();
     }
 
@@ -579,9 +748,9 @@ public sealed partial class MainWindowViewModel
             RefreshIntelOverlay();
             MaybeToastIntel(entry);
             PublishIntelCharacters(entry.Message.Players);
+            if (IntelEntryPassesFilters(entry, DateTimeOffset.UtcNow))
+                _ = _intelServer?.BroadcastAsync(new WireServerMessage.Intel { Message = entry.Message.ToWire() });
         });
-
-        _ = _intelServer?.BroadcastAsync(new WireServerMessage.Intel { Message = entry.Message.ToWire() });
     }
 
     private void OnIntelLocationUpdated(CharacterLocation location) =>
@@ -602,11 +771,35 @@ public sealed partial class MainWindowViewModel
         var systemId = entry.Message.SystemIds.FirstOrDefault();
         var now = DateTimeOffset.UtcNow;
         if (_intelLastToastBySystem.TryGetValue(systemId, out var last) && now - last < IntelToastCooldown) return;
+        if (IntelAlertMute.IsMuted(_settings.IntelAlertsMutedUntil, DateTimeOffset.Now)) return;
         _intelLastToastBySystem[systemId] = now;
 
         var where = jumps == 0 ? "in system" : $"{jumps} jump{(jumps == 1 ? "" : "s")} out";
         var who = entry.NearestCharacter is null ? "" : $" from {entry.NearestCharacter}";
+        if (_settings.IntelAlertSoundEnabled) PlayIntelAlertSound();
         ShowToast($"Hostile intel — {where}{who}", entry.Message.Raw, "#F87171");
+    }
+
+    private void PlayIntelAlertSound()
+    {
+        switch (_settings.IntelAlertSoundName)
+        {
+            case "Asterisk":
+                SystemSounds.Asterisk.Play();
+                break;
+            case "Beep":
+                SystemSounds.Beep.Play();
+                break;
+            case "Hand":
+                SystemSounds.Hand.Play();
+                break;
+            case "Question":
+                SystemSounds.Question.Play();
+                break;
+            default:
+                SystemSounds.Exclamation.Play();
+                break;
+        }
     }
 
     private void RefreshIntelOverlay()
@@ -625,12 +818,31 @@ public sealed partial class MainWindowViewModel
                 _settings.IntelOverlayLocked,
                 _settings.IntelOverlayFontSize,
                 _settings.IntelOverlayOpacity,
-                OnIntelOverlayMoved);
+                OnIntelOverlayMoved,
+                MuteIntelAlerts,
+                UnmuteIntelAlerts,
+                () => IntelAlertMute.IsMuted(_settings.IntelAlertsMutedUntil, DateTimeOffset.Now));
             _intelOverlayWindow.Show();
             _intelOverlayWindow.SetZ(ResolveForegroundOwner() == ForegroundOwner.Eve);
         }
 
-        _intelOverlayWindow.Update(_intelFeed.History, _intelFeed.OriginStatus, _settings.IntelOverlayMaxRows);
+        if (!_intelOverlayRefreshTimer.IsEnabled) _intelOverlayRefreshTimer.Start();
+
+        _intelOverlayWindow.Update(
+            FilterIntelEntries(_intelFeed.History, DateTimeOffset.UtcNow),
+            _intelFeed.OriginStatus,
+            _settings.IntelOverlayMaxRows,
+            IntelAlertStatusText());
+    }
+
+    private string? IntelAlertStatusText()
+    {
+        var mutedUntil = _settings.IntelAlertsMutedUntil;
+        if (!IntelAlertMute.IsMuted(mutedUntil, DateTimeOffset.Now)) return null;
+        var until = mutedUntil.GetValueOrDefault();
+        return until == DateTimeOffset.MaxValue
+            ? "Alerts muted"
+            : $"Alerts muted until {until:HH:mm}";
     }
 
     private void RecreateIntelOverlay()
@@ -641,6 +853,7 @@ public sealed partial class MainWindowViewModel
 
     private void HideIntelOverlay()
     {
+        _intelOverlayRefreshTimer.Stop();
         if (_intelOverlayWindow is null) return;
         try { _intelOverlayWindow.Close(); } catch { /* window may already be gone */ }
         _intelOverlayWindow = null;
