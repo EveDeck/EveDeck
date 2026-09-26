@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -35,6 +36,7 @@ internal sealed class IntelOverlayWindow : Window
     private static readonly Brush HostileBrush = new SolidColorBrush(Color.FromRgb(0xF8, 0x71, 0x71));
     private static readonly Brush MutedBrush = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF));
     private static readonly Brush TextBrush = new SolidColorBrush(Color.FromRgb(0xE5, 0xE7, 0xEB));
+    private static readonly Brush LinkBrush = new SolidColorBrush(Color.FromRgb(0x60, 0xA5, 0xFA));
 
     private readonly StackPanel _rows;
     private readonly TextBlock _status;
@@ -342,15 +344,16 @@ internal sealed class IntelOverlayWindow : Window
         var shipIcon = shipTypeId is int id ? ShipIconCacheService.Instance.ForId(id) : null;
         AddIcon(row, shipIcon?.Image, iconSize);
 
-        row.Children.Add(new TextBlock
+        var messageBlock = new TextBlock
         {
-            Text = entry.Message.Raw,
             Foreground = entry.IsHostile ? HostileBrush : TextBrush,
             FontSize = _fontSize,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxWidth = 380,
             VerticalAlignment = VerticalAlignment.Center,
-        });
+        };
+        AddMessageInlines(messageBlock, entry.Message.Raw);
+        row.Children.Add(messageBlock);
 
         container.Children.Add(row);
 
@@ -401,6 +404,40 @@ internal sealed class IntelOverlayWindow : Window
             Margin = new Thickness(0, 0, 4, 0),
             VerticalAlignment = VerticalAlignment.Center,
         });
+    }
+
+    // http(s) only: a chat line is attacker-controlled text, and handing a file:// or custom-scheme
+    // URI to the shell would launch whatever handler it names.
+    private static readonly Regex UrlPattern = new(@"https?://[^\s<>""]+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Splits a raw intel line into plain runs and clickable links, so a pasted dscan or zkill URL
+    /// opens in the browser instead of sitting there as dead text.
+    /// </summary>
+    private static void AddMessageInlines(TextBlock block, string raw)
+    {
+        var last = 0;
+        foreach (Match match in UrlPattern.Matches(raw))
+        {
+            if (match.Index > last) block.Inlines.Add(new Run(raw[last..match.Index]));
+
+            var url = match.Value.TrimEnd('.', ',', ')', ']', '!', '?', ';', ':');
+            if (Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                var link = new Hyperlink(new Run(url)) { Foreground = LinkBrush };
+                link.Click += (_, _) => OpenUrl(uri.AbsoluteUri);
+                block.Inlines.Add(link);
+            }
+            else
+            {
+                block.Inlines.Add(new Run(url));
+            }
+
+            last = match.Index + url.Length;
+        }
+
+        if (last < raw.Length) block.Inlines.Add(new Run(raw[last..]));
     }
 
     private static void OpenUrl(string url)
