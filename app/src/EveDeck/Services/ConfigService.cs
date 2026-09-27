@@ -96,6 +96,8 @@ public sealed class ConfigService
         return settings;
     }
 
+    private bool _restoredForRestart;
+
     // Returns true when settings were actually written to disk, false when the write was skipped
     // because nothing changed since the last write -- lets callers avoid logging a misleading
     // "saved" line (and doing other post-save work) for a no-op.
@@ -103,6 +105,7 @@ public sealed class ConfigService
     {
         lock (_saveLock)
         {
+            if (_restoredForRestart) return false;
             // Serialize into a buffer we own and reuse. A live settings.json runs ~250KB, which is
             // well past the 85KB Large Object Heap threshold, and Save() is called far more often
             // than settings change -- so the previous `JsonSerializer.Serialize` to a string put a
@@ -192,22 +195,23 @@ public sealed class ConfigService
         if (!IsFileHealthy(backupPath))
             throw new InvalidOperationException("The selected backup file appears to be corrupt and cannot be restored.");
 
-        // Stage then atomically swap, the same way Save() does. A plain File.Copy over ConfigPath is
-        // not atomic: interrupted partway (crash, power loss) it leaves settings.json truncated, and
-        // it does so during the one operation the user reached for *because* something was already
-        // wrong -- turning a recoverable problem into a lost config.
-        Directory.CreateDirectory(AppDataFolder);
-        var tmp = ConfigPath + ".restore.tmp";
-        File.Copy(backupPath, tmp, overwrite: true);
-        if (File.Exists(ConfigPath))
-            File.Replace(tmp, ConfigPath, destinationBackupFileName: null);
-        else
-            File.Move(tmp, ConfigPath);
+        lock (_saveLock)
+        {
+            // Stage then atomically swap, the same way Save() does. A plain File.Copy over ConfigPath is
+            // not atomic: interrupted partway (crash, power loss) it leaves settings.json truncated, and
+            // it does so during the one operation the user reached for *because* something was already
+            // wrong -- turning a recoverable problem into a lost config.
+            Directory.CreateDirectory(AppDataFolder);
+            var tmp = ConfigPath + ".restore.tmp";
+            File.Copy(backupPath, tmp, overwrite: true);
+            if (File.Exists(ConfigPath))
+                File.Replace(tmp, ConfigPath, destinationBackupFileName: null);
+            else
+                File.Move(tmp, ConfigPath);
 
-        // The file on disk no longer matches what Save() last wrote, so drop the skip-write hash;
-        // otherwise an unchanged in-memory AppSettings would suppress the next save and let the
-        // restored file be silently re-overwritten (or, worse, leave the two permanently disagreeing).
-        lock (_saveLock) _lastWrittenHash = null;
+            // Shutdown must not overwrite the restored file with the old in-memory settings.
+            _restoredForRestart = true;
+        }
     }
 
     // Keep 5 backups from today + 1 per prior day for 7 days (roughly 12 total).

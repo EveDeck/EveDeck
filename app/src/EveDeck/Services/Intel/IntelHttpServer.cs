@@ -294,16 +294,11 @@ public sealed class IntelHttpServer : IAsyncDisposable
 
         try
         {
-            // Snapshot is built and sent BEFORE this session joins the broadcast list -- matching the
-            // Former Kotlin daemon's order (send snapshot, then subscribe to the broadcast flow). Registering
-            // first and snapshotting after (the original order here) left a window where a message
-            // landing in between was captured by _snapshotFactory()'s history read AND separately
-            // broadcast to the now-registered session, arriving twice. Doing it in this order means a
-            // message in that same window is picked up by at most one of the two paths, never both.
-            var snapshot = Encoding.UTF8.GetBytes(WireProtocol.Serialize(_snapshotFactory()));
-            await session.TrySendAsync(snapshot).ConfigureAwait(false);
-
-            lock (_gate) _sessions.Add(session);
+            // Subscribe before capturing state, holding the send lock until the snapshot is sent.
+            // Broadcasts during capture queue behind it. Intel already present in the snapshot is
+            // deduplicated by message id by the browser's addMessage handler.
+            await session.SendInitialSnapshotAsync(
+                () => { lock (_gate) _sessions.Add(session); }, _snapshotFactory).ConfigureAwait(false);
             _log($"Intel client connected ({ClientCount} connected).");
 
             await ReceiveLoopAsync(session, token).ConfigureAwait(false);
@@ -319,6 +314,8 @@ public sealed class IntelHttpServer : IAsyncDisposable
     private async Task ReceiveLoopAsync(Session session, CancellationToken token)
     {
         var buffer = new byte[16 * 1024];
+        using var message = new MemoryStream();
+        const int maxMessageBytes = 64 * 1024;
 
         while (!token.IsCancellationRequested && session.Socket.State == WebSocketState.Open)
         {
@@ -336,7 +333,15 @@ public sealed class IntelHttpServer : IAsyncDisposable
             if (result.MessageType == WebSocketMessageType.Close) return;
             if (result.MessageType != WebSocketMessageType.Text) continue;
 
-            var text = Encoding.UTF8.GetString(buffer, 0, result.Count);
+            if (message.Length + result.Count > maxMessageBytes)
+            {
+                session.Socket.Abort();
+                return;
+            }
+            message.Write(buffer, 0, result.Count);
+            if (!result.EndOfMessage) continue;
+            var text = Encoding.UTF8.GetString(message.GetBuffer(), 0, (int)message.Length);
+            message.SetLength(0);
             HandleClientMessage(text);
         }
     }
@@ -696,6 +701,19 @@ public sealed class IntelHttpServer : IAsyncDisposable
         private readonly SemaphoreSlim _sendLock = new(1, 1);
 
         public WebSocket Socket { get; } = socket;
+
+        public async Task SendInitialSnapshotAsync(Action subscribe, Func<WireServerMessage.Snapshot> snapshotFactory)
+        {
+            await _sendLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                subscribe();
+                var payload = Encoding.UTF8.GetBytes(WireProtocol.Serialize(snapshotFactory()));
+                await Socket.SendAsync(new ArraySegment<byte>(payload), WebSocketMessageType.Text,
+                    true, CancellationToken.None).ConfigureAwait(false);
+            }
+            finally { _sendLock.Release(); }
+        }
 
         public async Task<bool> TrySendAsync(byte[] payload)
         {

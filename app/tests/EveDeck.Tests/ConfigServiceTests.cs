@@ -281,11 +281,9 @@ public class ConfigServiceTests : IDisposable
         Assert.True(File.Exists(_configService.ConfigPath));
     }
 
-    // RestoreBackup stages to a temp file and atomically replaces, and must clear the skip-write
-    // hash: the file on disk no longer matches what Save() last wrote, so an unchanged in-memory
-    // AppSettings would otherwise suppress the next save and silently re-overwrite the restore.
+    // Restoring for restart must survive both pending autosave and the final shutdown save.
     [Fact]
-    public void RestoreBackup_ReplacesConfigAndForcesNextSave()
+    public void RestoreBackup_SurvivesShutdownSave()
     {
         var settings = _configService.Load();
         settings.CornerOverlayLabelFontFamilyMaster = "Arial";
@@ -301,8 +299,9 @@ public class ConfigServiceTests : IDisposable
 
         Assert.Equal("Arial", new ConfigService(_tempDir).Load().CornerOverlayLabelFontFamilyMaster);
         Assert.False(File.Exists(_configService.ConfigPath + ".restore.tmp"));
-        // In-memory settings are unchanged since the last Save(), but the restore invalidated the
-        // hash, so this must still write rather than short-circuit.
-        Assert.True(_configService.Save(settings));
+        // Shutdown also updates window position before saving the old settings.
+        settings.WindowLeft = 123;
+        Assert.False(_configService.Save(settings));
+        Assert.Equal("Arial", new ConfigService(_tempDir).Load().CornerOverlayLabelFontFamilyMaster);
     }
 }

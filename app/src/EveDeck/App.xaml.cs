@@ -21,6 +21,7 @@ public partial class App : Application
     [STAThread]
     public static void Main(string[] args)
     {
+        if (!Services.AppRestart.WaitForParent(args)) return;
         var app = new App();
         app.InitializeComponent();
         RegisterSharedResources(app);

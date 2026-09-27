@@ -70,9 +70,10 @@ public sealed partial class MainWindowViewModel
         try
         {
             // Validate JSON before overwriting.
-            JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(sourcePath), new JsonSerializerOptions());
+            _ = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(sourcePath), new JsonSerializerOptions())
+                ?? throw new InvalidDataException("The settings file contains no settings.");
             _configService.CreateBackup(); // snapshot current before overwrite
-            File.Copy(sourcePath, _configService.ConfigPath, overwrite: true);
+            _configService.RestoreBackup(sourcePath);
             Log.Info($"Settings imported from {sourcePath}. Restarting...");
             RestartApp();
         }
@@ -82,8 +83,11 @@ public sealed partial class MainWindowViewModel
     private static void RestartApp()
     {
         var exe = Environment.ProcessPath;
-        if (!string.IsNullOrEmpty(exe))
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true });
+        if (string.IsNullOrEmpty(exe)) throw new InvalidOperationException("Cannot locate EveDeck to restart it.");
+        var start = new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true };
+        start.ArgumentList.Add("--restart-parent");
+        start.ArgumentList.Add(Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        System.Diagnostics.Process.Start(start);
         System.Windows.Application.Current.Shutdown();
     }
 }

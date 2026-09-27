@@ -172,7 +172,7 @@ public sealed class IntelLogTailer : IDisposable
         }
     }
 
-    private void ReadNewLines(string path, bool suppressEmit)
+    internal void ReadNewLines(string path, bool suppressEmit)
     {
         long offset;
         lock (_gate) _offsetByPath.TryGetValue(path, out offset);
@@ -209,7 +209,12 @@ public sealed class IntelLogTailer : IDisposable
         read = (int)AlignToEven(read);
         var text = Encoding.Unicode.GetString(buffer, 0, read);
 
-        lock (_gate) _offsetByPath[path] = offset + read;
+        // Only consume complete lines. The writer can pause anywhere, even inside a UTF-16
+        // character; the next poll re-reads the unfinished suffix from this same offset.
+        var lastNewline = text.LastIndexOf('\n');
+        if (lastNewline < 0) return;
+        text = text[..(lastNewline + 1)];
+        lock (_gate) _offsetByPath[path] = offset + text.Length * 2L;
 
         var lines = text.Split('\n');
         var listener = ResolveListener(path, lines);
