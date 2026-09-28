@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Native Linux build of EveDeck (X11, and Wayland sessions through XWayland). It is a second OS
+       option, not a replacement: the Windows app in ..\EveDeck is untouched and does not reference this
+       project. Platform-neutral source is compiled here straight from ..\EveDeck (linked, not copied),
+       so any shared file must keep building on both OSes. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>evedeck</AssemblyName>
+    <RootNamespace>EveDeck</RootNamespace>
+    <Version>0.1.0</Version>
+    <Copyright>Copyright © 2026 EveDeck</Copyright>
+    <Authors>EveDeck</Authors>
+    <Company>EveDeck</Company>
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.3" />
+  </ItemGroup>
+  <ItemGroup Label="Shared with the Windows app">
+    <Compile Include="..\EveDeck\Models\**\*.cs" Exclude="..\EveDeck\Models\CharacterPortrait.cs;..\EveDeck\Models\ShipIcon.cs" LinkBase="Shared\Models" />
+    <Compile Include="..\EveDeck\Services\ConfigService.cs" Link="Shared\Services\ConfigService.cs" />
+    <Compile Include="..\EveDeck\Services\PresetFactory.cs" Link="Shared\Services\PresetFactory.cs" />
+    <Compile Include="..\EveDeck\Services\HotkeyDefaults.cs" Link="Shared\Services\HotkeyDefaults.cs" />
+    <Compile Include="..\EveDeck\Services\SafetyGuard.cs" Link="Shared\Services\SafetyGuard.cs" />
+    <Compile Include="..\EveDeck\Utilities\ObservableObject.cs" Link="Shared\Utilities\ObservableObject.cs" />
+  </ItemGroup>
+</Project>
