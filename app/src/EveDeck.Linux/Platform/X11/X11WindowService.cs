@@ -33,10 +33,18 @@ public sealed class X11WindowService : IDisposable
     // property read raises BadWindow, so without this the whole app dies whenever an EVE client quits.
     // The handler is process-global and Avalonia installs its own, so ours swallows errors on our own
     // connection only and forwards everything else to whatever was installed before.
+    // Installed once per process: a second install would record our own handler as "previous" and turn
+    // forwarding into infinite recursion. Each service registers its connection in s_ownDisplays (the UI
+    // and the preview thread each hold one).
     private static readonly Xlib.XErrorHandler s_errorHandler = OnXError;
+    private static readonly object s_handlerLock = new();
+    private static bool s_handlerInstalled;
     private static IntPtr s_previousHandler;
-    private static IntPtr s_ownDisplay;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<IntPtr, byte> s_ownDisplays = new();
     private static int s_errorCount;
+
+    internal IntPtr Display => _display;
+    internal IntPtr Root => _root;
 
     public X11WindowService(string? displayName = null)
     {
@@ -45,8 +53,15 @@ public sealed class X11WindowService : IDisposable
             throw new InvalidOperationException($"Cannot open X display '{displayName ?? Environment.GetEnvironmentVariable("DISPLAY")}'. EveDeck needs X11 or XWayland.");
         _root = Xlib.XDefaultRootWindow(_display);
 
-        s_ownDisplay = _display;
-        s_previousHandler = Xlib.XSetErrorHandler(Marshal.GetFunctionPointerForDelegate(s_errorHandler));
+        s_ownDisplays[_display] = 0;
+        lock (s_handlerLock)
+        {
+            if (!s_handlerInstalled)
+            {
+                s_previousHandler = Xlib.XSetErrorHandler(Marshal.GetFunctionPointerForDelegate(s_errorHandler));
+                s_handlerInstalled = true;
+            }
+        }
 
         _netClientList = Atom("_NET_CLIENT_LIST");
         _netWmName = Atom("_NET_WM_NAME");
@@ -57,7 +72,7 @@ public sealed class X11WindowService : IDisposable
 
     private static int OnXError(IntPtr display, IntPtr errorEvent)
     {
-        if (display == s_ownDisplay)
+        if (s_ownDisplays.ContainsKey(display))
         {
             Interlocked.Increment(ref s_errorCount);
             return 0;
@@ -67,7 +82,7 @@ public sealed class X11WindowService : IDisposable
         return previous(display, errorEvent);
     }
 
-    private IntPtr Atom(string name) => Xlib.XInternAtom(_display, name, false);
+    internal IntPtr Atom(string name) => Xlib.XInternAtom(_display, name, false);
 
     public IReadOnlyList<X11Client> GetEveClients()
     {
@@ -247,7 +262,7 @@ public sealed class X11WindowService : IDisposable
 
     public void Dispose()
     {
-        if (s_ownDisplay == _display) s_ownDisplay = IntPtr.Zero;
         Xlib.XCloseDisplay(_display);
+        s_ownDisplays.TryRemove(_display, out _);
     }
 }

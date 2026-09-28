@@ -14,6 +14,7 @@ internal static class Program
         if (args.Contains("--probe")) return Probe();
         if (args.Contains("--apply-grid")) return ApplyGrid();
         if (args.Contains("--activate")) return Activate(args);
+        if (args.Contains("--preview")) return Preview(args);
 
         AppBuilder.Configure<App>()
             .UsePlatformDetect()
@@ -93,6 +94,42 @@ internal static class Program
         var active = x11.GetActiveWindow();
         Console.WriteLine($"requested 0x{client.Handle:x} active 0x{active:x}");
         return active == client.Handle ? 0 : 2;
+    }
+
+    // Phase-2 proof: a column of live preview tiles down the right edge of the primary monitor, one per
+    // client at a quarter of its size, kept up for the given number of seconds (default 30).
+    private static int Preview(string[] args)
+    {
+        var seconds = int.TryParse(args.SkipWhile(a => a != "--preview").Skip(1).FirstOrDefault(), out var s) ? s : 30;
+        List<PreviewTileSpec> specs;
+        using (var x11 = new X11WindowService())
+        {
+            var monitor = x11.GetMonitors().OrderByDescending(m => m.IsPrimary).FirstOrDefault();
+            var clients = x11.GetEveClients().OrderBy(c => c.Title, StringComparer.Ordinal).ToList();
+            if (monitor is null || clients.Count == 0)
+            {
+                Console.Error.WriteLine("no monitor or no EVE clients");
+                return 1;
+            }
+            specs = new List<PreviewTileSpec>();
+            var y = monitor.Bounds.Y + 10;
+            foreach (var c in clients)
+            {
+                var w = Math.Max(1, c.Bounds.Width / 4);
+                var h = Math.Max(1, c.Bounds.Height / 4);
+                var rect = new WindowRect { X = monitor.Bounds.X + monitor.Bounds.Width - w - 10, Y = y, Width = w, Height = h };
+                specs.Add(new PreviewTileSpec(c.Handle, rect));
+                Console.WriteLine($"tile \"{c.Title}\" {Rect(rect)}");
+                y += h + 10;
+            }
+        }
+
+        using var engine = new X11PreviewEngine();
+        engine.TileClicked += source => Console.WriteLine($"clicked 0x{source:x}");
+        engine.Start();
+        engine.SetTiles(specs);
+        Thread.Sleep(TimeSpan.FromSeconds(seconds));
+        return 0;
     }
 
     private static string Rect(WindowRect r) => $"{r.Width}x{r.Height}+{r.X}+{r.Y}";
