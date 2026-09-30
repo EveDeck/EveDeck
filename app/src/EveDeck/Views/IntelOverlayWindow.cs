@@ -159,6 +159,20 @@ internal sealed class IntelOverlayWindow : Window
             Win32Native.SwpNoMove | Win32Native.SwpNoSize | Win32Native.SwpNoActivate);
     }
 
+    private bool _hiddenByFocus;
+
+    /// <summary>
+    /// Hides the card while neither EVE nor EveDeck is focused, like the previews. Raw SW_HIDE /
+    /// SW_SHOWNOACTIVATE so re-showing never steals focus from the client that just regained it.
+    /// </summary>
+    public void SetFocusVisible(bool visible)
+    {
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (hwnd == 0 || _hiddenByFocus == !visible) return;
+        _hiddenByFocus = !visible;
+        Win32Native.ShowWindow(hwnd, visible ? Win32Native.SwShowNoActivate : Win32Native.SwHide);
+    }
+
     private void OnImageCacheChanged() => Update(_lastEntries, _lastOrigins, _lastMaxRows, _lastAlertStatus);
 
     private void PopulateContextMenu(ContextMenu menu)

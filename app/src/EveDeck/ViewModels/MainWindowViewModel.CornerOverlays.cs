@@ -1511,7 +1511,7 @@ public sealed partial class MainWindowViewModel
         if (_tileSurface is null)
         {
             // No previews, but the intel card still has to follow EVE focus on its own.
-            _intelOverlayWindow?.SetZ(ResolveForegroundOwner() == ForegroundOwner.Eve);
+            ApplyIntelOverlayFocus(ResolveForegroundOwner());
             return;
         }
         ApplySurfaceZOrder();
@@ -1575,7 +1575,7 @@ public sealed partial class MainWindowViewModel
         if (_layoutEditorHwnd != 0) _windowService.SetWindowTopmost(_layoutEditorHwnd, true);
         BumpToastAboveEverything();
         _downtimeWindow?.SetZ(eveOrEwcFg); // rides along with the surfaces we just re-topped/dropped
-        _intelOverlayWindow?.SetZ(eveOrEwcFg);
+        ApplyIntelOverlayFocus(ResolveForegroundOwner());
     }
 
     // Re-asserts the toast window at the very top of the topmost band. Must run AFTER the surfaces'

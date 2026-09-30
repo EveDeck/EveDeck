@@ -859,7 +859,7 @@ public sealed partial class MainWindowViewModel
                 UnmuteIntelAlerts,
                 () => IntelAlertMute.IsMuted(_settings.IntelAlertsMutedUntil, DateTimeOffset.Now));
             _intelOverlayWindow.Show();
-            _intelOverlayWindow.SetZ(ResolveForegroundOwner() == ForegroundOwner.Eve);
+            ApplyIntelOverlayFocus(ResolveForegroundOwner());
         }
 
         if (!_intelOverlayRefreshTimer.IsEnabled) _intelOverlayRefreshTimer.Start();
@@ -869,6 +869,15 @@ public sealed partial class MainWindowViewModel
             _intelFeed.OriginStatus,
             _settings.IntelOverlayMaxRows,
             IntelAlertStatusText());
+    }
+
+    // Shown only while an EVE client or EveDeck itself is focused (EveDeck so it can still be
+    // dragged and tuned); topmost only over EVE.
+    private void ApplyIntelOverlayFocus(ForegroundOwner owner)
+    {
+        if (_intelOverlayWindow is null) return;
+        _intelOverlayWindow.SetFocusVisible(owner != ForegroundOwner.Other);
+        _intelOverlayWindow.SetZ(owner == ForegroundOwner.Eve);
     }
 
     private string? IntelAlertStatusText()
