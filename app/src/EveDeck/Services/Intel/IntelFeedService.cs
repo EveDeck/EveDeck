@@ -23,9 +23,28 @@ public sealed record IntelFeedEntry(
 /// </summary>
 public sealed record FollowedOriginStatus(
     IReadOnlyList<string> Usable,
-    IReadOnlyList<string> WithoutKspaceLocation)
+    IReadOnlyList<string> WithoutKspaceLocation,
+    IReadOnlyDictionary<string, string>? Places = null)
 {
+    public const string OfflinePlace = "offline";
+
     public bool AnyUsable => Usable.Count > 0;
+
+    /// <summary>
+    /// Folds in what ESI says about followed characters (character name -> place label). A logged-out
+    /// character's last logged position is stale, so it leaves Usable; one placed in abyssal space, a
+    /// wormhole or Pochven is no longer "unknown". Only characters actually in this status are kept.
+    /// </summary>
+    public FollowedOriginStatus WithPlaces(IReadOnlyDictionary<string, string> places)
+    {
+        if (places.Count == 0) return this;
+        var known = Usable.Concat(WithoutKspaceLocation).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var relevant = places.Where(p => known.Contains(p.Key)).ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
+        return new FollowedOriginStatus(
+            Usable.Where(c => !relevant.TryGetValue(c, out var p) || p != OfflinePlace).ToList(),
+            WithoutKspaceLocation.Where(c => !relevant.ContainsKey(c)).ToList(),
+            relevant);
+    }
 }
 
 /// <summary>
@@ -108,6 +127,18 @@ public sealed class IntelFeedService : IDisposable
                 return _scopeByChannel.Values.SelectMany(s => s).Distinct().ToList();
             }
         }
+    }
+
+    /// <summary>
+    /// Names the kind of space an ESI system id is in when it has no stargate position to range from:
+    /// abyssal and wormhole ids come from fixed ranges, Pochven from the region data. Null for ordinary
+    /// k-space, or an id this build knows nothing about.
+    /// </summary>
+    public string? SpecialSpaceLabel(int systemId)
+    {
+        if (systemId is >= 32_000_000 and < 33_000_000) return "in abyssal space";
+        if (systemId is >= 31_000_000 and < 32_000_000) return "in a wormhole";
+        return _universe.System(systemId) is { RegionName: "Pochven" } ? "in Pochven" : null;
     }
 
     public FollowedOriginStatus OriginStatus

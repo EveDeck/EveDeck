@@ -813,7 +813,11 @@ public sealed partial class MainWindowViewModel
         var where = jumps == 0 ? "in system" : $"{jumps} jump{(jumps == 1 ? "" : "s")} out";
         var who = entry.NearestCharacter is null ? "" : $" from {entry.NearestCharacter}";
         if (_settings.IntelAlertSoundEnabled) PlayIntelAlertSound();
-        ShowToast($"Hostile intel — {where}{who}", entry.Message.Raw, "#F87171");
+        var title = $"Hostile intel - {where}{who}";
+        // A normal Windows notification, not EveDeck's own popup: that one lands over the EVE client
+        // UI. Falls back to the in-app toast only if the OS refuses the notification.
+        if (!Services.NativeNotificationService.Show(title, entry.Message.Raw, popup: true))
+            ShowToast(title, entry.Message.Raw, "#F87171");
     }
 
     private void PlayIntelAlertSound()
@@ -835,6 +839,67 @@ public sealed partial class MainWindowViewModel
             default:
                 SystemSounds.Exclamation.Play();
                 break;
+        }
+    }
+
+    private IReadOnlyDictionary<string, string> _intelPlaces = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    private DateTimeOffset _intelPlacesCheckedAt;
+    private bool _intelPlacesRunning;
+
+    // Asks ESI about followed characters so the overlay can say WHY one has no range origin instead of
+    // lumping them all into "unknown": logged out, or sitting in abyssal space, a wormhole or Pochven
+    // (none of which have a stargate position). Only ESI-linked characters can be asked; anything else
+    // (no token, no scope, ESI down) is left alone and keeps its log-derived status.
+    private async System.Threading.Tasks.Task RefreshIntelPlacesAsync()
+    {
+        if (_intelFeed is not { } feed) return;
+        if (_intelPlacesRunning || DateTimeOffset.UtcNow - _intelPlacesCheckedAt < TimeSpan.FromSeconds(30)) return;
+        _intelPlacesRunning = true;
+        try
+        {
+            var status = feed.OriginStatus;
+            var withoutKspace = status.WithoutKspaceLocation.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var followed = status.Usable.Concat(status.WithoutKspaceLocation).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var linked = Assignments.SelectMany(a => a.EsiCharacters)
+                .Where(c => followed.Contains(c.CharacterName) && TokenStore.Get(c.CharacterId) is not null)
+                .DistinctBy(c => c.CharacterId)
+                .ToList();
+
+            var places = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var c in linked)
+            {
+                var online = await CharacterInfoShared.GetOnlineAsync(c.CharacterId, forceRefresh: false, CancellationToken.None);
+                if (online is { Online: false })
+                {
+                    // ESI's online flag lags and can read false mid-session; a client window for this
+                    // character on this PC outranks it. Offline is only claimed with no window to show.
+                    var hasWindow = Assignments.Any(a => c.CharacterName.Equals(a.RunningCharacterName, StringComparison.OrdinalIgnoreCase));
+                    if (!hasWindow) places[c.CharacterName] = FollowedOriginStatus.OfflinePlace;
+                    continue;
+                }
+
+                // Where they are only matters when the logs gave no position to range from.
+                if (online is null || !withoutKspace.Contains(c.CharacterName)) continue;
+                var loc = await CharacterInfoShared.GetLocationAsync(c.CharacterId, forceRefresh: false, CancellationToken.None);
+                if (loc is not null && feed.SpecialSpaceLabel(loc.SolarSystemId) is { } label)
+                    places[c.CharacterName] = label;
+            }
+
+            _intelPlacesCheckedAt = DateTimeOffset.UtcNow;
+            if (!places.OrderBy(p => p.Key).SequenceEqual(_intelPlaces.OrderBy(p => p.Key)))
+            {
+                _intelPlaces = places;
+                RefreshIntelOverlay();
+            }
+        }
+        catch (Exception ex)
+        {
+            _intelPlacesCheckedAt = DateTimeOffset.UtcNow;
+            Log.Warn($"Intel place check failed: {ex.Message}");
+        }
+        finally
+        {
+            _intelPlacesRunning = false;
         }
     }
 
@@ -864,9 +929,11 @@ public sealed partial class MainWindowViewModel
 
         if (!_intelOverlayRefreshTimer.IsEnabled) _intelOverlayRefreshTimer.Start();
 
+        _ = RefreshIntelPlacesAsync();
+
         _intelOverlayWindow.Update(
             FilterIntelEntries(_intelFeed.History, DateTimeOffset.UtcNow),
-            _intelFeed.OriginStatus,
+            _intelFeed.OriginStatus.WithPlaces(_intelPlaces),
             _settings.IntelOverlayMaxRows,
             IntelAlertStatusText());
     }

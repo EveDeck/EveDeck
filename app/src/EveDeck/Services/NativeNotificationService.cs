@@ -33,7 +33,11 @@ public static class NativeNotificationService
     // Shows a silent (SuppressPopup) native toast carrying `title`/`message`. `argument`, when given,
     // is handed back verbatim to Initialize's callback if the user clicks this notification in Action
     // Center later -- e.g. a mumble:// join link or a marker to bring EveDeck's window to front.
-    public static void Show(string title, string message, string? argument = null)
+    //
+    // `popup: true` lets Windows show its normal banner (placement, Focus Assist and Do Not Disturb are
+    // then the OS's call, not ours) -- used when EveDeck's own popup would sit over the game. Returns
+    // false when the OS refused, so a caller that needs the alert seen can fall back.
+    public static bool Show(string title, string message, string? argument = null, bool popup = false)
     {
         try
         {
@@ -42,11 +46,13 @@ public static class NativeNotificationService
                 .AddText(message);
             if (!string.IsNullOrEmpty(argument))
                 builder.AddArgument("payload", argument);
-            builder.Show(toast => toast.SuppressPopup = true);
+            builder.Show(toast => toast.SuppressPopup = !popup);
+            return true;
         }
         catch
         {
             // Best-effort OS integration -- see class doc comment.
+            return false;
         }
     }
 }

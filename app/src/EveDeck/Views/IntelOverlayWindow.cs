@@ -279,23 +279,31 @@ internal sealed class IntelOverlayWindow : Window
     }
 
     /// <summary>
-    /// Says plainly what anchors the range. A followed character in abyssal space has no position in
-    /// the stargate graph, so leaving that unsaid would present "no range known" and "nothing nearby"
-    /// as the same thing.
+    /// Says plainly what anchors the range, and why any followed character does not. A character in
+    /// abyssal space, a wormhole or logged out has no usable stargate position, and leaving that unsaid
+    /// would present "no range known" and "nothing nearby" as the same thing. Where ESI could place a
+    /// character the reason is named; only the rest are "location unknown".
     /// </summary>
     private static string DescribeOrigins(FollowedOriginStatus origins)
     {
+        var reasons = (origins.Places ?? new Dictionary<string, string>())
+            .GroupBy(p => p.Value)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => $"{g.Count()} {g.Key}")
+            .ToList();
+        if (origins.WithoutKspaceLocation.Count > 0)
+            reasons.Add($"{origins.WithoutKspaceLocation.Count} location unknown");
+        var why = string.Join(", ", reasons);
+
         if (!origins.AnyUsable)
         {
-            return origins.WithoutKspaceLocation.Count > 0
-                ? $"Range unavailable — no followed character has a known k-space position ({origins.WithoutKspaceLocation.Count} in abyssal or unknown space)."
+            return reasons.Count > 0
+                ? $"Range unavailable — no followed character has a known k-space position ({why})."
                 : "Range unavailable — no followed characters selected.";
         }
 
         var measured = $"Range from {string.Join(", ", origins.Usable)}";
-        return origins.WithoutKspaceLocation.Count == 0
-            ? measured
-            : $"{measured} ({origins.WithoutKspaceLocation.Count} in abyssal or unknown space)";
+        return reasons.Count == 0 ? measured : $"{measured} · {why}";
     }
 
     private UIElement BuildRow(IntelFeedEntry entry)
