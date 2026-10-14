@@ -1553,6 +1553,23 @@ public sealed partial class MainWindowViewModel
     // runs on a 2s safety-net tick as well as on events, so logging unconditionally would spam.
     private bool? _lastSurfaceTopmost;
 
+    // Records the preview surfaces' real state whenever it changes (this runs on the 2s safety-net
+    // tick), so "tiles vanished while the labels stayed" can be diagnosed from the log: it shows
+    // whether the tile surface was visible, how many thumbnails were registered, and whether any
+    // source window was gone or minimized.
+    private string? _lastOverlayState;
+
+    private void LogOverlayStateIfChanged(bool evefocused)
+    {
+        if (_tileSurface is null) return;
+        var labelsVisible = _labelSurface is { } l && l.Handle != 0 && Utilities.Win32Native.IsWindowVisible(l.Handle);
+        var state = $"eveFocused={evefocused} suspended={_previewsSuspended} hiddenByFocus={_previewsHiddenByFocusLoss} "
+                    + $"hiddenByGpu={_previewsHiddenByGpuHold} labelsVisible={labelsVisible} tile[{_tileSurface.DiagnosticSummary()}]";
+        if (state == _lastOverlayState) return;
+        _lastOverlayState = state;
+        Log.Info($"Overlay state: {state}");
+    }
+
     private void ApplySurfaceZOrder()
     {
         var eveOrEwcFg = ResolveForegroundOwner() == ForegroundOwner.Eve;
@@ -1571,6 +1588,7 @@ public sealed partial class MainWindowViewModel
         }
         _tileSurface?.SetZ(eveOrEwcFg);
         _labelSurface?.SetZ(eveOrEwcFg);
+        LogOverlayStateIfChanged(eveOrEwcFg);
         BumpAllowedAppsAboveOverlaySurfaces();
         if (_layoutEditorHwnd != 0) _windowService.SetWindowTopmost(_layoutEditorHwnd, true);
         BumpToastAboveEverything();

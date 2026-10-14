@@ -696,6 +696,20 @@ internal sealed class TileSurfaceWindow : WinForms.Form
     // called from event-driven triggers (surface creation, layout/swap changes, the foreground
     // WinEvent hook), never on an unconditional per-tick timer, which is what caused the historical
     // self-inflicted raise/bury/raise flicker (see project-seat-order-and-frame-flicker memory).
+    // One-line state snapshot for the log: whether the surface is really on screen and how many of its
+    // tiles have a registered thumbnail, a live source window, or a hidden/placeholder state. Logged
+    // by the owner only when it CHANGES, so a "previews vanished, labels stayed" report can be read
+    // off the log instead of guessed at.
+    public string DiagnosticSummary()
+    {
+        if (!IsHandleCreated) return "no handle";
+        var deadSources = _sources.Count(kv => kv.Value != 0 && !Win32Native.IsWindow(kv.Value));
+        var iconicSources = _sources.Count(kv => kv.Value != 0 && Win32Native.IsWindow(kv.Value) && Win32Native.IsIconic(kv.Value));
+        return $"visible={Win32Native.IsWindowVisible(Handle)} tiles={_tiles.Count} thumbs={_thumbnails.Count} "
+               + $"sources={_sources.Count} deadSources={deadSources} minimizedSources={iconicSources} "
+               + $"hidden={_hiddenTiles.Count} prevented={_preventedPositions.Count} captureSessions={_captureSessions.Count}";
+    }
+
     public void SetZ(bool topmost = true)
     {
         if (!IsHandleCreated) return;
