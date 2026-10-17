@@ -989,8 +989,12 @@ public sealed partial class MainWindowViewModel
             cornerSeat[position] = newSeat;
             _cornerSeatByGroup[groupId] = cornerSeat;
             var win = FindSeatWindow(newSeat);
-            if (win is not null) UpdateCornerOverlay(position, win.Handle);
-            else _cornerSourceHandles[position] = 0;
+            // An offline occupant must clear the tile's thumbnail too, not just the bookkeeping:
+            // zeroing only _cornerSourceHandles left the tile registered against the PREVIOUS
+            // occupant (the master, after a swap), and the per-tick liveness check then saw "no
+            // source, no window" and never cleaned it up -- so the master's preview sat in every
+            // offline seat until the profile was re-applied.
+            UpdateCornerOverlay(position, win?.Handle ?? 0);
             RefreshPositionPill(position);
         }
         RefreshGroupCenterPill(group);
@@ -1573,6 +1577,10 @@ public sealed partial class MainWindowViewModel
     private void ApplySurfaceZOrder()
     {
         var eveOrEwcFg = ResolveForegroundOwner() == ForegroundOwner.Eve;
+        // Focus returning to EVE is when a stale DWM thumbnail has been seen (tiles blank, labels
+        // fine); nudging re-sends their properties with no unregister, so no blink.
+        if (eveOrEwcFg && _lastSurfaceTopmost == false && _tileSurface is { } nudgeTarget)
+            Log.Info($"Focus returned to EVE; nudged {nudgeTarget.NudgeThumbnails()} preview thumbnail(s).");
         if (_lastSurfaceTopmost != eveOrEwcFg)
         {
             _lastSurfaceTopmost = eveOrEwcFg;
@@ -1586,13 +1594,14 @@ public sealed partial class MainWindowViewModel
                 Log.Info($"Previews left the topmost band; foreground process: '{(string.IsNullOrEmpty(owner) ? "unknown" : owner)}'.");
             }
         }
-        _tileSurface?.SetZ(eveOrEwcFg);
-        _labelSurface?.SetZ(eveOrEwcFg);
+        var surfacesTopmost = eveOrEwcFg || _settings.PreviewsAlwaysOnTop;
+        _tileSurface?.SetZ(surfacesTopmost);
+        _labelSurface?.SetZ(surfacesTopmost);
         LogOverlayStateIfChanged(eveOrEwcFg);
         BumpAllowedAppsAboveOverlaySurfaces();
         if (_layoutEditorHwnd != 0) _windowService.SetWindowTopmost(_layoutEditorHwnd, true);
         BumpToastAboveEverything();
-        _downtimeWindow?.SetZ(eveOrEwcFg); // rides along with the surfaces we just re-topped/dropped
+        _downtimeWindow?.SetZ(surfacesTopmost); // rides along with the surfaces we just re-topped/dropped
         ApplyIntelOverlayFocus(ResolveForegroundOwner());
     }
 
