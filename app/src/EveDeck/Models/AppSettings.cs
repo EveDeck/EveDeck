@@ -161,6 +161,12 @@ public sealed class AppSettings
     // stops a quick alt-tab, or the brief foreground gap during a seat swap, from flickering the
     // whole overlay off and straight back on.
     public bool HidePreviewsOnFocusLoss { get; set; } = false;
+
+    // Keep the previews in the topmost band even while another app has focus. Off, they step out of
+    // it whenever EVE or EveDeck is not the foreground app, so another app's popups render above
+    // them -- but the EVE master window can then be raised over them, leaving only the labels
+    // visible. On (the default), tabbing out never costs the previews their place over EVE.
+    public bool PreviewsAlwaysOnTop { get; set; } = true;
     public double HidePreviewsOnFocusLossDelaySeconds { get; set; } = 1.0;
 
     // Snap on-overlay tile drags/resizes to a pixel grid. 0 disables snapping. Mirrors EVE-O

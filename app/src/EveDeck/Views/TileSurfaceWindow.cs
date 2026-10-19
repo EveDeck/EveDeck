@@ -710,6 +710,31 @@ internal sealed class TileSurfaceWindow : WinForms.Form
                + $"hidden={_hiddenTiles.Count} prevented={_preventedPositions.Count} captureSessions={_captureSessions.Count}";
     }
 
+    // Re-applies visibility, destination rect and opacity to every registered thumbnail WITHOUT
+    // unregistering anything. A DWM thumbnail can go stale (registered, surface visible, nothing drawn)
+    // with no broadcast to react to; re-sending its properties makes DWM re-evaluate it, and unlike
+    // RefreshAllSources there is no unregister/re-register, so no visible blink. Called when focus
+    // returns to EVE, the moment the stale state has been seen. Returns how many were nudged.
+    public int NudgeThumbnails()
+    {
+        var nudged = 0;
+        foreach (var (position, id) in _thumbnails.ToArray())
+        {
+            if (!_tiles.TryGetValue(position, out var dest)) continue;
+            var props = new Win32Native.DwmThumbnailProperties
+            {
+                dwFlags = Win32Native.DwmTnpRectDestination | Win32Native.DwmTnpVisible | Win32Native.DwmTnpOpacity
+                          | Win32Native.DwmTnpSourceClientAreaOnly,
+                rcDestination = new Win32Native.NativeRect { Left = dest.Left, Top = dest.Top, Right = dest.Right, Bottom = dest.Bottom },
+                fVisible = true,
+                fSourceClientAreaOnly = true,
+                opacity = _opacity
+            };
+            if (ApplyThumbnailProperties(id, ref props) == 0) nudged++;
+        }
+        return nudged;
+    }
+
     public void SetZ(bool topmost = true)
     {
         if (!IsHandleCreated) return;
